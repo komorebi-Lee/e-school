@@ -1,1 +1,29 @@
-<view class="page"><view wx:if="{{orders.length === 0}}" class="empty card"><view class="empty-icon">单</view><view class="empty-title">还没有服务记录</view><view class="muted">提交咨询后，客服会在 24 小时内联系。</view><button class="ghost-button" bindtap="goShop">去选车</button></view><view wx:for="{{orders}}" wx:key="id" class="order card"><view class="order-head"><text class="muted">{{item.id}}</text><text class="status">咨询中</text></view><view class="product-name">{{item.productName}}</view><view class="meta">已提交咨询 · 客服将在 24 小时内联系</view><view class="order-bottom"><button size="mini" class="ghost-button" data-id="{{item.id}}" bindtap="editOrder">修改信息</button><button size="mini" class="primary-button" data-id="{{item.id}}" bindtap="afterSales">申请售后</button></view></view></view>
+<view class="page">
+  <view class="page-title">我的服务</view>
+  <view class="linkage" wx:if="{{linkage.length}}">
+    <view class="linkage-item" wx:for="{{linkage}}" wx:key="title" data-view="{{item.view}}" data-filter="{{item.filter}}" bindtap="goLinkage">
+      <view class="linkage-icon">{{item.icon}}</view>
+      <view><view class="linkage-title">{{item.title}}</view><view class="muted linkage-copy">{{item.copy}}</view></view>
+      <text class="arrow">›</text>
+    </view>
+  </view>
+  <scroll-view class="tabs" scroll-x show-scrollbar="{{false}}">
+    <view class="tabs-inner">
+      <view class="tab {{active === 'ALL' ? 'active' : ''}}" data-type="ALL" bindtap="setFilter">全部</view>
+      <view class="tab {{active === 'E_BIKE' ? 'active' : ''}}" data-type="E_BIKE" bindtap="setFilter">电瓶车</view>
+      <view class="tab {{active === 'PHONE_PLAN' ? 'active' : ''}}" data-type="PHONE_PLAN" bindtap="setFilter">电话卡</view>
+      <view class="tab {{active === 'RECHARGE' ? 'active' : ''}}" data-type="RECHARGE" bindtap="setFilter">话费权益</view>
+      <view class="tab {{active === 'BROADBAND' ? 'active' : ''}}" data-type="BROADBAND" bindtap="setFilter">宽带</view>
+      <view class="tab {{active === 'PLATE' ? 'active' : ''}}" data-type="PLATE" bindtap="setFilter">牌照</view>
+    </view>
+  </scroll-view>
+  <view class="loading muted" wx:if="{{loading}}">正在同步服务记录…</view>
+  <view wx:if="{{!loading && filtered.length === 0}}" class="empty card"><view class="empty-icon">单</view><view class="empty-title">还没有服务记录</view><view class="muted">购车后可自动办理校园牌照，买卡后可申请宽带。</view><view class="empty-actions"><button class="ghost-button" bindtap="goCard">买电话卡</button><button class="primary-button" bindtap="goShop">买电瓶车</button></view></view>
+  <view class="record card" wx:for="{{filtered}}" wx:key="id">
+    <view class="record-head"><view class="record-type"><text class="record-icon">{{item.icon}}</text>{{item.typeLabel}}</view><text class="status tone-{{item.tone}}">{{item.statusLabel}}</text></view>
+    <view class="record-title">{{item.title}}</view>
+    <view class="record-meta"><text>{{item.recordNo}}</text><text>{{item.timeText}}</text></view>
+    <view class="record-bottom"><text class="price" wx:if="{{item.priceText}}">{{item.priceText}}</text><text class="muted" wx:else>金额确认后展示</text><view class="record-actions"><block wx:for="{{item.actions}}" wx:for-item="action" wx:key="text"><button size="mini" class="{{action.disabled ? 'ghost-button disabled' : 'ghost-button'}}" data-id="{{item.id}}" data-action="{{action.action}}" data-business="{{action.business}}" data-interest="{{item.title}}" bindtap="{{action.action ? 'runAction' : (action.filter ? 'goLinkage' : 'runConsult')}}" disabled="{{action.disabled}}">{{action.text}}</button></block></view></view>
+    <view class="action-tip muted" wx:if="{{item.actions.length === 1 && item.actions[0].disabled}}">{{item.actions[0].reason}}</view>
+  </view>
+</view>

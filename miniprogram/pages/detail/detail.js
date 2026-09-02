@@ -1,11 +1,34 @@
 const { request } = require('../../services/api');
 const { getScooter } = require('../../services/store');
+
+function normalizeProduct(product) {
+  const description = product.description || '支持校内配送和校园牌照辅助。';
+  return {
+    ...product,
+    price: Math.round((product.priceInCents || 0) / 100),
+    subtitle: description,
+    badge: product.badge || '校园专享',
+    range: product.range || (product.id === 'prod_ebike_rent_001' ? '70 km' : '45 km'),
+    speed: product.speed || '25 km/h',
+    policy: product.policy || '支持华中农业大学狮山校区校园牌照辅助申请。',
+    service: product.service || ['校内配送', '平台购车牌照辅助', '售后专人跟进'],
+    color: product.color || '#eaf0ff',
+    icon: product.icon || '车'
+  };
+}
+
 Page({
   data: { scooter: null, loading: true },
   onLoad(options) {
     request(`/api/products/${encodeURIComponent(options.id || '')}`).then(({ data }) => {
-      this.setData({ scooter: { ...data, price: Math.round(data.priceInCents / 100), subtitle: data.description, range: 45, icon: '车', color: '#eaf0ff' }, loading: false });
-    }).catch(() => { this.setData({ scooter: getScooter(options.id), loading: false }); wx.showToast({ title: '云端加载失败，已显示缓存', icon: 'none' }); });
+      this.setData({ scooter: normalizeProduct(data), loading: false });
+    }).catch(() => {
+      const cached = getScooter(options.id);
+      if (cached) this.setData({ scooter: normalizeProduct(cached), loading: false });
+      else { this.setData({ loading: false }); wx.showToast({ title: '商品加载失败', icon: 'none' }); }
+    });
   },
-  checkout() { wx.navigateTo({ url: `/pages/consult/consult?type=${encodeURIComponent('电动车')}&interest=${encodeURIComponent(this.data.scooter.name)}` }); }
+  checkout() {
+    wx.navigateTo({ url: `/pages/consult/consult?type=${encodeURIComponent('电动车')}&interest=${encodeURIComponent(this.data.scooter.name)}` });
+  }
 });

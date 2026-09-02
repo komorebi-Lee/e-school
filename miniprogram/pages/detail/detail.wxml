@@ -2,7 +2,7 @@
   <view class="visual" style="background: {{scooter.color}}"><view class="pill badge">{{scooter.badge}}</view><text>{{scooter.icon}}</text></view>
   <view class="main card"><view class="name">{{scooter.name}}</view><view class="muted">{{scooter.subtitle}}</view><view class="price-line"><text class="price">¥{{scooter.price}}</text><text wx:if="{{scooter.originalPrice}}" class="original">¥{{scooter.originalPrice}}</text></view></view>
   <view class="spec-grid"><view class="spec card"><text class="spec-value">{{scooter.range}}</text><text class="muted">参考续航</text></view><view class="spec card"><text class="spec-value">{{scooter.speed}}</text><text class="muted">最高速度</text></view></view>
-  <view class="section-title">校区适配</view><view class="policy card">✓ {{scooter.policy}}</view>
+  <view class="section-title">校区适配</view><view class="policy card"><text class="check">✓</text>{{scooter.policy}}</view>
   <view class="section-title">服务包含</view><view class="card services"><view wx:for="{{scooter.service}}" wx:key="*this" class="service-item"><text class="check">✓</text>{{item}}</view></view>
   <view class="safe-space"></view><view class="bottom-bar"><view><view class="muted small">校内配送 · 可协助上牌</view><view class="price">¥{{scooter.price}}</view></view><button class="primary-button buy" bindtap="checkout">咨询购车</button></view>
 </view>

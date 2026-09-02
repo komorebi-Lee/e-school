@@ -3,10 +3,10 @@
     <view><view class="brand">狮山智生活</view><view class="campus">华中农业大学 · 狮山校区</view></view>
     <view class="verified">校园服务</view>
   </view>
-  <view class="hero"><view class="hero-kicker">买车 · 上牌 · 充电</view><view class="hero-title">校园生活，一次办好</view><view class="hero-copy">买电动车、办电话卡，客服 24 小时内联系</view></view>
+  <view class="hero"><view class="hero-kicker">买车 · 上牌 · 充电 · 通信</view><view class="hero-title">买车办卡，狮山一次办好</view><view class="hero-copy">电动车订单自动联办校园牌照；电话卡订单可推进实名、话费和宽带。</view></view>
   <view class="business-grid">
-    <view class="business-card scooter-business" bindtap="goScooters"><view class="business-icon inverse">车</view><view class="business-name light">校园电动车</view><view class="business-slogan light-copy">校内配送 · 上牌协助</view><view class="business-price light">¥1899<text>起</text></view><view class="buy-button white">咨询购车 ›</view></view>
-    <view class="business-card phone-business" bindtap="goCard"><view class="business-icon">卡</view><view class="business-name">校园电话卡</view><view class="business-slogan">套餐 · 话费 · 宽带</view><view class="business-price">¥19<text>/月起</text></view><view class="buy-button blue">咨询套餐 ›</view></view>
+    <view class="business-card scooter-business" bindtap="goScooters"><view class="business-icon inverse">车</view><view class="business-name light">校园电动车</view><view class="business-slogan light-copy">校内配送 · 自动联办牌照</view><view class="business-price light">¥1899<text>起</text></view><view class="buy-button white">立即购车 ›</view></view>
+    <view class="business-card phone-business" bindtap="goCard"><view class="business-icon">卡</view><view class="business-name">校园电话卡</view><view class="business-slogan">套餐 · 话费 · 宽带</view><view class="business-price">¥19<text>/月起</text></view><view class="buy-button blue">立即办卡 ›</view></view>
   </view>
   <view class="service-strip card"><view><text class="service-icon">24</text><text>24小时内联系</text></view><view><text class="service-icon">校</text><text>校内配送</text></view><view><text class="service-icon">专</text><text>专人跟进</text></view></view>
   <view class="section-title">你可以在这里办理</view>

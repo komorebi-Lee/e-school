@@ -5,7 +5,7 @@
     <view class="field"><text class="field-label">手机号</text><input class="input" type="number" maxlength="11" placeholder="用于确认库存" bindinput="setPhone" /></view>
     <view class="field"><text class="field-label">配送日期</text><picker mode="date" bindchange="setDate"><view class="input">{{date || '请选择日期'}}  ▾</view></picker></view>
     <view class="field"><text class="field-label">校内配送地址</text><input class="input" placeholder="例如：荟园学生社区附近" bindinput="setAddress" /></view>
-    <view class="field"><text class="field-label">付款方式</text><view class="input fixed">{{payment}}</view></view>
+    <view class="field"><text class="field-label">付款方式</text><view class="input fixed">在线支付（模拟）</view></view>
   </view>
-  <view class="agreement">提交后客服将在24小时内联系，确认车型、报价与校内配送安排。</view><button class="primary-button" bindtap="submit">提交购车咨询</button>
+  <view class="agreement">在线支付成功后自动创建校内配送订单，并同步免费校园牌照辅助。</view><button class="primary-button" bindtap="submit">提交并支付（模拟）</button>
 </view>

@@ -3,6 +3,7 @@ const { getScooter } = require('../../services/store');
 
 Page({
   data: { scooter: null, name: '', phone: '', date: '', deliveryAddress: '', submitting: false },
+  onShow() { const profile=wx.getStorageSync('shishanUserProfile')||{}; if(profile.name||profile.phone) this.setData({name:profile.name||'',phone:profile.phone||''}); },
   onLoad(options) {
     const id = options.id || '';
     request(`/api/products/${encodeURIComponent(id)}`).then(({ data }) => {
@@ -21,9 +22,12 @@ Page({
     const { name, phone, date, deliveryAddress, scooter } = this.data;
     if (!name || !phone || !date || !deliveryAddress || !scooter || this.data.submitting) return wx.showToast({ title: '请填写完整信息', icon: 'none' });
     if (!/^1\d{10}$/.test(phone)) return wx.showToast({ title: '请输入正确手机号', icon: 'none' });
+    wx.setStorageSync('shishanUserProfile',{...wx.getStorageSync('shishanUserProfile')||{},name,phone});
     this.setData({ submitting: true });
     request('/api/orders', { method: 'POST', data: { userId: userId(), items: [{ productId: scooter.id, quantity: 1 }], fulfillment: { type: 'DELIVERY', address: deliveryAddress, date, contactName: name, contactPhone: phone } } })
-      .then(({ data }) => { wx.showToast({ title: '订单已提交' }); setTimeout(() => wx.navigateTo({ url: `/pages/consult/consult?type=${encodeURIComponent('电动车')}&interest=${encodeURIComponent(`${scooter.name}（订单 ${data.orderNo || data.id}）`)}` }), 500); })
+      .then(({ data }) => {
+        wx.showModal({ title:'购车订单已提交', content:'系统已同步生成免费校园牌照辅助，可在订单中心跟进。', confirmText:'查看订单', showCancel:false, success:()=>wx.switchTab({url:'/pages/orders/orders'}) });
+      })
       .catch((error) => { this.setData({ submitting: false }); wx.showToast({ title: error.message || '提交失败', icon: 'none' }); });
   }
 });
