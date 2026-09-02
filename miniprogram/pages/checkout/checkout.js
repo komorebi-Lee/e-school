@@ -3,7 +3,16 @@ const { getScooter } = require('../../services/store');
 
 Page({
   data: { scooter: null, name: '', phone: '', date: '', deliveryAddress: '', submitting: false },
-  onLoad(options) { this.setData({ scooter: getScooter(options.id) }); },
+  onLoad(options) {
+    const id = options.id || '';
+    request(`/api/products/${encodeURIComponent(id)}`).then(({ data }) => {
+      this.setData({ scooter: { ...data, price: Math.round(data.priceInCents / 100), subtitle: data.description, color: '#eaf0ff', icon: '车' } });
+    }).catch(() => {
+      const cached = getScooter(id);
+      if (cached) this.setData({ scooter: cached });
+      else wx.showToast({ title: '商品加载失败', icon: 'none' });
+    });
+  },
   setName(e) { this.setData({ name: e.detail.value }); },
   setPhone(e) { this.setData({ phone: e.detail.value }); },
   setDate(e) { this.setData({ date: e.detail.value }); },
