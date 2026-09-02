@@ -1,0 +1,1 @@
+.order-ref { color: #536078; background: #edf2ff; border-radius: 16rpx; padding: 18rpx 22rpx; }.form { padding: 28rpx; }.textarea { width: auto; min-height: 220rpx; }

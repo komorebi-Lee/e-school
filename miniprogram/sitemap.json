@@ -1,0 +1,4 @@
+{
+  "desc": "狮山智生活 sitemap",
+  "rules": [{ "action": "allow", "page": "*" }]
+}

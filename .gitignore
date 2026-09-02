@@ -1,0 +1,13 @@
+# Node
+node_modules/
+npm-debug.log*
+
+# 数据文件（本地演示数据，不入库）
+server/data/db.json
+
+# 微信开发者工具个人配置
+project.private.config.json
+
+# 系统文件
+.DS_Store
+Thumbs.db

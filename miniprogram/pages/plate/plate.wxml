@@ -1,0 +1,45 @@
+<view class="page">
+  <view class="plate-hero">
+    <view class="plate-icon">鄂·校</view>
+    <view class="hero-label">狮山智生活</view>
+    <view class="hero-title">辅助办理校园车辆牌照</view>
+    <view class="hero-copy">完成校园车辆登记并取得牌照后，方可按学校现行规定使用校园充电设施。</view>
+  </view>
+
+  <view class="process card">
+    <view class="step"><view class="step-no">1</view><view><view class="step-title">提交信息</view><view class="muted">登记学生和车辆基本资料</view></view></view>
+    <view class="step-line"></view>
+    <view class="step"><view class="step-no">2</view><view><view class="step-title">核对材料</view><view class="muted">客服联系确认学校最新要求</view></view></view>
+    <view class="step-line"></view>
+    <view class="step"><view class="step-no">3</view><view><view class="step-title">协助办理</view><view class="muted">按指定流程提交、领取或安装</view></view></view>
+  </view>
+
+  <view wx:if="{{status}}" class="status card">
+    <view class="status-label">申请编号 {{status.id}}</view>
+    <view class="status-value">{{status.state}}</view>
+    <view class="muted">{{status.vehicleModel}} · {{status.name}} · {{status.fee === 0 ? '购车用户免费' : '已支付服务费 ¥' + status.fee}}</view>
+  </view>
+
+  <view class="section-title">选择车辆来源</view>
+  <view class="source-grid">
+    <view class="source-card card {{source === 'platform' ? 'selected' : ''}}" data-source="platform" bindtap="chooseSource">
+      <view class="source-badge free">免费</view><view class="source-title">本平台购车</view><view class="source-copy">自动识别已支付订单，牌照辅助服务费为0元</view>
+    </view>
+    <view class="source-card card {{source === 'external' ? 'selected' : ''}}" data-source="external" bindtap="chooseSource">
+      <view class="source-badge paid">¥{{serviceFee}}</view><view class="source-title">自带电瓶车</view><view class="source-copy">未在本平台购车，也可单独购买上牌辅助服务</view>
+    </view>
+  </view>
+
+  <view class="section-title">登记上牌需求</view>
+  <view class="form card">
+    <view wx:if="{{source === 'platform'}}" class="field"><text class="field-label">选择购车订单</text><picker wx:if="{{eligibleOrders.length}}" range="{{eligibleOrders}}" range-key="productName" value="{{selectedOrderIndex}}" bindchange="chooseOrder"><view class="input">{{eligibleOrders[selectedOrderIndex].productName}} · {{eligibleOrders[selectedOrderIndex].id}}  ▾</view></picker><view wx:else class="empty-order">暂无已支付购车订单，请先完成模拟购车，或选择“自带电瓶车”。</view></view>
+    <view class="field"><text class="field-label">姓名</text><input class="input" placeholder="请输入真实姓名" bindinput="setName" /></view>
+    <view class="field"><text class="field-label">学号</text><input class="input" placeholder="请输入华农学号" bindinput="setStudentNo" /></view>
+    <view class="field"><text class="field-label">联系电话</text><input class="input" type="number" maxlength="11" placeholder="用于材料确认" bindinput="setPhone" /></view>
+    <view wx:if="{{source === 'external'}}" class="field"><text class="field-label">车辆品牌与型号</text><input class="input" placeholder="例如：轻风 通勤版" bindinput="setVehicleModel" /></view>
+    <button class="primary-button" bindtap="submit">{{source === 'platform' ? '免费提交上牌辅助申请' : '支付 ¥' + serviceFee + ' 并提交（模拟）'}}</button>
+  </view>
+
+  <view class="notice">具体材料、审核标准、办理地点和充电资格以华中农业大学最新规定及实际审核结果为准。本服务仅提供流程辅助，不承诺审核必然通过。</view>
+  <button class="ghost-button service-button" bindtap="callService">电话咨询 15527111396</button>
+</view>
