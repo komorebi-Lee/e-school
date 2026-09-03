@@ -23,7 +23,13 @@
     <view class="record-head"><view class="record-type"><text class="record-icon">{{item.icon}}</text>{{item.typeLabel}}</view><text class="status tone-{{item.tone}}">{{item.statusLabel}}</text></view>
     <view class="record-title">{{item.title}}</view>
     <view class="record-meta"><text>{{item.recordNo}}</text><text>{{item.timeText}}</text></view>
-    <view class="record-bottom"><text class="price" wx:if="{{item.priceText}}">{{item.priceText}}</text><text class="muted" wx:else>金额确认后展示</text><view class="record-actions"><block wx:for="{{item.actions}}" wx:for-item="action" wx:key="text"><button size="mini" class="{{action.disabled ? 'ghost-button disabled' : 'ghost-button'}}" data-id="{{item.id}}" data-action="{{action.action}}" data-business="{{action.business}}" data-interest="{{item.title}}" bindtap="{{action.action ? 'runAction' : (action.filter ? 'goLinkage' : 'runConsult')}}" disabled="{{action.disabled}}">{{action.text}}</button></block></view></view>
+    <view class="collab" wx:if="{{item.collaboration}}">
+      <view class="collab-row"><text class="muted">商家</text><text>{{item.merchantName || '平台自营'}}</text></view>
+      <view class="collab-row"><text class="muted">下一步</text><text>{{item.nextStep}}</text></view>
+      <view class="message" wx:for="{{item.messages}}" wx:for-item="message" wx:key="id"><text class="role role-{{message.role}}">{{message.role === 'MERCHANT' ? '商家' : message.role === 'PLATFORM' ? '平台' : '我'}}</text><text>{{message.text}}</text></view>
+      <view class="alert" wx:if="{{item.intervention}}">已提交平台协助</view>
+    </view>
+    <view class="record-bottom"><text class="price" wx:if="{{item.priceText}}">{{item.priceText}}</text><text class="muted" wx:else>金额确认后展示</text><view class="record-actions"><block wx:for="{{item.actions}}" wx:for-item="action" wx:key="key"><button size="mini" class="{{action.disabled ? 'ghost-button disabled' : 'ghost-button'}}" data-id="{{item.id}}" data-action="{{action.action}}" data-business="{{action.business}}" data-interest="{{item.title}}" bindtap="{{action.key === 'collab' || action.key === 'appeal' ? 'sendCollab' : (action.action ? 'runAction' : (action.filter ? 'goLinkage' : 'runConsult'))}}" disabled="{{action.disabled}}">{{action.text}}</button></block></view></view>
     <view class="action-tip muted" wx:if="{{item.actions.length === 1 && item.actions[0].disabled}}">{{item.actions[0].reason}}</view>
   </view>
 </view>

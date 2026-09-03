@@ -10,6 +10,8 @@
     "pages/profile/profile",
     "pages/aftersales/aftersales"
     ,"pages/consult/consult","pages/edit-order/edit-order"
+    ,"pages/merchant/apply","pages/merchant/index","pages/merchant/orders"
+    ,"pages/merchant/products"
   ],
   "window": {
     "navigationBarTitleText": "狮山智生活",

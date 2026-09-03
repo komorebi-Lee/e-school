@@ -15,6 +15,8 @@ function card(item) {
   const actions = [];
   if (type === 'E_BIKE') {
     if (!['COMPLETED','CANCELLED','AFTER_SALE'].includes(item.status)) actions.push({ key:'edit', text:'修改配送' });
+    if (item.status !== 'CANCELLED') actions.push({ key:'collab', text:'联系商家', action:'NOTE' });
+    if (!['COMPLETED','CANCELLED','AFTER_SALE'].includes(item.status)) actions.push({ key:'appeal', text:'平台协助', action:'APPEAL' });
     if (!['CANCELLED'].includes(item.status)) actions.push({ key:'aftersale', text:'申请售后' });
   }
   if (type === 'PHONE_PLAN') {
@@ -36,7 +38,11 @@ function card(item) {
     tone: statusTones[item.status] || 'todo',
     timeText: (item.updatedAt || item.createdAt || '').slice(5,16).replace('T',' '),
     priceText: item.amountInCents ? `¥${(item.amountInCents / 100).toFixed(2)}` : '',
-    actions
+    actions,
+    merchantName:item.merchantName || '',
+    nextStep:item.collaboration?.roleActions?.MERCHANT?.length ? '商家确认履约' : item.collaboration?.roleActions?.PLATFORM?.length ? '平台介入处理' : item.status === 'COMPLETED' ? '等待用户确认服务' : '等待履约更新',
+    intervention:item.collaboration?.intervention?.status === 'REQUESTED',
+    messages:(item.collaboration?.messages || []).slice(0,2)
   };
 }
 
@@ -50,6 +56,8 @@ Page({
         title:order.items.map(item=>`${item.name}${item.quantity>1?` ×${item.quantity}`:''}`).join(' + '),
         status:order.status, amountInCents:order.totalInCents,
         relatedIds:order.plateApplicationId?{plateApplicationId:order.plateApplicationId}:{},
+        merchantName:order.merchantName,
+        collaboration:order.collaboration,
         createdAt:order.createdAt, updatedAt:order.updatedAt
       }));
       const records=[...ebikes,...(data.serviceRecords||[])].map(card).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
@@ -84,6 +92,20 @@ Page({
   },
   editOrder(e){wx.navigateTo({url:`/pages/edit-order/edit-order?id=${e.currentTarget.dataset.id}`})},
   afterSales(e){wx.navigateTo({url:`/pages/aftersales/aftersales?id=${e.currentTarget.dataset.id}`})},
+  sendCollab(e){
+    const {id,action,text}=e.currentTarget.dataset;
+    wx.showModal({
+      title: action === 'APPEAL' ? '提交平台协助' : '发送给商家',
+      editable:true, placeholderText: action === 'APPEAL' ? '请说明需要平台协助的问题' : '请填写备注，例如明天上午配送',
+      success:res=>{
+        if(!res.confirm)return;
+        request('/api/order-collab',{method:'POST',data:{role:'USER',userId:userId(),orderId:id,action,text:res.content||text||'用户留言'}}).then(()=>{
+          wx.showToast({title:'已发送'});
+          setTimeout(()=>this.loadRecords(),400);
+        }).catch(error=>wx.showToast({title:error.message||'发送失败',icon:'none'}));
+      }
+    });
+  },
   runAction(e){
     const {id,action}=e.currentTarget.dataset;
     if(!action)return;

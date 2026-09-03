@@ -11,7 +11,7 @@ function request(path, options = {}) {
         if (res.statusCode >= 200 && res.statusCode < 300) resolve(res.data);
         else reject(new Error((res.data && res.data.error && res.data.error.message) || `请求失败（${res.statusCode}）`));
       },
-      fail: reject
+      fail: (error) => reject(new Error(error.errMsg || '网络请求失败，请确认本地服务已启动'))
     });
   });
 }

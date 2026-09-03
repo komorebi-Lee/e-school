@@ -1,0 +1,16 @@
+.page-title { font-size: 42rpx; font-weight: 900; margin: 8rpx 0 22rpx; }
+.form { padding: 26rpx; margin-bottom: 30rpx; }
+.row { display: flex; gap: 18rpx; }
+.half { flex: 1; }
+.textarea { min-height: 160rpx; }
+.switch-row { display: flex; justify-content: space-between; align-items: center; margin: 10rpx 0 20rpx; }
+.form-actions { display: flex; justify-content: flex-end; gap: 16rpx; }
+.form-actions button { margin: 0; }
+.product { padding: 25rpx; margin-bottom: 18rpx; }
+.head { display: flex; justify-content: space-between; margin-bottom: 10rpx; }
+.strong { font-weight: 900; }
+.on { color: #157552; font-weight: 800; }
+.off { color: #667289; font-weight: 800; }
+.bottom { display: flex; justify-content: space-between; margin: 18rpx 0; }
+.actions { display: flex; justify-content: flex-end; gap: 14rpx; }
+.actions button { margin: 0; }

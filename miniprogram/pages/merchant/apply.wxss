@@ -1,0 +1,37 @@
+.hero { padding: 30rpx; }
+.hero-title { font-size: 38rpx; font-weight: 900; margin-bottom: 10rpx; }
+.benefits { display: flex; gap: 12rpx; margin-top: 20rpx; flex-wrap: wrap; }
+.benefit { background: #eaf0ff; color: #002fa7; font-size: 22rpx; font-weight: 800; padding: 8rpx 16rpx; border-radius: 999rpx; }
+.status { padding: 28rpx; margin-top: 22rpx; }
+.status-head { display: flex; justify-content: space-between; align-items: flex-start; }
+.strong { font-weight: 900; }
+.badge { padding: 8rpx 16rpx; border-radius: 999rpx; font-size: 22rpx; font-weight: 800; }
+.badge.REVIEWING { color: #9a7200; background: #fff7cf; }
+.badge.APPROVED { color: #157552; background: #dcf7ea; }
+.badge.REJECTED { color: #b42318; background: #ffe9e6; }
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12rpx; margin-top: 28rpx; }
+.step { padding: 18rpx; border-radius: 18rpx; background: #f5f7fb; opacity: .65; }
+.step.active { opacity: 1; box-shadow: inset 0 0 0 2rpx #002fa7; }
+.step.done { opacity: 1; background: #eaf0ff; }
+.step text { font-weight: 900; color: #002fa7; }
+.step strong { display: block; font-size: 25rpx; }
+.step small { color: #78849a; font-size: 20rpx; }
+.review-note { margin-top: 22rpx; padding: 20rpx; background: #f5f7fb; border-radius: 18rpx; font-size: 24rpx; line-height: 1.5; }
+.section-title { margin-top: 32rpx; }
+.type-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14rpx; }
+.type-card { background: #fff; border-radius: 20rpx; padding: 22rpx 18rpx; text-align: center; box-shadow: 0 8rpx 24rpx rgba(0,47,167,.06); }
+.type-card.active { background: #002fa7; color: #fff; }
+.type-card.active .muted { color: #d7e2ff; }
+.form { padding: 28rpx; margin-top: 22rpx; }
+.textarea { min-height: 180rpx; }
+.tip { font-size: 22rpx; margin: -8rpx 0 24rpx; line-height: 1.5; }
+.upload { padding: 22rpx; margin-top: 6rpx; background: #f8faff; }
+.upload-head { display: flex; justify-content: space-between; align-items: center; }
+.upload-head button { margin: 0; }
+.agreements { margin-top: 24rpx; }
+.agreement { display: flex; align-items: center; gap: 10rpx; font-size: 23rpx; color: #536078; margin-bottom: 14rpx; }
+.identity { padding: 24rpx; margin-top: 22rpx; background: #f8faff; }
+.identity-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20rpx; }
+.identity-head .verified { color: #157552; background: #dcf7ea; font-size: 22rpx; font-weight: 800; padding: 7rpx 14rpx; border-radius: 999rpx; }
+.identity .primary-button { margin: 0; }
+.identity-result { margin-top: 18rpx; font-size: 22rpx; line-height: 1.5; }

@@ -1,0 +1,89 @@
+const { API_BASE_URL } = require('../../config/api');
+
+const categories = [
+  { value: 'E_BIKE_NEW', label: '电动车整车' },
+  { value: 'DIGITAL', label: '数码配件' },
+  { value: 'FOOD', label: '食品生鲜' },
+  { value: 'SERVICE', label: '生活服务' }
+];
+
+const emptyForm = { name: '', categoryIndex: 0, price: '', stock: '', description: '', active: true };
+
+Page({
+  data: { categories, products: [], form: emptyForm, editId: '', loading: true },
+  onShow() {
+    this.load();
+  },
+  request(path, options = {}) {
+    const token = wx.getStorageSync('campusGoMerchantToken');
+    return new Promise((resolve, reject) => {
+      wx.request({
+        url: `${API_BASE_URL}${path}`,
+        method: options.method || 'GET',
+        data: options.data,
+        header: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+        success: (response) => response.statusCode >= 200 && response.statusCode < 300 ? resolve(response.data) : reject(new Error(response.data?.error?.message || '请求失败')),
+        fail: reject
+      });
+    });
+  },
+  load() {
+    this.request('/api/merchant/overview').then(({ data }) => {
+      this.setData({ products: data.products, loading: false });
+    }).catch(() => {
+      this.setData({ loading: false });
+      wx.showToast({ title: '请重新进入商家工作台', icon: 'none' });
+    });
+  },
+  setField(event) {
+    const field = event.currentTarget.dataset.field;
+    this.setData({ [`form.${field}`]: event.detail.value });
+  },
+  setActive(event) {
+    this.setData({ 'form.active': event.detail.value });
+  },
+  setCategory(event) {
+    this.setData({ 'form.categoryIndex': Number(event.detail.value) });
+  },
+  select(event) {
+    const item = this.data.products.find((product) => product.id === event.currentTarget.dataset.id);
+    if (!item) return;
+    this.setData({
+      editId: item.id,
+      form: {
+        name: item.name,
+        categoryIndex: Math.max(0, this.data.categories.findIndex((category) => category.value === item.category)),
+        price: String(item.priceInCents / 100),
+        stock: String(item.stock),
+        description: item.description,
+        active: item.active
+      }
+    });
+  },
+  reset() {
+    this.setData({ editId: '', form: emptyForm });
+  },
+  submit() {
+    const { name, categoryIndex, price, stock, description, active } = this.data.form;
+    const category = this.data.categories[categoryIndex];
+    if (!name || !category || !price || stock === '') return wx.showToast({ title: '请完整填写商品信息', icon: 'none' });
+    const payload = {
+      name,
+      category: category.value,
+      description: description || '暂无简介',
+      priceInCents: Math.round(Number(price) * 100),
+      stock: Number(stock),
+      active
+    };
+    const path = this.data.editId ? `/api/merchant/products/${this.data.editId}` : '/api/merchant/products';
+    this.request(path, { method: 'POST', data: payload }).then(() => {
+      wx.showToast({ title: this.data.editId ? '商品已保存' : '商品已上架' });
+      this.reset();
+      this.load();
+    }).catch((error) => wx.showToast({ title: error.message || '保存失败', icon: 'none' }));
+  },
+  toggle(event) {
+    const { id, active } = event.currentTarget.dataset;
+    this.request(`/api/merchant/products/${id}`, { method: 'POST', data: { active: !active } }).then(() => this.load()).catch((error) => wx.showToast({ title: error.message || '操作失败', icon: 'none' }));
+  }
+});

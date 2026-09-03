@@ -1,0 +1,24 @@
+<view class="page">
+  <view class="page-title">商家订单</view>
+  <view wx:if="{{loading}}" class="empty card"><view class="muted">正在加载…</view></view>
+  <view wx:elif="{{!orders.length}}" class="empty card"><view class="muted">暂无订单</view></view>
+  <block wx:else>
+    <view class="order card" wx:for="{{orders}}" wx:key="id">
+      <view class="head"><view class="strong">{{item.orderNo}}</view><text class="status tone-{{item.status}}">{{item.statusLabel}}</text></view>
+      <view class="items"><view wx:for="{{item.items}}" wx:for-item="orderItem" wx:key="productId">{{orderItem.name}} × {{orderItem.quantity}}</view></view>
+      <view class="collab">
+        <view class="collab-row"><text class="muted">下一步</text><text>{{item.nextStep}}</text></view>
+        <view class="message" wx:for="{{item.userMessages}}" wx:for-item="message" wx:key="id"><text class="role">用户</text><text>{{message.text}}</text></view>
+        <view class="alert" wx:if="{{item.intervention}}">用户已请求平台协助</view>
+      </view>
+      <view class="bottom"><text class="price">¥{{item.totalInCents / 100}}</text>
+        <view class="actions">
+          <button size="mini" class="ghost-button" data-id="{{item.id}}" data-action="NOTE" bindtap="collab">发送备注</button>
+          <button size="mini" class="ghost-button" data-id="{{item.id}}" data-action="APPEAL" bindtap="collab">请求平台协助</button>
+          <button wx:if="{{item.status === 'PAID'}}" size="mini" class="ghost-button" data-id="{{item.id}}" data-status="FULFILLING" bindtap="update">开始履约</button>
+          <button wx:if="{{item.status === 'FULFILLING'}}" size="mini" class="primary-button" data-id="{{item.id}}" data-status="COMPLETED" bindtap="update">完成</button>
+        </view>
+      </view>
+    </view>
+  </block>
+</view>

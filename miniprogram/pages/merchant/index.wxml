@@ -1,0 +1,25 @@
+<view class="page">
+  <view wx:if="{{loading}}" class="empty card"><view class="muted">正在同步商家数据…</view></view>
+  <block wx:elif="{{merchant}}">
+    <view class="merchant card">
+      <view><view class="merchant-name">{{merchant.name}}</view><view class="muted">{{merchant.ownerNameMasked}} · {{merchant.phoneMasked}}</view></view>
+      <view class="status">已入驻</view>
+    </view>
+    <view class="metric-grid">
+      <view class="metric card"><text>营收（元）</text><strong>{{metrics.revenueInCents / 100}}</strong></view>
+      <view class="metric card"><text>订单</text><strong>{{metrics.orderCount}}</strong></view>
+      <view class="metric card"><text>待履约</text><strong>{{metrics.pendingCount}}</strong></view>
+      <view class="metric card"><text>库存预警</text><strong>{{metrics.lowStockCount}}</strong></view>
+    </view>
+    <view class="section-title">最近订单</view>
+    <view class="card order" wx:for="{{orders}}" wx:key="id">
+      <view><view class="strong">{{item.orderNo}}</view><view class="muted">{{item.items[0].name}}{{item.items.length > 1 ? ' 等' : ''}}</view></view>
+      <view class="right"><view class="price">¥{{item.totalInCents / 100}}</view><view class="muted status-text">{{item.status}}</view></view>
+    </view>
+    <view wx:if="{{!orders.length}}" class="empty card"><view class="muted">暂无商家订单</view></view>
+    <view class="action-grid">
+      <button class="primary-button" bindtap="goProducts">商品管理</button>
+      <button class="ghost-button" bindtap="goOrders">管理订单</button>
+    </view>
+  </block>
+</view>

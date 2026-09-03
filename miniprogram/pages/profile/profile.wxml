@@ -1,6 +1,28 @@
 <view class="page">
-  <view class="profile card"><view class="avatar">狮</view><view><view class="name">华农同学</view><view class="muted">华中农业大学 · 狮山校区</view></view><view class="pill verify {{verified ? 'done' : ''}}">{{verified ? '已认证' : '未认证'}}</view></view>
-  <view wx:if="{{!verified}}" class="verify-card"><view><view class="verify-title">完成学生认证</view><view class="muted">体验校园专属服务与价格</view></view><button size="mini" class="primary-button" bindtap="verify">模拟认证</button></view>
-  <view class="section-title">我的服务</view><view class="menu card"><view class="menu-item" bindtap="goOrders"><text>全部服务进度</text><text class="menu-note">电瓶车 · 电话卡 · 权益</text><text class="arrow">›</text></view><view class="menu-item" bindtap="goPlate"><text>校园牌照辅助</text><text class="arrow">›</text></view><view class="menu-item" bindtap="goCard"><text>校园电话卡购买</text><text class="arrow">›</text></view><view class="menu-item" bindtap="callService"><text>拨打客服电话</text><text class="menu-note">{{customerService}}</text></view><view class="menu-item" bindtap="copyWechat"><text>复制客服微信</text><text class="menu-note">{{customerService}}</text></view><view class="menu-item"><text>隐私与服务协议</text><text class="arrow">›</text></view></view>
+  <view class="profile card">
+    <view class="avatar">狮</view>
+    <view>
+      <view class="name">华农同学</view>
+      <view class="muted">华中农业大学 · 狮山校区</view>
+    </view>
+    <view class="pill verify {{verified ? 'done' : ''}}">{{verified ? '已认证' : '未认证'}}</view>
+  </view>
+  <view wx:if="{{!verified}}" class="verify-card">
+    <view>
+      <view class="verify-title">完成学生认证</view>
+      <view class="muted">体验校园专属服务与价格</view>
+    </view>
+    <button size="mini" class="primary-button" bindtap="verify">模拟认证</button>
+  </view>
+  <view class="section-title">我的服务</view>
+  <view class="menu card">
+    <view class="menu-item" bindtap="goOrders"><text>全部服务进度</text><text class="menu-note">电瓶车 · 电话卡 · 权益</text><text class="arrow">›</text></view>
+    <view class="menu-item" bindtap="goPlate"><text>校园牌照辅助</text><text class="arrow">›</text></view>
+    <view class="menu-item" bindtap="goCard"><text>校园电话卡购买</text><text class="arrow">›</text></view>
+    <view class="menu-item" bindtap="goMerchant"><text>商家入驻 / 商家工作台</text><text class="arrow">›</text></view>
+    <view class="menu-item" bindtap="callService"><text>拨打客服电话</text><text class="menu-note">{{customerService}}</text></view>
+    <view class="menu-item" bindtap="copyWechat"><text>复制客服微信</text><text class="menu-note">{{customerService}}</text></view>
+    <view class="menu-item"><text>隐私与服务协议</text><text class="arrow">›</text></view>
+  </view>
   <view class="version">狮山智生活 MVP · 本地演示数据</view>
 </view>
