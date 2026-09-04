@@ -15,6 +15,13 @@
     <button size="mini" class="primary-button" bindtap="verify">模拟认证</button>
   </view>
   <view class="section-title">我的服务</view>
+  <view class="login-card card">
+    <view class="login-info">
+      <view class="login-title">{{loginState === 'ready' ? '已登录' : '微信登录'}}</view>
+      <view class="muted login-note">{{loginState === 'ready' ? userId : '登录后可同步订单与办理进度'}}</view>
+    </view>
+    <button size="mini" class="{{loggingIn ? 'ghost-button' : 'primary-button'}}" bindtap="loginWithWeChat" disabled="{{loggingIn}}">{{loggingIn ? '登录中…' : (loginState === 'ready' ? '重新登录' : '微信一键登录')}}</button>
+  </view>
   <view class="menu card">
     <view class="menu-item" bindtap="goOrders"><text>全部服务进度</text><text class="menu-note">电瓶车 · 电话卡 · 权益</text><text class="arrow">›</text></view>
     <view class="menu-item" bindtap="goPlate"><text>校园牌照辅助</text><text class="arrow">›</text></view>

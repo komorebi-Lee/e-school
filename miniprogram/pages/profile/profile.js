@@ -1,8 +1,37 @@
 const { request, userId } = require("../../services/api");
+const { loginWeChat } = require("../../lib/cloud-request");
 
 Page({
-  data: { verified: false, customerService: "15527111396", merchantBadge: false, latestApprovedAt: "" },
-  onShow() { this.loadMerchantBadge(); },
+  data: {
+    verified: false,
+    customerService: "15527111396",
+    merchantBadge: false,
+    latestApprovedAt: "",
+    userId: "",
+    loginState: "loading",
+    loggingIn: false
+  },
+  onShow() { this.refreshLoginState(); this.loadMerchantBadge(); },
+  refreshLoginState() {
+    const stored = wx.getStorageSync("campusGoUserId") || "";
+    this.setData({ userId: stored, loginState: stored ? "ready" : "guest" });
+  },
+  loginWithWeChat() {
+    if (this.data.loggingIn) return;
+    this.setData({ loggingIn: true });
+    loginWeChat().then(({ userId: id }) => {
+      this.setData({ userId: id, loginState: "ready", loggingIn: false });
+      wx.showToast({ title: "登录成功", icon: "success" });
+      this.loadMerchantBadge();
+    }).catch((error) => {
+      this.setData({ loggingIn: false });
+      wx.showModal({
+        title: "微信登录失败",
+        content: error.message || "请稍后重试；如果提示未配置，请联系平台管理员完成云托管环境变量配置。",
+        showCancel: false
+      });
+    });
+  },
   loadMerchantBadge() {
     request(`/api/merchants?userId=${encodeURIComponent(userId())}`).then(({ data }) => {
       const approved = data.find((item) => item.status === "APPROVED");
