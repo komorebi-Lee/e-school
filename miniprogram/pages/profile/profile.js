@@ -25,9 +25,10 @@ Page({
       this.loadMerchantBadge();
     }).catch((error) => {
       this.setData({ loggingIn: false });
+      const reason = error.details && error.details.reason ? `（${error.details.reason}）` : '';
       wx.showModal({
         title: "微信登录失败",
-        content: error.message || "请稍后重试；如果提示未配置，请联系平台管理员完成云托管环境变量配置。",
+        content: (error.message || "请稍后重试") + reason,
         showCancel: false
       });
     });

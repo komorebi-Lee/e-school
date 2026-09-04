@@ -20,6 +20,7 @@ function responseError(response) {
   const error = new Error(response.data?.error?.message || `请求失败（${statusCode}）`);
   error.statusCode = statusCode;
   error.code = response.data?.error?.code;
+  error.details = response.data?.error?.details;
   return error;
 }
 
