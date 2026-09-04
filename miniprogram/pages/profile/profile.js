@@ -1,6 +1,11 @@
 const { request, userId } = require("../../services/api");
 const { loginWeChat } = require("../../lib/cloud-request");
 
+function maskUserId(id) {
+  if (!id) return "";
+  return id.length > 14 ? `${id.slice(0, 10)}…${id.slice(-4)}` : id;
+}
+
 Page({
   data: {
     verified: false,
@@ -14,13 +19,13 @@ Page({
   onShow() { this.refreshLoginState(); this.loadMerchantBadge(); },
   refreshLoginState() {
     const stored = wx.getStorageSync("campusGoUserId") || "";
-    this.setData({ userId: stored, loginState: stored ? "ready" : "guest" });
+    this.setData({ userId: maskUserId(stored), loginState: stored ? "ready" : "guest" });
   },
   loginWithWeChat() {
     if (this.data.loggingIn) return;
     this.setData({ loggingIn: true });
     loginWeChat().then(({ userId: id }) => {
-      this.setData({ userId: id, loginState: "ready", loggingIn: false });
+      this.setData({ userId: maskUserId(id), loginState: "ready", loggingIn: false });
       wx.showToast({ title: "登录成功", icon: "success" });
       this.loadMerchantBadge();
     }).catch((error) => {

@@ -59,11 +59,16 @@ async function getWeChatSession() {
   return session.token;
 }
 
-async function request(path, options = {}) {
+async function request(path, options = {}, retryOnUnauthorized = true) {
   const token = await getWeChatSession();
   const response = await callContainer(path, options, token);
   const statusCode = Number(response.statusCode || 0);
   if (statusCode >= 200 && statusCode < 300) return response.data;
+  if (retryOnUnauthorized && statusCode === 401) {
+    wx.removeStorageSync('campusGoUserToken');
+    wx.removeStorageSync('campusGoUserTokenExpiresAt');
+    return request(path, options, false);
+  }
   throw responseError(response);
 }
 
