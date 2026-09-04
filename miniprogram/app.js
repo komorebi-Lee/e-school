@@ -1,3 +1,5 @@
+const { CLOUD_ENV_ID } = require('./config/api');
+
 App({
   globalData: {
     brand: "狮山智生活",
@@ -6,6 +8,11 @@ App({
     customerService: "15527111396"
   },
   onLaunch() {
+    if (!wx.cloud) {
+      console.error("Cloud API is unavailable.");
+    } else {
+      wx.cloud.init({ env: CLOUD_ENV_ID, traceUser: true });
+    }
     if (!wx.getStorageSync("campusGoOrders")) {
       wx.setStorageSync("campusGoOrders", []);
     }

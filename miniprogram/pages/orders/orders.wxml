@@ -29,7 +29,31 @@
       <view class="message" wx:for="{{item.messages}}" wx:for-item="message" wx:key="id"><text class="role role-{{message.role}}">{{message.role === 'MERCHANT' ? '商家' : message.role === 'PLATFORM' ? '平台' : '我'}}</text><text>{{message.text}}</text></view>
       <view class="alert" wx:if="{{item.intervention}}">已提交平台协助</view>
     </view>
-    <view class="record-bottom"><text class="price" wx:if="{{item.priceText}}">{{item.priceText}}</text><text class="muted" wx:else>金额确认后展示</text><view class="record-actions"><block wx:for="{{item.actions}}" wx:for-item="action" wx:key="key"><button size="mini" class="{{action.disabled ? 'ghost-button disabled' : 'ghost-button'}}" data-id="{{item.id}}" data-action="{{action.action}}" data-business="{{action.business}}" data-interest="{{item.title}}" bindtap="{{action.key === 'collab' || action.key === 'appeal' ? 'sendCollab' : (action.action ? 'runAction' : (action.filter ? 'goLinkage' : 'runConsult'))}}" disabled="{{action.disabled}}">{{action.text}}</button></block></view></view>
+    <view class="record-bottom"><text class="price" wx:if="{{item.priceText}}">{{item.priceText}}</text><text class="muted" wx:else>金额确认后展示</text><view class="record-actions"><block wx:for="{{item.actions}}" wx:for-item="action" wx:key="key"><button size="mini" class="{{action.disabled ? 'ghost-button disabled' : 'ghost-button'}}" data-id="{{item.id}}" data-action="{{action.action}}" data-business="{{action.business}}" data-interest="{{item.title}}" data-recharge-id="{{item.rechargeId}}" bindtap="{{action.key === 'consult' ? 'runConsult' : (action.key === 'collab' || action.key === 'appeal' ? 'sendCollab' : (action.action ? 'runAction' : (action.filter ? 'goLinkage' : (action.rechargeId ? 'goRechargeDetail' : 'runConsult'))))}}" disabled="{{action.disabled}}">{{action.text}}</button></block></view></view>
     <view class="action-tip muted" wx:if="{{item.actions.length === 1 && item.actions[0].disabled}}">{{item.actions[0].reason}}</view>
+  </view>
+  <view class="consult-mask" wx:if="{{consult}}" bindtap="closeConsult" catchtouchmove="keepConsultOpen">
+    <view class="consult-sheet" catchtap="keepConsultOpen">
+      <view class="sheet-grip"></view>
+      <view class="sheet-head">
+        <view><view class="sheet-title">{{consult.business}}</view><view class="sheet-copy">已关联订单，客服可直接看到业务和状态</view></view>
+        <view class="sheet-close" bindtap="closeConsult">×</view>
+      </view>
+      <view class="order-context">
+        <view class="context-title">{{consult.title}}</view>
+        <view class="context-meta"><text>{{consult.recordNo}}</text><text>{{consult.statusLabel}}</text></view>
+      </view>
+      <view class="quick-title">常见问题</view>
+      <view class="quick-grid">
+        <button wx:for="{{consult.questions}}" wx:key="*this" class="quick-question" data-question="{{item}}" bindtap="sendConsultQuestion" disabled="{{consult.sending}}">{{item}}</button>
+      </view>
+      <view class="sheet-actions">
+        <button class="support-button" open-type="contact" session-from="{{consult.sessionFrom}}" send-message-title="{{consult.title}}" send-message-path="/pages/orders/orders" show-message-card="{{true}}" bindcontact="onContact">微信客服会话</button>
+        <button class="phone-button" bindtap="callConsultPhone">电话客服</button>
+        <button class="note-button" bindtap="describeConsult" disabled="{{consult.sending}}">补充说明</button>
+      </view>
+      <view class="form-fallback" bindtap="goConsultForm">问题较复杂？使用预约表单（24 小时回访）</view>
+      <view class="sending muted" wx:if="{{consult.sending}}">正在提交：{{consult.sending}}</view>
+    </view>
   </view>
 </view>

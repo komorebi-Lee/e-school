@@ -1,0 +1,26 @@
+<view class="page">
+  <view class="hero card">
+    <view class="eyebrow">狮山智生活</view>
+    <view class="title">话费权益详情</view>
+    <view class="badge" wx:if="{{promo.badge}}">{{promo.badge}}</view>
+  </view>
+  <view class="summary card">
+    <view class="row"><text>充值金额</text><strong>¥{{promo.pay}}</strong></view>
+    <view class="row"><text>到账金额</text><strong class="income">¥{{promo.receive}}</strong></view>
+    <view class="row"><text>优惠金额</text><strong>¥{{promo.receive - promo.pay}}</strong></view>
+    <view class="row"><text>办理手机号</text><strong>{{promo.phone}}</strong></view>
+    <view class="row"><text>权益单号</text><strong>{{orderId || '支付后生成'}}</strong></view>
+    <view class="status {{paid ? 'paid' : ''}}">{{paid ? '模拟支付成功 · 待客服确认到账' : '待模拟支付'}}</view>
+  </view>
+  <view class="notice card">
+    <view class="notice-title">办理说明</view>
+    <view>权益提交后自动关联同号电话卡订单。</view>
+    <view>客服确认到账后，可在我的订单中激活电话卡。</view>
+  </view>
+  <view class="actions">
+    <button class="ghost-button" bindtap="consult">咨询</button>
+    <button class="primary-button" loading="{{submitting}}" disabled="{{submitting}}" bindtap="{{paid ? 'consult' : 'simulatePay'}}">
+      {{submitting ? '处理中…' : (paid ? '咨询到账确认' : (orderId ? '模拟支付' : '提交并模拟支付'))}}
+    </button>
+  </view>
+</view>

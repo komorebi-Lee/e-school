@@ -1,5 +1,4 @@
 const { request, userId } = require('../../services/api');
-const { API_BASE_URL } = require('../../config/api');
 
 const categories = [
   { value: 'E_BIKE', label: '电动车/维修服务', extra: '如销售整车，请确认车辆来源与保修责任；如维修，请确认服务范围。' },
@@ -71,23 +70,16 @@ Page({
     }
     if (this.data.verifyingIdentity) return;
     this.setData({ verifyingIdentity: true });
-    wx.request({
-      url: `${API_BASE_URL}/api/identity/verify`,
+    request('/api/identity/verify', {
       method: 'POST',
-      data: { userId: userId(), ownerName, idNumber },
-      header: { 'content-type': 'application/json' },
-      success: (response) => {
-        if (response.statusCode >= 200 && response.statusCode < 300) {
-          this.setData({ identityVerification: response.data.data });
-          wx.showToast({ title: '实名验证通过', icon: 'success' });
-        } else {
-          this.setData({ identityVerification: null });
-          wx.showToast({ title: response.data?.error?.message || '实名验证失败', icon: 'none' });
-        }
-      },
-      fail: () => wx.showToast({ title: '实名验证请求失败，请确认本地服务已启动', icon: 'none' }),
-      complete: () => this.setData({ verifyingIdentity: false })
-    });
+      data: { userId: userId(), ownerName, idNumber }
+    }).then((body) => {
+      this.setData({ identityVerification: body.data });
+      wx.showToast({ title: 'verified', icon: 'success' });
+    }).catch((error) => {
+      this.setData({ identityVerification: null });
+      wx.showToast({ title: error.message || 'verify failed', icon: 'none' });
+    }).finally(() => this.setData({ verifyingIdentity: false }));
   },
 
   selectMerchantType(event) {
@@ -114,24 +106,15 @@ Page({
             const extension = file.tempFilePath.split('.').pop().toLowerCase();
             const mimeType = extension === 'png' ? 'image/png' : extension === 'webp' ? 'image/webp' : 'image/jpeg';
             this.setData({ licenseFile: { name: '营业执照照片', uploading: true, progress: '正在上传…' } });
-            wx.request({
-              url: `${API_BASE_URL}/api/uploads`,
+            request('/api/uploads', {
               method: 'POST',
-              data: { dataBase64: data, mimeType },
-              header: { 'content-type': 'application/json' },
-              success: (uploadResponse) => {
-                if (uploadResponse.statusCode >= 200 && uploadResponse.statusCode < 300) {
-                  const { url, size } = uploadResponse.data.data;
-                  this.setData({ licenseFile: { name: '营业执照照片', path: file.tempFilePath, url, size, uploading: false } });
-                } else {
-                  this.setData({ licenseFile: null });
-                  wx.showToast({ title: uploadResponse.data?.error?.message || '照片上传失败', icon: 'none' });
-                }
-              },
-              fail: () => {
-                this.setData({ licenseFile: null });
-                wx.showToast({ title: '照片上传失败', icon: 'none' });
-              }
+              data: { dataBase64: data, mimeType }
+            }).then((body) => {
+              const { url, size } = body.data;
+              this.setData({ licenseFile: { name: 'license', path: file.tempFilePath, url, size, uploading: false } });
+            }).catch(() => {
+              this.setData({ licenseFile: null });
+              wx.showToast({ title: 'upload failed', icon: 'none' });
             });
           },
           fail: () => wx.showToast({ title: '读取照片失败', icon: 'none' })

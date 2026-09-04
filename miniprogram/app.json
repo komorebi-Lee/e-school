@@ -8,10 +8,14 @@
     "pages/checkout/checkout",
     "pages/orders/orders",
     "pages/profile/profile",
-    "pages/aftersales/aftersales"
-    ,"pages/consult/consult","pages/edit-order/edit-order"
-    ,"pages/merchant/apply","pages/merchant/index","pages/merchant/orders"
-    ,"pages/merchant/products"
+    "pages/aftersales/aftersales",
+    "pages/consult/consult",
+    "pages/edit-order/edit-order",
+    "pages/merchant/apply",
+    "pages/merchant/index",
+    "pages/merchant/orders",
+    "pages/merchant/products",
+    "pages/recharge/detail"
   ],
   "window": {
     "navigationBarTitleText": "狮山智生活",
@@ -26,9 +30,18 @@
     "backgroundColor": "#FFFFFF",
     "borderStyle": "white",
     "list": [
-      { "pagePath": "pages/home/home", "text": "首页" },
-      { "pagePath": "pages/orders/orders", "text": "订单" },
-      { "pagePath": "pages/profile/profile", "text": "我的" }
+      {
+        "pagePath": "pages/home/home",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/orders/orders",
+        "text": "订单"
+      },
+      {
+        "pagePath": "pages/profile/profile",
+        "text": "我的"
+      }
     ]
   },
   "sitemapLocation": "sitemap.json"

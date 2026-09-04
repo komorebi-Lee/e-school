@@ -26,7 +26,7 @@ npm test         # 运行接口测试（node --test）
 ```
 
 - 环境变量：`PORT`（端口）、`DB_FILE`（db.json 路径）
-- 管理端：浏览器访问 `http://localhost:3000/admin`，演示账号 `admin` / `Shishan@2026`
+- 管理端：浏览器访问 `http://localhost:3000/admin`；账号密码仅来自环境变量 `ADMIN_USERNAME` / `ADMIN_PASSWORD`（参考 `server/.env.example`），源码与登录页不内置凭据
 - 无需 `npm install`，零依赖，要求 Node.js 18+
 
 ### 小程序

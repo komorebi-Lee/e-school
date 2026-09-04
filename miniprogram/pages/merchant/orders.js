@@ -6,18 +6,10 @@ Page({
   onShow() {
     this.load();
   },
+
   request(path, options = {}) {
     const token = wx.getStorageSync('campusGoMerchantToken');
-    return new Promise((resolve, reject) => {
-      wx.request({
-        url: `${require('../../config/api').API_BASE_URL}${path}`,
-        method: options.method || 'GET',
-        data: options.data,
-        header: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
-        success: (response) => response.statusCode >= 200 && response.statusCode < 300 ? resolve(response.data) : reject(new Error(response.data?.error?.message || '请求失败')),
-        fail: reject
-      });
-    });
+    return apiRequest(path, { ...options, header: { authorization: `Bearer ${token}` } });
   },
   load() {
     this.request('/api/merchant/overview').then(({ data }) => {

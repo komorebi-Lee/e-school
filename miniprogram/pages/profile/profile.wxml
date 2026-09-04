@@ -19,7 +19,7 @@
     <view class="menu-item" bindtap="goOrders"><text>全部服务进度</text><text class="menu-note">电瓶车 · 电话卡 · 权益</text><text class="arrow">›</text></view>
     <view class="menu-item" bindtap="goPlate"><text>校园牌照辅助</text><text class="arrow">›</text></view>
     <view class="menu-item" bindtap="goCard"><text>校园电话卡购买</text><text class="arrow">›</text></view>
-    <view class="menu-item" bindtap="goMerchant"><text>商家入驻 / 商家工作台</text><text class="arrow">›</text></view>
+    <view class="menu-item" bindtap="goMerchant"><text>商家入驻 / 商家工作台</text><view class="menu-badge" wx:if="{{merchantBadge}}"></view><text class="arrow">›</text></view>
     <view class="menu-item" bindtap="callService"><text>拨打客服电话</text><text class="menu-note">{{customerService}}</text></view>
     <view class="menu-item" bindtap="copyWechat"><text>复制客服微信</text><text class="menu-note">{{customerService}}</text></view>
     <view class="menu-item"><text>隐私与服务协议</text><text class="arrow">›</text></view>

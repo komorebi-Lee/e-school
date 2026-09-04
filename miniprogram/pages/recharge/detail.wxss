@@ -1,0 +1,14 @@
+.page { padding: 24rpx 28rpx 48rpx; }
+.hero { display: flex; align-items: center; justify-content: space-between; }
+.eyebrow { color: #002fa7; font-size: 22rpx; font-weight: 800; }
+.title { font-size: 42rpx; font-weight: 900; margin-top: 8rpx; }
+.badge { color: #ff4d4f; background: #fff1f0; padding: 12rpx 18rpx; border-radius: 20rpx; font-size: 22rpx; font-weight: 800; }
+.summary { margin-top: 20rpx; }
+.row { display: flex; justify-content: space-between; align-items: center; padding: 20rpx 0; border-bottom: 1rpx solid #edf0f5; }
+.income { color: #ff4d4f; }
+.status { margin-top: 20rpx; padding: 20rpx; border-radius: 18rpx; background: #fff7cf; color: #8b6e00; font-size: 24rpx; }
+.status.paid { background: #d9f7ea; color: #157552; }
+.notice-title { font-size: 28rpx; font-weight: 900; margin-bottom: 14rpx; }
+.notice { color: #536078; line-height: 1.7; font-size: 24rpx; }
+.actions { position: fixed; left: 0; right: 0; bottom: 0; display: flex; gap: 18rpx; padding: 24rpx 28rpx calc(24rpx + env(safe-area-inset-bottom)); background: rgba(255,255,255,.96); box-shadow: 0 -8rpx 24rpx rgba(18,43,93,.08); }
+.actions button { flex: 1; }

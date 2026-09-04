@@ -18,18 +18,19 @@ Page({
     const p=this.data.plans[this.data.selectedPlan];
     const { request, userId } = require('../../services/api');
     if(!this.profileValid())return wx.showModal({title:'补充办理信息',content:'请先填写办理人姓名和手机号',showCancel:false});
-    request('/api/phone-card-orders',{method:'POST',data:{userId:userId(),customerName:saved.name,phone:saved.phone,planName:p.name,amountInCents:p.monthlyFee*100}})
+    const saved=this.currentProfile();
+    request('/api/phone-card-orders',{method:'POST',data:{customerName:saved.name,phone:saved.phone,planName:p.name,amountInCents:p.monthlyFee*100}})
       .then(({data})=>{wx.showToast({title:'电话卡订单已提交'});setTimeout(()=>wx.navigateTo({url:`/pages/consult/consult?type=${encodeURIComponent('电话卡实名激活')}&interest=${encodeURIComponent(`${p.name}（${data.id}）`)}`}),650)})
-      .catch((error)=>{if(error.message&&error.message.indexOf('userId')>-1){wx.navigateTo({url:`/pages/consult/consult?type=校园电话卡&interest=${encodeURIComponent(p.name)}`});return}wx.showModal({title:'请补充办理人',content:'需要姓名和手机号创建订单，是否前往填写？',confirmText:'去填写',cancelText:'取消',success:r=>{if(r.confirm)wx.navigateTo({url:`/pages/consult/consult?type=校园电话卡&interest=${encodeURIComponent(p.name)}`})}})});
+      .catch((error)=>{wx.showModal({title:'提交失败',content:error.message||'请稍后重试',showCancel:false})});
   },
   buyRecharge(e){
     const p=this.data.rechargePromos[Number(e.currentTarget.dataset.index)];
     const { request, userId } = require('../../services/api');
     if(!this.profileValid())return wx.showModal({title:'补充办理信息',content:'请先填写办理人姓名和手机号',showCancel:false});
     const saved=this.currentProfile();
-    request('/api/recharge-orders',{method:'POST',data:{userId:userId(),phone:saved.phone,paidInCents:p.pay*100,receiveInCents:p.receive*100}})
-      .then(()=>{wx.showToast({title:'话费权益已提交'});setTimeout(()=>wx.navigateTo({url:`/pages/consult/consult?type=${encodeURIComponent('话费到账确认')}&interest=${encodeURIComponent(`充${p.pay}送${p.receive}`)}`}),650)})
-      .catch(()=>wx.navigateTo({url:`/pages/consult/consult?type=${encodeURIComponent('话费权益')}&interest=${encodeURIComponent(`充${p.pay}送${p.receive}`)}`}));
+    request('/api/recharge-orders',{method:'POST',data:{phone:saved.phone,paidInCents:p.pay*100,receiveInCents:p.receive*100}})
+      .then(({data})=>{wx.navigateTo({url:'/pages/recharge/detail?promo='+encodeURIComponent(JSON.stringify({...p,phone:saved.phone}))+'&orderId='+encodeURIComponent(data.id)})})
+      .catch((error)=>{wx.showModal({title:'提交失败',content:error.message||'请稍后重试',showCancel:false})});
   },
   setCompanionPhone(e){this.setData({companionPhone:e.detail.value})},
   applyBroadband(){
@@ -37,9 +38,9 @@ Page({
     if(!this.profileValid())return wx.showModal({title:'补充办理信息',content:'请先填写办理人姓名和手机号',showCancel:false});
     if(!/^1\d{10}$/.test(this.data.companionPhone.trim()))return wx.showToast({title:'请填写同伴手机号',icon:'none'});
     const saved=this.currentProfile();
-    request('/api/broadband-applications',{method:'POST',data:{userId:userId(),ownerPhone:saved.phone,companionPhone:this.data.companionPhone}})
+    request('/api/broadband-applications',{method:'POST',data:{ownerPhone:saved.phone,companionPhone:this.data.companionPhone}})
       .then(()=>{wx.showToast({title:'宽带资格已提交'});setTimeout(()=>wx.navigateTo({url:'/pages/orders/orders'}),650)})
-      .catch(()=>wx.navigateTo({url:`/pages/consult/consult?type=${encodeURIComponent('宽带资格')}&interest=${encodeURIComponent('双人购卡宽带')}`}));
+      .catch((error)=>{wx.showModal({title:'提交失败',content:error.message||'请稍后重试',showCancel:false})});
   },
   currentProfile(){
     const profile=wx.getStorageSync('shishanUserProfile')||{};
