@@ -11,7 +11,11 @@ App({
     if (!wx.cloud) {
       console.error("Cloud API is unavailable.");
     } else {
-      wx.cloud.init({ env: CLOUD_ENV_ID, traceUser: true });
+      try {
+        wx.cloud.init({ env: CLOUD_ENV_ID, traceUser: true });
+      } catch (error) {
+        console.error("Cloud init failed:", error);
+      }
     }
     if (!wx.getStorageSync("campusGoOrders")) {
       wx.setStorageSync("campusGoOrders", []);
