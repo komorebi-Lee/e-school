@@ -25,6 +25,22 @@ function responseError(response) {
 }
 
 function loginWeChat() {
+  const demoMode = true;
+  if (demoMode) {
+    return new Promise((resolve, reject) => {
+      callContainer('/api/auth/demo-login', { method: 'POST' }).then((response) => {
+        if (Number(response.statusCode || 0) < 200 || Number(response.statusCode || 0) >= 300) {
+          return reject(responseError(response));
+        }
+        const { token, userId, expiresIn } = response.data?.data || {};
+        if (!token || !userId) return reject(new Error('登录失败，请稍后重试'));
+        wx.setStorageSync('campusGoUserToken', token);
+        wx.setStorageSync('campusGoUserId', userId);
+        wx.setStorageSync('campusGoUserTokenExpiresAt', Date.now() + (expiresIn || 604800) * 1000);
+        resolve({ token, userId });
+      }).catch((error) => reject(new Error(error.errMsg || '登录失败，请稍后重试')));
+    });
+  }
   return new Promise((resolve, reject) => {
     wx.login({
       success: ({ code }) => {
