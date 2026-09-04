@@ -19,7 +19,7 @@ Page({
     const { request, userId } = require('../../services/api');
     if(!this.profileValid())return wx.showModal({title:'补充办理信息',content:'请先填写办理人姓名和手机号',showCancel:false});
     const saved=this.currentProfile();
-    request('/api/phone-card-orders',{method:'POST',data:{customerName:saved.name,phone:saved.phone,planName:p.name,amountInCents:p.monthlyFee*100}})
+    request('/api/phone-card-orders',{method:'POST',header:{'Idempotency-Key':'tel-'+Date.now()+'-'+Math.random().toString(36).slice(2,8)},data:{customerName:saved.name,phone:saved.phone,planName:p.name,amountInCents:p.monthlyFee*100}})
       .then(({data})=>{wx.showToast({title:'电话卡订单已提交'});setTimeout(()=>wx.navigateTo({url:`/pages/consult/consult?type=${encodeURIComponent('电话卡实名激活')}&interest=${encodeURIComponent(`${p.name}（${data.id}）`)}`}),650)})
       .catch((error)=>{wx.showModal({title:'提交失败',content:error.message||'请稍后重试',showCancel:false})});
   },
@@ -27,10 +27,12 @@ Page({
     const p=this.data.rechargePromos[Number(e.currentTarget.dataset.index)];
     const { request, userId } = require('../../services/api');
     if(!this.profileValid())return wx.showModal({title:'补充办理信息',content:'请先填写办理人姓名和手机号',showCancel:false});
+    if(this.creatingRecharge)return;
+    this.creatingRecharge=true;
     const saved=this.currentProfile();
-    request('/api/recharge-orders',{method:'POST',data:{phone:saved.phone,paidInCents:p.pay*100,receiveInCents:p.receive*100}})
-      .then(({data})=>{wx.navigateTo({url:'/pages/recharge/detail?promo='+encodeURIComponent(JSON.stringify({...p,phone:saved.phone}))+'&orderId='+encodeURIComponent(data.id)})})
-      .catch((error)=>{wx.showModal({title:'提交失败',content:error.message||'请稍后重试',showCancel:false})});
+    request('/api/recharge-orders',{method:'POST',header:{'Idempotency-Key':'rech-'+Date.now()+'-'+Math.random().toString(36).slice(2,8)},data:{phone:saved.phone,paidInCents:p.pay*100,receiveInCents:p.receive*100}})
+      .then(({data})=>{this.creatingRecharge=false;wx.navigateTo({url:'/pages/recharge/detail?promo='+encodeURIComponent(JSON.stringify({...p,phone:saved.phone}))+'&orderId='+encodeURIComponent(data.id)})})
+      .catch((error)=>{this.creatingRecharge=false;wx.showModal({title:'提交失败',content:error.message||'请稍后重试',showCancel:false})});
   },
   setCompanionPhone(e){this.setData({companionPhone:e.detail.value})},
   applyBroadband(){

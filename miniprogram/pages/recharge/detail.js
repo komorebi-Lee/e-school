@@ -6,7 +6,7 @@ Page({
     const promo = this.decode(options.promo);
     this.setData({
       promo: promo || { id: '', pay: 0, receive: 0, badge: '限时权益', phone: wx.getStorageSync('shishanUserProfile')?.phone || '' },
-      orderId: this.decode(options.orderId)
+      orderId: options.orderId ? decodeURIComponent(options.orderId) : ''
     });
     if (!promo) this.loadOrder(this.data.orderId);
   },
@@ -38,9 +38,11 @@ Page({
         decoded = next;
       } catch (error) { break; }
     }
+    if (!/^[\[{]/.test(decoded)) return null;
     try { return JSON.parse(decoded); } catch (error) { return null; }
   },
   createOrder() {
+    if (this.data.orderId) return this.simulatePay();
     const saved = wx.getStorageSync('shishanUserProfile') || {};
     const { promo } = this.data;
     if (!saved.phone || !/^1\d{10}$/.test(saved.phone)) {
@@ -69,7 +71,7 @@ Page({
     }, 900);
   },
   consult() {
-    const { promo, orderId } = this.data;
+        const { promo, orderId } = this.data;
     wx.navigateTo({
       url: `/pages/consult/consult?type=${encodeURIComponent('话费到账确认')}&interest=${encodeURIComponent(`充${promo.pay}送${promo.receive}（${orderId}）`)}`
     });
