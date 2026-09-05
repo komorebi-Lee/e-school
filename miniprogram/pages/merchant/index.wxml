@@ -40,11 +40,24 @@
       <view class="settle-cells">
         <view class="settle-cell"><text>待交付核验</text><strong>¥{{metrics.settlementMetrics.pendingDeliveryInCents / 100}}</strong></view>
         <view class="settle-cell"><text>账期中</text><strong>¥{{metrics.settlementMetrics.inAccountPeriodInCents / 100}}</strong></view>
+        <view class="settle-cell" wx:if="{{metrics.settlementMetrics.payoutRequestedInCents}}"><text>提现待审核</text><strong>¥{{metrics.settlementMetrics.payoutRequestedInCents / 100}}</strong></view>
         <view class="settle-cell"><text>已结算</text><strong>¥{{metrics.settlementMetrics.settledInCents / 100}}</strong></view>
         <view class="settle-cell" wx:if="{{metrics.settlementMetrics.frozenInCents}}"><text>售后冻结</text><strong class="warn">¥{{metrics.settlementMetrics.frozenInCents / 100}}</strong></view>
         <view class="settle-cell" wx:if="{{metrics.settlementMetrics.refundedInCents}}"><text>已冲销</text><strong class="warn">¥{{metrics.settlementMetrics.refundedInCents / 100}}</strong></view>
       </view>
+      <view class="payout-action">
+        <view class="payout-hint">{{payoutHint}}</view>
+        <button class="payout-button {{canRequestPayout ? '' : 'disabled'}}" disabled="{{!canRequestPayout || payoutSubmitting}}" bindtap="requestPayout">申请提现</button>
+      </view>
+      <view class="muted payout-note">起提金额 ¥{{payoutMinimumText}}，提交后由平台核对收款账户并打款</view>
     </view>
+    <block wx:if="{{payoutRequests.length}}">
+      <view class="section-title">提现记录</view>
+      <view class="card order" wx:for="{{payoutRequests}}" wx:key="id">
+        <view class="settle-main"><view class="strong">{{item.requestNo}}</view><view class="muted">{{item.createdText}} · {{item.settlementCount}} 笔分账</view><view class="muted stage-hint">{{item.noteText}}</view></view>
+        <view class="right"><view class="price">¥{{item.amountText}}</view><view class="status-text tone-{{item.statusTone}}">{{item.statusLabel}}</view></view>
+      </view>
+    </block>
     <view class="section-title">最近订单</view>
     <view class="card order" wx:for="{{orders}}" wx:key="id">
       <view><view class="strong">{{item.orderNo}}</view><view class="muted">{{item.items[0].name}}{{item.items.length > 1 ? ' 等' : ''}}</view></view>
