@@ -3,8 +3,13 @@ const { getScooter } = require('../../services/store');
 const { loadBusinessConfig } = require('../../services/business');
 
 Page({
-  data: { scooter: null, config: null, deliveryTimeSlots: [], deliveryTimeIndex: 0, name: '', phone: '', date: '', deliveryAddress: '', submitting: false, payToken: '', itemsFee: 0, deliveryFee: 0, totalFee: 0 },
-  onShow() { const profile=wx.getStorageSync('shishanUserProfile')||{}; if(profile.name||profile.phone) this.setData({name:profile.name||'',phone:profile.phone||''}); },
+  data: { scooter: null, config: null, deliveryTimeSlots: [], deliveryTimeIndex: 0, name: '', phone: '', date: '', minDate: '', deliveryAddress: '', submitting: false, payToken: '', itemsFee: 0, deliveryFee: 0, totalFee: 0 },
+  onShow() {
+    const now = new Date();
+    const minDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const profile=wx.getStorageSync('shishanUserProfile')||{};
+    this.setData({ minDate, name:profile.name||'', phone:profile.phone||'', date: this.data.date || minDate });
+  },
   onLoad(options) {
     const id = options.id || '';
     this.setData({ payToken: `ebike-${id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` });

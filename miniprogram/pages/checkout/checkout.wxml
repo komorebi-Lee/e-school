@@ -3,7 +3,7 @@
   <view class="section-title">校内配送信息</view><view class="form card">
     <view class="field"><text class="field-label">联系人</text><input class="input" placeholder="请输入姓名" bindinput="setName" /></view>
     <view class="field"><text class="field-label">手机号</text><input class="input" type="number" maxlength="11" placeholder="用于确认库存" bindinput="setPhone" /></view>
-    <view class="field"><text class="field-label">配送日期</text><picker mode="date" bindchange="setDate"><view class="input">{{date || '请选择日期'}}  ▾</view></picker></view>
+    <view class="field"><text class="field-label">配送日期</text><picker mode="date" start="{{minDate}}" bindchange="setDate"><view class="input">{{date || '请选择日期'}}  ▾</view></picker></view>
     <view class="field"><text class="field-label">配送时段</text><picker range="{{deliveryTimeSlots}}" bindchange="setDeliveryTime"><view class="input">{{deliveryTimeSlots[deliveryTimeIndex] || '请选择时段'}}  ▾</view></picker></view>
     <view class="field"><text class="field-label">校内配送地址</text><input class="input" placeholder="例如：荟园学生社区附近" bindinput="setAddress" /></view>
     <view class="field"><text class="field-label">付款方式</text><view class="input fixed">在线支付（模拟）</view></view>
