@@ -12,6 +12,7 @@
       <view class="metric card"><text>库存预警</text><strong>{{metrics.lowStockCount}}</strong></view>
     </view>
     <view class="metric-grid">
+      <view class="metric card"><text>平台服务费率</text><strong>{{metrics.settlementMetrics.commissionRatePercent}}%</strong></view>
       <view class="metric card"><text>待结算（元）</text><strong>{{metrics.settlementMetrics.payableInCents / 100}}</strong></view>
       <view class="metric card"><text>已冲销（元）</text><strong>{{metrics.settlementMetrics.refundedInCents / 100}}</strong></view>
     </view>
@@ -23,7 +24,7 @@
     <view wx:if="{{!orders.length}}" class="empty card"><view class="muted">暂无商家订单</view></view>
     <view class="section-title">最近分账</view>
     <view class="card order" wx:for="{{settlements}}" wx:key="id">
-      <view><view class="strong">{{item.orderNo}}</view><view class="muted">平台服务费 ¥{{item.platformFeeInCents / 100}}</view></view>
+      <view><view class="strong">{{item.orderNo}}</view><view class="muted">费率 {{item.commissionRatePercent}}% · 服务费 ¥{{item.platformFeeInCents / 100}}</view></view>
       <view class="right"><view class="price">¥{{item.payableAmountInCents / 100}}</view><view class="muted status-text">{{item.settlementStatus === 'PENDING_SETTLE' ? '待结算' : '已冲销'}}</view></view>
     </view>
     <view wx:if="{{!settlements.length}}" class="empty card"><view class="muted">支付成功后生成分账记录</view></view>
