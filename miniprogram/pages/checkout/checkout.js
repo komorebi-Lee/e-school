@@ -40,8 +40,17 @@ Page({
     wx.setStorageSync('shishanUserProfile',{...wx.getStorageSync('shishanUserProfile')||{},name,phone});
     this.setData({ submitting: true });
     request('/api/orders', { method: 'POST', header: { 'Idempotency-Key': this.data.payToken }, data: { userId: userId(), items: [{ productId: scooter.id, quantity: 1 }], fulfillment: { type: 'DELIVERY', address: deliveryAddress, date, timeSlot: this.data.deliveryTimeSlots[this.data.deliveryTimeIndex] || '', contactName: name, contactPhone: phone } } })
-      .then(({ data }) => {
-        wx.showModal({ title:'模拟支付成功', content:'购车订单已进入待配送状态，系统已同步生成免费校园牌照辅助。', confirmText:'查看订单', showCancel:false, success:()=>wx.switchTab({url:'/pages/orders/orders'}) });
+      .then(({ data, paymentOrder }) => {
+        if (!paymentOrder || !paymentOrder.id) throw new Error('支付单创建失败');
+        return request(`/api/payment-orders/${encodeURIComponent(paymentOrder.id)}/confirm`, { method: 'POST' }).then(({ data: result }) => {
+          wx.showModal({
+            title: '模拟支付成功',
+            content: `订单 ${result.order.orderNo} 已支付。平台购车订单会同步生成免费校园牌照辅助。`,
+            confirmText: '查看订单',
+            showCancel: false,
+            success: () => wx.switchTab({ url: '/pages/orders/orders' })
+          });
+        });
       })
       .catch((error) => { this.setData({ submitting: false }); wx.showToast({ title: error.message || '提交失败', icon: 'none' }); });
   }

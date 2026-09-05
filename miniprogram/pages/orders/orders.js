@@ -26,7 +26,7 @@ function uploadReviewImage(file) {
 }
 const roleNames = { USER:'我', MERCHANT:'商家', PLATFORM:'平台' };
 const statusTones = {
-  PAID:'blue', FULFILLING:'run', COMPLETED:'done', CANCELLED:'closed', AFTER_SALE:'warn',
+  PENDING_PAYMENT:'todo', PAID:'blue', FULFILLING:'run', COMPLETED:'done', CANCELLED:'closed', AFTER_SALE:'warn',
   PENDING_REALNAME:'todo', ACTIVATED:'done', REJECTED:'closed',
   PENDING_CREDIT:'todo', CREDITED:'done',
   PENDING_VERIFY:'todo', APPROVED:'done',
@@ -37,6 +37,10 @@ function card(item) {
   const isEbike = item.type === 'E_BIKE';
   const type = item.type;
   const actions = [];
+  if (isEbike && item.status === 'PENDING_PAYMENT') {
+    actions.push({ key:'pay', text:'去支付' });
+    actions.push({ key:'cancel', text:'取消订单' });
+  }
   const fulfillment = isEbike ? (item.fulfillment || {}) : {};
   const reviewedProductIds = item.reviewedProductIds || [];
   if (type === 'E_BIKE') {
@@ -107,6 +111,7 @@ Page({
         id:order.id, recordNo:order.orderNo || order.id, type:'E_BIKE',
         title:order.items.map(item=>`${item.name}${item.quantity>1?` ×${item.quantity}`:''}`).join(' + '),
         status:order.status, amountInCents:order.totalInCents,
+        paymentOrderId:order.paymentOrderId,
         items:order.items || [],
         reviewedProductIds:reviewedProductIds.filter(key=>key.startsWith(`${order.id}:`)).map(key=>key.split(':')[1]),
         relatedIds:order.plateApplicationId?{plateApplicationId:order.plateApplicationId}:{},
@@ -195,6 +200,30 @@ Page({
         });
       }
     });
+  },
+  runPayment(e){
+    const id=e.currentTarget.dataset.id;
+    if(!id||this.data.submitting) return;
+    this.setData({submitting:true});
+    const order=(this.data.records||[]).find(record=>record.id===id);
+    this.runOrderPayment(order?.paymentOrderId)
+      .then(()=>{wx.showToast({title:'支付成功',icon:'success'});this.loadRecords();})
+      .catch(error=>wx.showToast({title:error.message||'支付失败',icon:'none'}))
+      .finally(()=>this.setData({submitting:false}));
+  },
+  runOrderPayment(paymentOrderId){
+    if(!paymentOrderId) return Promise.reject(new Error('支付单不存在'));
+    return request(`/api/payment-orders/${encodeURIComponent(paymentOrderId)}/confirm`,{method:'POST'});
+  },
+  cancelOrder(e){
+    const id=e.currentTarget.dataset.id;
+    if(!id) return;
+    wx.showModal({title:'取消订单',content:'确定取消这笔待支付订单吗？',success:({confirm})=>{
+      if(!confirm) return;
+      request(`/api/orders/${encodeURIComponent(id)}/cancel`,{method:'POST'})
+        .then(()=>{wx.showToast({title:'已取消',icon:'success'});this.loadRecords();})
+        .catch(error=>wx.showToast({title:error.message||'取消失败',icon:'none'}));
+    }});
   },
   sendCollab(e){
     const {id,action,text}=e.currentTarget.dataset;
