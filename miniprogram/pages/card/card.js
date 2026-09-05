@@ -1,5 +1,5 @@
 Page({
-  data:{plans:[],rechargePromos:[],selectedPlan:0,activeSection:0,profileName:'',profilePhone:'',companionPhone:'',submitting:false},
+  data:{plans:[],rechargePromos:[],selectedPlan:0,selectedPromo:null,activeSection:0,profileName:'',profilePhone:'',companionPhone:'',submitting:false},
   onLoad(){
     const profile=wx.getStorageSync('shishanUserProfile')||{};
     this.setData({profileName:profile.name||'',profilePhone:profile.phone||'',companionPhone:profile.companionPhone||''});
@@ -24,6 +24,10 @@ Page({
     }).catch(()=>{});
   },
   choosePlan(e){this.setData({selectedPlan:Number(e.currentTarget.dataset.index)})},
+  choosePromo(e){
+    const index=Number(e.currentTarget.dataset.index);
+    this.setData({selectedPromo:this.data.selectedPromo===index?null:index});
+  },
   onReady(){this.measureSections()},
   measureSections(){const query=wx.createSelectorQuery();query.selectAll('.business-section').boundingClientRect();query.selectViewport().scrollOffset();query.exec(res=>{const scrollTop=(res[1]&&res[1].scrollTop)||0;this.sectionTops=(res[0]||[]).map(item=>item.top+scrollTop)})},
   onPageScroll(e){const tops=this.sectionTops||[];if(tops.length!==3)return;const marker=e.scrollTop+150;let active=0;if(marker>=tops[2])active=2;else if(marker>=tops[1])active=1;if(active!==this.data.activeSection)this.setData({activeSection:active})},
@@ -38,23 +42,18 @@ Page({
     const { request } = require('../../services/api');
     if(!this.profileValid())return wx.showModal({title:'补充办理信息',content:'请先填写办理人姓名和手机号',showCancel:false});
     if(this.data.submitting)return;
+    const promo=this.data.selectedPromo===null?null:this.data.rechargePromos[this.data.selectedPromo];
     const saved=this.currentProfile();
     this.setData({submitting:true});
     request('/api/phone-card-orders',{method:'POST',header:{'Idempotency-Key':'tel-'+Date.now()+'-'+Math.random().toString(36).slice(2,8)},data:{customerName:saved.name,phone:saved.phone,planName:p.name,amountInCents:p.monthlyFee*100}})
-      .then(({data})=>{this.setData({submitting:false});wx.showModal({title:'提交成功',content:'套餐订单已进入实名激活跟进，客服将在24小时内联系你。',confirmText:'查看订单',cancelText:'继续浏览',success:(result)=>{if(result.confirm)wx.switchTab({url:'/pages/orders/orders'})}})})
+      .then(({data})=>{
+        const finish=(benefitText)=>{this.setData({submitting:false});wx.showModal({title:'提交成功',content:`${p.name}已进入实名激活跟进${benefitText}，客服将在24小时内联系你。`,confirmText:'查看订单',cancelText:'继续浏览',success:(result)=>{if(result.confirm)wx.switchTab({url:'/pages/orders/orders'})}})};
+        if(!promo)return finish('');
+        return request('/api/recharge-orders',{method:'POST',header:{'Idempotency-Key':'rech-'+Date.now()+'-'+Math.random().toString(36).slice(2,8)},data:{phone:saved.phone,paidInCents:promo.pay*100,receiveInCents:promo.receive*100}})
+          .then(()=>finish('，限时福利已同步创建'))
+          .catch(()=>finish('，限时福利下单失败，可联系客服处理'));
+      })
       .catch((error)=>{this.setData({submitting:false});wx.showModal({title:'提交失败',content:error.message||'请稍后重试',showCancel:false})});
-  },
-  buyRecharge(e){
-    const p=this.data.rechargePromos[Number(e.currentTarget.dataset.index)];
-    const { request } = require('../../services/api');
-    if(!p)return wx.showToast({title:'暂无可办理套餐',icon:'none'});
-    if(!this.profileValid())return wx.showModal({title:'补充办理信息',content:'请先填写办理人姓名和手机号',showCancel:false});
-    if(this.creatingRecharge)return;
-    this.creatingRecharge=true;
-    const saved=this.currentProfile();
-    request('/api/recharge-orders',{method:'POST',header:{'Idempotency-Key':'rech-'+Date.now()+'-'+Math.random().toString(36).slice(2,8)},data:{phone:saved.phone,paidInCents:p.pay*100,receiveInCents:p.receive*100}})
-      .then(({data})=>{this.creatingRecharge=false;wx.navigateTo({url:'/pages/recharge/detail?promo='+encodeURIComponent(JSON.stringify({...p,phone:saved.phone}))+'&orderId='+encodeURIComponent(data.id)})})
-      .catch((error)=>{this.creatingRecharge=false;wx.showModal({title:'提交失败',content:error.message||'请稍后重试',showCancel:false})});
   },
   applyBroadband(){
     const { request } = require('../../services/api');
