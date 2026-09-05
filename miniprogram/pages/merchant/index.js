@@ -1,7 +1,7 @@
 const { request: apiRequest, userId } = require('../../services/api');
 
 Page({
-  data: { merchant: null, metrics: null, products: [], orders: [], loading: true },
+  data: { merchant: null, metrics: null, products: [], orders: [], settlements: [], loading: true },
   onShow() {
     this.load();
   },
@@ -26,7 +26,7 @@ Page({
       wx.setStorageSync('campusGoMerchantId', approved.id);
       return tryLogin(approved.id);
     })).then(({ data }) => {
-      this.setData({ merchant: data.merchant, metrics: data.metrics, products: data.products, orders: data.orders.slice(0, 5), loading: false });
+      this.setData({ merchant: data.merchant, metrics: data.metrics, products: data.products, orders: data.orders.slice(0, 5), settlements: (data.settlements || []).slice(0, 5), loading: false });
     }).catch(() => {
       this.setData({ loading: false });
       wx.removeStorageSync('campusGoMerchantId');
