@@ -7,5 +7,6 @@
     <view class="field"><text class="field-label">校内配送地址</text><input class="input" placeholder="例如：荟园学生社区附近" bindinput="setAddress" /></view>
     <view class="field"><text class="field-label">付款方式</text><view class="input fixed">在线支付（模拟）</view></view>
   </view>
+  <view class="price-summary card"><view class="summary-row"><text>车辆费用</text><text>¥{{scooter.price}}</text></view><view class="summary-row"><text>校内配送</text><text>免费</text></view><view class="summary-row total"><text>合计</text><text>¥{{scooter.price}}</text></view><view class="summary-note">含免费校园牌照辅助，支付成功后进入待配送。</view></view>
   <view class="agreement">在线支付成功后自动创建校内配送订单，并同步免费校园牌照辅助。</view><button class="primary-button" bindtap="submit">提交并支付（模拟）</button>
 </view>

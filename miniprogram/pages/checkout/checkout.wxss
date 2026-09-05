@@ -1,1 +1,5 @@
 .summary { display: flex; padding: 24rpx; align-items: center; }.mark { width: 130rpx; height: 130rpx; border-radius: 22rpx; display: flex; align-items: center; justify-content: center; font-size: 54rpx; color: #1746a2; font-weight: 900; margin-right: 22rpx; }.name { font-size: 31rpx; font-weight: 900; }.summary .price { margin-top: 12rpx; }.form { padding: 28rpx; }.fixed { color: #536078; }.agreement { color: #78849a; font-size: 22rpx; line-height: 1.6; margin: 24rpx 4rpx; }
+.price-summary { padding: 24rpx; margin-top: 22rpx; }
+.summary-row { display: flex; justify-content: space-between; color: #536078; font-size: 24rpx; margin-bottom: 16rpx; }
+.summary-row.total { color: #172033; font-size: 30rpx; font-weight: 900; margin-bottom: 14rpx; }
+.summary-note { color: #78849a; font-size: 21rpx; line-height: 1.5; }

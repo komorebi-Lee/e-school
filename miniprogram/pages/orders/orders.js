@@ -20,6 +20,7 @@ function card(item) {
   const isEbike = item.type === 'E_BIKE';
   const type = item.type;
   const actions = [];
+  const fulfillment = isEbike ? (item.fulfillment || {}) : {};
   if (type === 'E_BIKE') {
     if (!['COMPLETED','CANCELLED','AFTER_SALE'].includes(item.status)) actions.push({ key:'edit', text:'修改配送' });
     if (item.status !== 'CANCELLED') actions.push({ key:'collab', text:'联系商家', action:'NOTE' });
@@ -47,6 +48,7 @@ function card(item) {
     timeText: (item.updatedAt || item.createdAt || '').slice(5,16).replace('T',' '),
     priceText: item.amountInCents ? `¥${(item.amountInCents / 100).toFixed(2)}` : '',
     statusLabel:item.statusLabel || '处理中',
+    deliveryText: fulfillment.address ? `${fulfillment.date || '尽快配送'} · ${fulfillment.address}` : '',
     actions,
     merchantName:item.merchantName || '',
     nextStep:item.collaboration?.roleActions?.MERCHANT?.length ? '商家确认履约' : item.collaboration?.roleActions?.PLATFORM?.length ? '平台介入处理' : item.status === 'COMPLETED' ? '等待用户确认服务' : '等待履约更新',

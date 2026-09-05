@@ -22,6 +22,7 @@
   <view class="record card" wx:for="{{filtered}}" wx:key="id">
     <view class="record-head"><view class="record-type"><text class="record-icon">{{item.icon}}</text>{{item.typeLabel}}</view><text class="status tone-{{item.tone}}">{{item.statusLabel}}</text></view>
     <view class="record-title">{{item.title}}</view>
+    <view class="delivery-row" wx:if="{{item.deliveryText}}"><text class="muted">配送</text><text>{{item.deliveryText}}</text></view>
     <view class="record-meta"><text>{{item.recordNo}}</text><text>{{item.timeText}}</text></view>
     <view class="collab" wx:if="{{item.collaboration}}">
       <view class="collab-row"><text class="muted">商家</text><text>{{item.merchantName || '平台自营'}}</text></view>

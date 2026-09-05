@@ -1,12 +1,51 @@
 const { request } = require('../../services/api');
 const { getScooters } = require('../../services/store');
+
+function normalizeProduct(item) {
+  return {
+    ...item,
+    price: Math.round((item.priceInCents || 0) / 100),
+    subtitle: item.description || '支持校内配送和校园牌照辅助。',
+    range: item.range || (item.id === 'prod_ebike_rent_001' ? '70 km' : '45 km'),
+    speed: item.speed || '25 km/h',
+    icon: item.icon || '车',
+    color: item.color || '#eaf0ff',
+    stockText: item.stock > 0 ? (item.stock < 5 ? `仅剩 ${item.stock} 件` : `库存 ${item.stock}`) : '已售罄'
+  };
+}
+
 Page({
-  data: { scooters: [], loading: true },
+  data: { scooters: [], filtered: [], query: '', sortKey: 'recommend', sortOptions: [
+    { key: 'recommend', label: '综合推荐' },
+    { key: 'price', label: '价格优先' },
+    { key: 'range', label: '续航优先' },
+    { key: 'stock', label: '库存优先' }
+  ], loading: true },
   onLoad() { this.loadProducts(); },
   loadProducts() {
     request('/api/products?category=E_BIKE_NEW').then(({ data }) => {
-      this.setData({ scooters: (data || []).map(item => ({ ...item, price: Math.round(item.priceInCents / 100), subtitle: item.description, range: 45, icon: '车', color: '#eaf0ff' })), loading: false });
-    }).catch((error) => { console.error('云端商品加载失败:', error); this.setData({ scooters: getScooters(), loading: false }); wx.showToast({ title: '云端加载失败，已显示缓存', icon: 'none' }); });
+      const scooters = (data || []).map(normalizeProduct);
+      this.setData({ scooters, filtered: this.filterProducts(scooters, this.data.query, this.data.sortKey), loading: false });
+    }).catch((error) => { console.error('云端商品加载失败:', error); this.setData({ scooters: getScooters(), filtered: getScooters(), loading: false }); wx.showToast({ title: '云端加载失败，已显示缓存', icon: 'none' }); });
   },
-  goDetail(e) { wx.navigateTo({ url: `/pages/detail/detail?id=${e.currentTarget.dataset.id}` }); }
+  goDetail(e) { wx.navigateTo({ url: `/pages/detail/detail?id=${e.currentTarget.dataset.id}` }); },
+  setSearch(e) {
+    const query = e.detail.value.trim();
+    this.setData({ query, filtered: this.filterProducts(this.data.scooters, query, this.data.sortKey) });
+  },
+  setSort(e) {
+    const sortKey = e.currentTarget.dataset.key;
+    this.setData({ sortKey, filtered: this.filterProducts(this.data.scooters, this.data.query, sortKey) });
+  },
+  filterProducts(products, query, sortKey) {
+    const keyword = String(query || '').toLowerCase();
+    const filtered = products.filter(item => `${item.name} ${item.subtitle}`.toLowerCase().includes(keyword));
+    const rangeValue = value => Number(String(value || '').replace(/[^\d.]/g, '')) || 0;
+    const sorters = {
+      price: (a, b) => a.price - b.price,
+      range: (a, b) => rangeValue(b.range) - rangeValue(a.range),
+      stock: (a, b) => b.stock - a.stock
+    };
+    return sorters[sortKey] ? filtered.sort(sorters[sortKey]) : filtered;
+  }
 });
