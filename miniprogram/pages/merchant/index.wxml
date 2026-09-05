@@ -22,21 +22,39 @@
       <view class="metric card"><text>待回复评价</text><strong>{{metrics.pendingReplyCount || 0}}</strong></view>
       <view class="metric card"><text>售后超时</text><strong>{{metrics.afterSaleOverdueCount || 0}}</strong></view>
     </view>
-    <view class="metric-grid">
-      <view class="metric card"><text>平台服务费率</text><strong>{{metrics.settlementMetrics.commissionRatePercent}}%</strong></view>
-      <view class="metric card"><text>待结算（元）</text><strong>{{metrics.settlementMetrics.payableInCents / 100}}</strong></view>
-      <view class="metric card"><text>已冲销（元）</text><strong>{{metrics.settlementMetrics.refundedInCents / 100}}</strong></view>
+    <view class="section-title">资金账户</view>
+    <view class="settle-panel card">
+      <view class="settle-head">
+        <view><view class="strong">可结算余额</view><view class="muted">服务费率 {{metrics.settlementMetrics.commissionRatePercent}}% · 账期 {{metrics.settlementMetrics.settlementPeriodDays}} 天</view></view>
+        <view class="settle-amount">¥{{metrics.settlementMetrics.payableInCents / 100}}</view>
+      </view>
+      <view class="settle-flow">
+        <view class="flow-step"><text class="flow-index">1</text><text class="flow-text">支付成功</text></view>
+        <text class="flow-arrow">›</text>
+        <view class="flow-step"><text class="flow-index">2</text><text class="flow-text">交付核验</text></view>
+        <text class="flow-arrow">›</text>
+        <view class="flow-step"><text class="flow-index">3</text><text class="flow-text">账期 {{metrics.settlementMetrics.settlementPeriodDays}} 天</text></view>
+        <text class="flow-arrow">›</text>
+        <view class="flow-step"><text class="flow-index">4</text><text class="flow-text">平台打款</text></view>
+      </view>
+      <view class="settle-cells">
+        <view class="settle-cell"><text>待交付核验</text><strong>¥{{metrics.settlementMetrics.pendingDeliveryInCents / 100}}</strong></view>
+        <view class="settle-cell"><text>账期中</text><strong>¥{{metrics.settlementMetrics.inAccountPeriodInCents / 100}}</strong></view>
+        <view class="settle-cell"><text>已结算</text><strong>¥{{metrics.settlementMetrics.settledInCents / 100}}</strong></view>
+        <view class="settle-cell" wx:if="{{metrics.settlementMetrics.frozenInCents}}"><text>售后冻结</text><strong class="warn">¥{{metrics.settlementMetrics.frozenInCents / 100}}</strong></view>
+        <view class="settle-cell" wx:if="{{metrics.settlementMetrics.refundedInCents}}"><text>已冲销</text><strong class="warn">¥{{metrics.settlementMetrics.refundedInCents / 100}}</strong></view>
+      </view>
     </view>
     <view class="section-title">最近订单</view>
     <view class="card order" wx:for="{{orders}}" wx:key="id">
       <view><view class="strong">{{item.orderNo}}</view><view class="muted">{{item.items[0].name}}{{item.items.length > 1 ? ' 等' : ''}}</view></view>
-      <view class="right"><view class="price">¥{{item.totalInCents / 100}}</view><view class="muted status-text">{{item.status}}</view></view>
+      <view class="right"><view class="price">¥{{item.totalInCents / 100}}</view><view class="muted status-text">{{item.statusLabel}}</view></view>
     </view>
     <view wx:if="{{!orders.length}}" class="empty card"><view class="muted">暂无商家订单</view></view>
     <view class="section-title">最近分账</view>
     <view class="card order" wx:for="{{settlements}}" wx:key="id">
-      <view><view class="strong">{{item.orderNo}}</view><view class="muted">费率 {{item.commissionRatePercent}}% · 服务费 ¥{{item.platformFeeInCents / 100}}</view></view>
-      <view class="right"><view class="price">¥{{item.payableAmountInCents / 100}}</view><view class="muted status-text">{{item.settlementStatus === 'PENDING_SETTLE' ? '待结算' : '已冲销'}}</view></view>
+      <view class="settle-main"><view class="strong">{{item.orderNo}}</view><view class="muted">费率 {{item.commissionRatePercent}}% · 服务费 ¥{{item.platformFeeInCents / 100}}</view><view class="muted stage-hint">{{item.stageHint}}</view></view>
+      <view class="right"><view class="price">¥{{item.payableAmountInCents / 100}}</view><view class="status-text tone-{{item.stageTone}}">{{item.stageLabel}}</view></view>
     </view>
     <view wx:if="{{!settlements.length}}" class="empty card"><view class="muted">支付成功后生成分账记录</view></view>
     <view class="action-grid">

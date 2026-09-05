@@ -14,6 +14,25 @@
 .order { display: flex; justify-content: space-between; align-items: center; padding: 26rpx; margin-top: 18rpx; }
 .strong { font-weight: 800; }
 .right { text-align: right; }
-.status-text { margin-top: 6rpx; }
+.settle-main { flex: 1; padding-right: 18rpx; }
+.stage-hint { font-size: 20rpx; margin-top: 6rpx; line-height: 1.4; }
+.status-text { margin-top: 6rpx; font-size: 22rpx; font-weight: 800; }
+.tone-todo { color: #b26a00; }
+.tone-done { color: #157552; }
+.tone-blue { color: #002fa7; }
+.tone-warn { color: #c0392b; }
+.settle-panel { padding: 26rpx; margin-top: 18rpx; }
+.settle-head { display: flex; justify-content: space-between; align-items: flex-end; }
+.settle-amount { font-size: 44rpx; font-weight: 900; color: #002fa7; }
+.settle-flow { display: flex; align-items: center; justify-content: space-between; margin-top: 20rpx; padding: 16rpx 0; border-top: 1rpx solid #edf0f5; border-bottom: 1rpx solid #edf0f5; }
+.settle-cells { display: flex; flex-wrap: wrap; gap: 12rpx 0; margin-top: 16rpx; }
+.settle-cell { width: 33.3%; display: flex; flex-direction: column; gap: 4rpx; }
+.settle-cell text { color: #78849a; font-size: 20rpx; }
+.settle-cell strong { font-size: 28rpx; font-weight: 800; color: #1f2733; }
+.settle-cell strong.warn { color: #c0392b; }
+.flow-step { display: flex; align-items: center; gap: 8rpx; }
+.flow-index { width: 30rpx; height: 30rpx; line-height: 30rpx; text-align: center; border-radius: 999rpx; background: #eaefff; color: #002fa7; font-size: 18rpx; font-weight: 900; }
+.flow-text { font-size: 20rpx; color: #4a5568; }
+.flow-arrow { color: #c3cbd9; font-size: 24rpx; }
 .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18rpx; margin-top: 26rpx; }
 .action-grid button { margin: 0; }
