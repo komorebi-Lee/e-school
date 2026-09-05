@@ -29,7 +29,7 @@ Page({
     if(source==='external'&&!vehicleModel.trim())return wx.showToast({title:'请填写车辆型号',icon:'none'});
     if(this.data.submitting)return;
     this.setData({submitting:true});
-    request('/api/plate-applications',{method:'POST',data:{userId:userId(),customerName:name.trim(),customerPhone:phone.trim(),vehicleModel:source==='platform'?order.productName:vehicleModel.trim(),orderId:source==='platform'?order.id:''}})
+    request('/api/plate-applications',{method:'POST',data:{userId:userId(),customerName:name.trim(),customerPhone:phone.trim(),studentNo:studentNo.trim(),vehicleModel:source==='platform'?order.productName:vehicleModel.trim(),orderId:source==='platform'?order.id:''}})
       .then((result)=>{
         if(source!=='external'||!result.paymentOrder||!result.paymentOrder.id){
           wx.showModal({title:'申请已提交',content:'平台购车免费牌照辅助已创建，请按客服指引补齐材料。',showCancel:false,success:()=>{this.setData({submitting:false,vehicleModel:''});this.loadStatus()}});
