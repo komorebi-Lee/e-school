@@ -22,7 +22,15 @@ function card(item) {
   const type = item.type;
   const actions = [];
   const fulfillment = isEbike ? (item.fulfillment || {}) : {};
+  const reviewedProductIds = item.reviewedProductIds || [];
   if (type === 'E_BIKE') {
+    if (item.status === 'COMPLETED') {
+      (item.items || []).forEach((orderItem) => {
+        if (!reviewedProductIds.includes(orderItem.productId)) {
+          actions.push({ key:`review:${orderItem.productId}`, type:'review', text:`评价 ${orderItem.name}`, productId:orderItem.productId });
+        }
+      });
+    }
     if (!['COMPLETED','CANCELLED','AFTER_SALE'].includes(item.status)) actions.push({ key:'edit', text:'修改配送' });
     if (item.status !== 'CANCELLED') actions.push({ key:'collab', text:'联系商家', action:'NOTE' });
     if (!['COMPLETED','CANCELLED','AFTER_SALE'].includes(item.status)) actions.push({ key:'appeal', text:'平台协助', action:'APPEAL' });
@@ -69,21 +77,29 @@ function buildSessionFrom(record) {
 }
 
 Page({
-  data:{ active:'ALL', records:[], filtered:[], linkage:[], loading:true, consult:null },
+  data:{ active:'ALL', records:[], filtered:[], linkage:[], loading:true, consult:null, reviewing:false },
   onShow(){ this.loadRecords(); },
   loadRecords(){
-    request(`/api/my/orders?userId=${encodeURIComponent(userId())}`).then(({data})=>{
-      const ebikes=(data.ebikeOrders||[]).map(order=>({
+    Promise.all([
+      request('/api/my/orders'),
+      request('/api/my/product-reviews')
+    ]).then(([orderResponse, reviewResponse])=>{
+      const orderData=orderResponse.data || {};
+      const reviews=reviewResponse.data || [];
+      const reviewedProductIds=reviews.map(review=>`${review.orderId}:${review.productId}`);
+      const ebikes=(orderData.ebikeOrders||[]).map(order=>({
         id:order.id, recordNo:order.orderNo || order.id, type:'E_BIKE',
         title:order.items.map(item=>`${item.name}${item.quantity>1?` ×${item.quantity}`:''}`).join(' + '),
         status:order.status, amountInCents:order.totalInCents,
+        items:order.items || [],
+        reviewedProductIds:reviewedProductIds.filter(key=>key.startsWith(`${order.id}:`)).map(key=>key.split(':')[1]),
         relatedIds:order.plateApplicationId?{plateApplicationId:order.plateApplicationId}:{},
         merchantName:order.merchantName,
         collaboration:order.collaboration,
         createdAt:order.createdAt, updatedAt:order.updatedAt
       }));
-      const records=[...ebikes,...(data.serviceRecords||[])].map(card).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
-      this.setData({records,filtered:this.filterRecords(records,this.data.active),linkage:this.buildLinkage(data,records),loading:false});
+      const records=[...ebikes,...(orderData.serviceRecords||[])].map(card).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
+      this.setData({records,filtered:this.filterRecords(records,this.data.active),linkage:this.buildLinkage(orderData,records),loading:false});
     }).catch(error=>{
       this.setData({records:[],filtered:[],linkage:[],loading:false});
       wx.showToast({title:error.message||'订单加载失败',icon:'none'});
@@ -114,6 +130,38 @@ Page({
   },
   editOrder(e){wx.navigateTo({url:`/pages/edit-order/edit-order?id=${e.currentTarget.dataset.id}`})},
   afterSales(e){wx.navigateTo({url:`/pages/aftersales/aftersales?id=${e.currentTarget.dataset.id}`})},
+  openReview(e){
+    if(this.data.reviewing)return;
+    const record=this.data.records.find(item=>item.id===e.currentTarget.dataset.id);
+    const productId=e.currentTarget.dataset.productId;
+    if(!record||!productId)return;
+    wx.showActionSheet({
+      alertText:'为这次服务评分',
+      itemList:['★ 非常不满意','★★ 不满意','★★★ 一般','★★★★ 满意','★★★★★ 非常满意'],
+      success:({tapIndex})=>{
+        const rating=5-tapIndex;
+        wx.showModal({
+          title:'发布已购评价',
+          editable:true,
+          placeholderText:'请分享真实使用体验，例如车况、配送和服务响应',
+          success:res=>{
+            if(!res.confirm)return;
+            const content=(res.content||'').trim();
+            if(!content)return wx.showToast({title:'请填写评价内容',icon:'none'});
+            this.setData({reviewing:true});
+            request('/api/product-reviews',{method:'POST',data:{orderId:record.id,productId,rating,content}}).then(()=>{
+              this.setData({reviewing:false});
+              wx.showToast({title:'评价已发布',icon:'success'});
+              setTimeout(()=>this.loadRecords(),400);
+            }).catch(error=>{
+              this.setData({reviewing:false});
+              wx.showToast({title:error.message||'评价发布失败',icon:'none'});
+            });
+          }
+        });
+      }
+    });
+  },
   sendCollab(e){
     const {id,action,text}=e.currentTarget.dataset;
     wx.showModal({
