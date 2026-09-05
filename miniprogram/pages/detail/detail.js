@@ -13,7 +13,9 @@ function normalizeProduct(product) {
     policy: product.policy || '支持华中农业大学狮山校区校园牌照辅助申请。',
     service: product.service || ['校内配送', '平台购车牌照辅助', '售后专人跟进'],
     color: product.color || '#eaf0ff',
-    icon: product.icon || '车'
+    icon: product.icon || '车',
+    merchantName: product.merchantName || '平台自营',
+    stockText: product.stock > 0 ? (product.stock < 5 ? `仅剩 ${product.stock} 件` : `库存 ${product.stock}`) : '已售罄'
   };
 }
 
@@ -29,6 +31,7 @@ Page({
     });
   },
   checkout() {
+    if (this.data.scooter.stock <= 0) return wx.showToast({ title: '该车型已售罄', icon: 'none' });
     wx.navigateTo({ url: `/pages/checkout/checkout?id=${encodeURIComponent(this.data.scooter.id)}` });
   }
 });

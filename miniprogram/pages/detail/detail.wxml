@@ -1,8 +1,13 @@
-<view wx:if="{{scooter}}" class="page detail-page">
-  <view class="visual" style="background: {{scooter.color}}"><view class="pill badge">{{scooter.badge}}</view><text>{{scooter.icon}}</text></view>
-  <view class="main card"><view class="name">{{scooter.name}}</view><view class="muted">{{scooter.subtitle}}</view><view class="price-line"><text class="price">¥{{scooter.price}}</text><text wx:if="{{scooter.originalPrice}}" class="original">¥{{scooter.originalPrice}}</text></view></view>
+<view class="page detail-page">
+  <view wx:if="{{loading}}" class="empty card"><view class="muted">正在加载车型…</view></view>
+  <view wx:elif="{{!scooter}}" class="empty card"><view class="muted">车型不存在或已下架</view></view>
+  <block wx:else>
+  <view class="visual" style="background: {{scooter.color}}"><view class="pill badge">{{scooter.badge}}</view><image wx:if="{{scooter.imageUrl}}" class="product-image" src="{{scooter.imageUrl}}" mode="aspectFit" /><text wx:else>{{scooter.icon}}</text></view>
+  <view class="main card"><view class="name">{{scooter.name}}</view><view class="muted">{{scooter.subtitle}}</view><view class="price-line"><text class="price">¥{{scooter.price}}</text><text wx:if="{{scooter.originalPrice}}" class="original">¥{{scooter.originalPrice}}</text></view><view class="seller-line"><text class="seller">{{scooter.merchantName}}</text><text class="muted">{{scooter.stockText}}</text></view></view>
+  <view class="trust-grid"><view class="trust-item card"><text class="trust-mark">配</text><text>校内配送</text></view><view class="trust-item card"><text class="trust-mark">牌</text><text>牌照辅助</text></view><view class="trust-item card"><text class="trust-mark">付</text><text>在线支付</text></view></view>
   <view class="spec-grid"><view class="spec card"><text class="spec-value">{{scooter.range}}</text><text class="muted">参考续航</text></view><view class="spec card"><text class="spec-value">{{scooter.speed}}</text><text class="muted">最高速度</text></view></view>
   <view class="section-title">校区适配</view><view class="policy card"><text class="check">✓</text>{{scooter.policy}}</view>
   <view class="section-title">服务包含</view><view class="card services"><view wx:for="{{scooter.service}}" wx:key="*this" class="service-item"><text class="check">✓</text>{{item}}</view></view>
-  <view class="safe-space"></view><view class="bottom-bar"><view><view class="muted small">校内配送 · 可协助上牌</view><view class="price">¥{{scooter.price}}</view></view><button class="primary-button buy" bindtap="checkout">立即购买</button></view>
+  <view class="safe-space"></view><view class="bottom-bar"><view><view class="muted small">校内配送 · 可协助上牌</view><view class="price">¥{{scooter.price}}</view></view><button class="primary-button buy" disabled="{{!scooter.stock}}" bindtap="checkout">{{scooter.stock > 0 ? '立即购买' : '已售罄'}}</button></view>
+  </block>
 </view>
