@@ -22,9 +22,24 @@
         <text class="review-stars">{{item.stars}}</text>
       </view>
       <view class="review-content">{{item.content}}</view>
+      <view class="review-images" wx:if="{{item.images.length}}"><image wx:for="{{item.images}}" wx:for-item="image" wx:key="*this" class="review-image" src="{{image}}" mode="aspectFill" /></view>
+      <view class="merchant-reply" wx:if="{{item.reply}}"><view class="reply-head"><text class="reply-name">{{item.reply.merchantName}}</text><text class="muted reply-time">{{item.reply.timeText}}</text></view><view class="reply-content">{{item.reply.content}}</view></view>
     </view>
     <view wx:if="{{!scooter.reviews.length}}" class="muted review-empty">这款车型暂无已购评价，可先查看平台保障和服务承诺。</view>
   </view>
+
+  <view class="section-title">同类车型</view>
+  <view class="related-rail card" wx:if="{{scooter.relatedProducts.length}}">
+    <view class="related-item" wx:for="{{scooter.relatedProducts}}" wx:key="id" data-id="{{item.id}}" bindtap="goRelated">
+      <view class="related-visual" style="background: {{item.color}}"><image wx:if="{{item.imageUrl}}" class="related-image" src="{{item.imageUrl}}" mode="aspectFit" /><text wx:else>{{item.icon}}</text></view>
+      <view class="related-name">{{item.name}}</view>
+      <view class="muted related-copy">{{item.merchantName}} · {{item.stockText}}</view>
+      <view class="related-price">¥{{item.price}}<text class="muted related-score">{{item.ratingText}}</text></view>
+    </view>
+  </view>
+
+  <view class="section-title">买前常问</view>
+  <view class="questions card"><view class="question-item" wx:for="{{scooter.questions}}" wx:key="id"><view class="question">{{item.question}}</view><view class="answer">{{item.answer}}</view></view></view>
 
   <view class="safe-space"></view><view class="bottom-bar"><view><view class="muted small">校内配送 · 可协助上牌</view><view class="price">¥{{scooter.price}}</view></view><button class="primary-button buy" disabled="{{!scooter.stock}}" bindtap="checkout">{{scooter.stock > 0 ? '立即购买' : '已售罄'}}</button></view>
   </block>

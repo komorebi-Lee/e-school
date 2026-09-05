@@ -5,6 +5,7 @@ function normalizeProduct(product) {
   const description = product.description || '支持校内配送和校园牌照辅助。';
   const reviews = Array.isArray(product.reviews) ? product.reviews : [];
   const ratingSummary = product.ratingSummary || { average: 0, count: 0 };
+  const relatedProducts = Array.isArray(product.relatedProducts) ? product.relatedProducts : [];
   return {
     ...product,
     price: Math.round((product.priceInCents || 0) / 100),
@@ -29,8 +30,31 @@ function normalizeProduct(product) {
       initial: (review.customerName || '同').slice(0, 1),
       metaText: `${review.college || '华中农业大学'} · ${review.purchaseVerified ? '已购核验' : '未核验'} · ${String(review.createdAt || '').slice(0, 10)}`,
       stars: '★★★★★'.slice(0, Math.max(0, Math.min(5, Number(review.rating) || 0))),
-      content: review.content || ''
+      content: review.content || '',
+      images: Array.isArray(review.images) ? review.images.slice(0, 3) : [],
+      reply: review.reply ? {
+        merchantName: review.reply.merchantName || '商家回复',
+        content: review.reply.content || '',
+        timeText: String(review.reply.repliedAt || '').slice(0, 10)
+      } : null
     })),
+    relatedProducts: relatedProducts.map((item) => ({
+      id: item.id,
+      name: item.name,
+      subtitle: item.description,
+      price: Math.round((item.priceInCents || 0) / 100),
+      merchantName: item.merchantName || '平台自营',
+      imageUrl: item.imageUrl || '',
+      color: item.color || '#eaf0ff',
+      icon: item.icon || '车',
+      stockText: item.stock > 0 ? (item.stock < 5 ? `仅剩 ${item.stock} 件` : `库存 ${item.stock}`) : '已售罄',
+      ratingText: item.ratingSummary?.count ? item.ratingSummary.average.toFixed(1) : '新'
+    })),
+    questions: [
+      { id: 'q1', question: '能送到宿舍楼下吗？', answer: '支持校内配送，可按你填写的校内地址送到楼下。' },
+      { id: 'q2', question: '校园牌照怎么办理？', answer: '平台购车订单免费同步牌照辅助，支付后即可查看办理入口。' },
+      { id: 'q3', question: '有售后保障吗？', answer: '订单支持在线协商、平台协助和售后工单，重点看车况与充电适配。' }
+    ],
     stockText: product.stock > 0 ? (product.stock < 5 ? `仅剩 ${product.stock} 件` : `库存 ${product.stock}`) : '已售罄'
   };
 }
@@ -49,5 +73,10 @@ Page({
   checkout() {
     if (this.data.scooter.stock <= 0) return wx.showToast({ title: '该车型已售罄', icon: 'none' });
     wx.navigateTo({ url: `/pages/checkout/checkout?id=${encodeURIComponent(this.data.scooter.id)}` });
+  },
+  goRelated(e) {
+    const id = e.currentTarget.dataset.id;
+    if (!id) return;
+    wx.redirectTo({ url: `/pages/detail/detail?id=${encodeURIComponent(id)}` });
   }
 });
