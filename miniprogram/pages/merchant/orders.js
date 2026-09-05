@@ -17,6 +17,12 @@ Page({
         ...order,
         statusLabel: statusLabels[order.status] || order.status,
         nextStep: nextSteps[order.status] || '等待更新',
+        delivery: order.fulfillment?.type === 'DELIVERY' ? {
+          contactName: order.fulfillment.contactName || '未填写',
+          contactPhone: order.fulfillment.contactPhone || '未填写',
+          date: order.fulfillment.date || '尽快配送',
+          address: order.fulfillment.address || '未填写'
+        } : null,
         intervention: order.collaboration?.intervention?.status === 'REQUESTED',
         userMessages: (order.collaboration?.messages || []).filter((message)=>message.role==='USER').slice(0,2)
       }));

@@ -6,6 +6,12 @@
     <view class="order card" wx:for="{{orders}}" wx:key="id">
       <view class="head"><view class="strong">{{item.orderNo}}</view><text class="status tone-{{item.status}}">{{item.statusLabel}}</text></view>
       <view class="items"><view wx:for="{{item.items}}" wx:for-item="orderItem" wx:key="productId">{{orderItem.name}} × {{orderItem.quantity}}</view></view>
+      <view class="delivery" wx:if="{{item.delivery}}">
+        <view class="delivery-title">配送资料</view>
+        <view class="collab-row"><text class="muted">联系人</text><text>{{item.delivery.contactName}} · {{item.delivery.contactPhone}}</text></view>
+        <view class="collab-row"><text class="muted">时间</text><text>{{item.delivery.date}}</text></view>
+        <view class="collab-row"><text class="muted">地址</text><text>{{item.delivery.address}}</text></view>
+      </view>
       <view class="collab">
         <view class="collab-row"><text class="muted">下一步</text><text>{{item.nextStep}}</text></view>
         <view class="message" wx:for="{{item.userMessages}}" wx:for-item="message" wx:key="id"><text class="role">用户</text><text>{{message.text}}</text></view>
