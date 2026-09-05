@@ -3,7 +3,19 @@
   <view wx:if="{{loading}}" class="empty card"><view class="muted">正在加载…</view></view>
   <view wx:elif="{{!orders.length}}" class="empty card"><view class="muted">暂无订单</view></view>
   <block wx:else>
-    <view class="order card" wx:for="{{orders}}" wx:key="id">
+    <view class="metric-strip card" wx:if="{{metrics}}">
+      <view><text class="metric-value">¥{{metrics.revenueInCents / 100}}</text><text class="muted">销售额</text></view>
+      <view><text class="metric-value">{{metrics.pendingCount}}</text><text class="muted">待履约</text></view>
+      <view><text class="metric-value">{{afterSales.length}}</text><text class="muted">售后中</text></view>
+    </view>
+
+    <scroll-view class="filters" scroll-x show-scrollbar="{{false}}">
+      <view class="filter-inner">
+        <view wx:for="{{filters}}" wx:key="key" class="filter-tab {{filter === item.key ? 'active' : ''}}" data-key="{{item.key}}" bindtap="setFilter">{{item.label}}</view>
+      </view>
+    </scroll-view>
+
+    <view class="order card" wx:for="{{filtered}}" wx:key="id">
       <view class="head"><view class="strong">{{item.orderNo}}</view><text class="status tone-{{item.status}}">{{item.statusLabel}}</text></view>
       <view class="items"><view wx:for="{{item.items}}" wx:for-item="orderItem" wx:key="productId">{{orderItem.name}} × {{orderItem.quantity}}</view></view>
       <view class="delivery" wx:if="{{item.delivery}}">
@@ -20,6 +32,15 @@
         </view>
         <view class="message" wx:for="{{item.userMessages}}" wx:for-item="message" wx:key="id"><text class="role">用户</text><text>{{message.text}}</text></view>
         <view class="alert" wx:if="{{item.intervention}}">用户已请求平台协助</view>
+        <view class="aftersale-box" wx:if="{{item.afterSale}}">
+          <view class="aftersale-title">售后工单 · {{item.afterSale.typeLabel}}</view>
+          <view class="aftersale-reason">{{item.afterSale.reason}}</view>
+          <view class="muted aftersale-meta">编号 {{item.afterSale.id}} · {{item.afterSale.statusLabel}}<text wx:if="{{item.afterSale.dueText}}"> · {{item.afterSale.dueText}}前响应</text></view>
+          <view class="aftersale-actions">
+            <button size="mini" class="ghost-button" data-id="{{item.afterSale.id}}" data-status="REVIEWING" bindtap="updateAfterSale" disabled="{{item.afterSale.status === 'REVIEWING'}}">处理中</button>
+            <button size="mini" class="primary-button" data-id="{{item.afterSale.id}}" data-status="CLOSED" bindtap="updateAfterSale" disabled="{{item.afterSale.status === 'CLOSED'}}">处理完成</button>
+          </view>
+        </view>
       </view>
       <view class="bottom"><text class="price">¥{{item.totalInCents / 100}}</text>
         <view class="actions">
