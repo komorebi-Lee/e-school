@@ -30,7 +30,15 @@ Page({
     if(this.data.submitting)return;
     this.setData({submitting:true});
     request('/api/plate-applications',{method:'POST',data:{userId:userId(),customerName:name.trim(),customerPhone:phone.trim(),vehicleModel:source==='platform'?order.productName:vehicleModel.trim(),orderId:source==='platform'?order.id:''}})
-      .then(()=>{wx.showModal({title:'申请已提交',content:source==='platform'?'平台购车免费牌照辅助已创建，请按客服指引补齐材料。':'自带车服务已记录，客服将确认材料和服务费。',showCancel:false,success:()=>{this.setData({submitting:false,vehicleModel:''});this.loadStatus()}})})
+      .then((result)=>{
+        if(source!=='external'||!result.paymentOrder||!result.paymentOrder.id){
+          wx.showModal({title:'申请已提交',content:'平台购车免费牌照辅助已创建，请按客服指引补齐材料。',showCancel:false,success:()=>{this.setData({submitting:false,vehicleModel:''});this.loadStatus()}});
+          return;
+        }
+        return request(`/api/payment-orders/${encodeURIComponent(result.paymentOrder.id)}/confirm`,{method:'POST'}).then(()=>{
+          wx.showModal({title:'支付成功',content:`自带车服务费 ¥${this.data.serviceFee} 已支付，请按客服指引补充材料。`,showCancel:false,success:()=>{this.setData({submitting:false,vehicleModel:''});this.loadStatus()}});
+        });
+      })
       .catch(error=>{this.setData({submitting:false});wx.showToast({title:error.message||'提交失败',icon:'none'})});
   },
   callService(){wx.makePhoneCall({phoneNumber:'15527111396'})}

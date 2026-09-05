@@ -37,7 +37,7 @@ function card(item) {
   const isEbike = item.type === 'E_BIKE';
   const type = item.type;
   const actions = [];
-  if (item.status === 'PENDING_PAYMENT' && ['E_BIKE','PHONE_PLAN','RECHARGE'].includes(type)) {
+  if (item.status === 'PENDING_PAYMENT' && ['E_BIKE','PHONE_PLAN','RECHARGE','PLATE'].includes(type)) {
     actions.push({ key:'pay', text:'去支付' });
     actions.push({ key:'cancel', text:'取消订单' });
   }
@@ -67,7 +67,7 @@ function card(item) {
     if (item.relatedIds.phoneCardOrderId) actions.push({ key:'action', text:'激活电话卡', action:'ACTIVATE_CARD', disabled:item.status !== 'CREDITED', reason:'到账后可激活' });
   }
   if (type === 'BROADBAND') actions.push({ key:'consult', text:item.status === 'APPROVED' ? '预约安装' : '核验咨询', business:item.status === 'APPROVED' ? '宽带安装预约' : '宽带资格核验' });
-  if (type === 'PLATE') actions.push({ key:'consult', text:item.status === 'MATERIAL_PENDING' ? '补充材料' : '办理咨询', business:'校园牌照辅助' });
+  if (type === 'PLATE' && item.status !== 'PENDING_PAYMENT') actions.push({ key:'consult', text:item.status === 'MATERIAL_PENDING' ? '补充材料' : '办理咨询', business:'校园牌照辅助' });
 
   return {
     ...item,
