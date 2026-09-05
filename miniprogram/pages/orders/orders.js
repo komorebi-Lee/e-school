@@ -252,6 +252,22 @@ Page({
   runAction(e){
     const {id,action}=e.currentTarget.dataset;
     if(!action)return;
+    if(action==='APPLY_BROADBAND'){
+      wx.showModal({
+        title:'申请双人宽带',
+        editable:true,
+        placeholderText:'请填写同伴的校园电话卡手机号',
+        success:res=>{
+          const companionPhone=(res.content||'').trim();
+          if(!res.confirm)return;
+          request(`/api/service-records/${encodeURIComponent(id)}/actions`,{method:'POST',data:{userId:userId(),action,companionPhone}}).then(()=>{
+            wx.showToast({title:'宽带资格已提交'});
+            setTimeout(()=>this.loadRecords(),400);
+          }).catch(error=>wx.showToast({title:error.message||'操作失败',icon:'none'}));
+        }
+      });
+      return;
+    }
     request(`/api/service-records/${encodeURIComponent(id)}/actions`,{method:'POST',data:{userId:userId(),action}}).then(()=>{
       wx.showToast({title:'已更新'});
       setTimeout(()=>this.loadRecords(),400);
