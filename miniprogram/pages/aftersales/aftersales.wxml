@@ -1,1 +1,49 @@
-<view class="page"><view class="order-ref">订单 {{orderId}}</view><view class="section-title">需要什么帮助？</view><view class="form card"><view class="field"><text class="field-label">问题类型</text><picker range="{{types}}" value="{{typeIndex}}" bindchange="chooseType"><view class="input">{{types[typeIndex]}}　›</view></picker></view><view class="field"><text class="field-label">问题说明</text><textarea class="input textarea" placeholder="请说明希望如何处理" bindinput="setDetail"></textarea></view><button class="primary-button" bindtap="submit">提交售后申请</button></view></view>
+<view class="page">
+  <view wx:if="{{loading}}" class="notice">正在获取订单信息…</view>
+
+  <view class="order-card card" wx:if="{{order}}">
+    <view class="order-head"><text class="order-title">{{order.title}}</text><text class="order-status">{{order.statusLabel}}</text></view>
+    <view class="order-meta"><text>编号 {{order.orderNo}}</text><text>{{order.merchantName}}</text></view>
+    <view class="order-price">{{order.priceText}}</view>
+  </view>
+  <view wx:elif="{{!loading}}" class="notice">未找到可售后的电瓶车订单，请返回订单页重新进入。</view>
+
+  <view class="promise card" wx:if="{{order && !existing}}">
+    <view class="promise-row"><text class="promise-icon">响</text><view><view class="promise-title">24 小时内响应</view><view class="muted">工作时段内优先处理校园车辆问题</view></view></view>
+    <view class="promise-row"><text class="promise-icon">处</text><view><view class="promise-title">72 小时内给出处理结果</view><view class="muted">校内配送商品优先协调商家上门</view></view></view>
+  </view>
+
+  <view class="existing card" wx:if="{{existing}}">
+    <view class="existing-title">该订单已有处理中的售后</view>
+    <view class="existing-copy muted">{{existing.typeLabel}} · {{existing.statusLabel}}</view>
+    <view class="existing-copy muted" wx:if="{{existing.dueText}}">预计 {{existing.dueText}} 前响应</view>
+    <button class="ghost-button" open-type="contact">联系客服处理</button>
+  </view>
+
+  <block wx:if="{{order && !existing}}">
+    <view class="section-title">需要什么帮助？</view>
+    <view class="form card">
+      <view class="type-grid">
+        <view class="type-item {{selectedType.key === item.key ? 'active' : ''}}" wx:for="{{typeOptions}}" wx:key="key" data-key="{{item.key}}" bindtap="chooseType">
+          <view class="type-name">{{item.label}}</view>
+          <view class="type-copy muted">{{item.copy}}</view>
+        </view>
+      </view>
+
+      <view class="field">
+        <text class="field-label">常见原因</text>
+        <view class="reason-grid">
+          <view class="reason {{detail === item ? 'active' : ''}}" wx:for="{{selectedType.reasons}}" wx:key="*this" data-reason="{{item}}" bindtap="chooseReason">{{item}}</view>
+        </view>
+      </view>
+
+      <view class="field">
+        <text class="field-label">补充说明</text>
+        <textarea class="input textarea" placeholder="可补充时间、地点、车辆问题或期望处理方式" bindinput="setDetail"></textarea>
+      </view>
+
+      <button class="primary-button" bindtap="submit" disabled="{{submitting}}">{{submitting ? '正在提交…' : '提交售后申请'}}</button>
+      <view class="privacy muted">提交后商家和平台都能看到处理进度，避免重复沟通。</view>
+    </view>
+  </block>
+</view>

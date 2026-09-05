@@ -1,1 +1,30 @@
-.order-ref { color: #536078; background: #edf2ff; border-radius: 16rpx; padding: 18rpx 22rpx; }.form { padding: 28rpx; }.textarea { width: auto; min-height: 220rpx; }
+.notice { padding: 24rpx; background: #edf2ff; color: #33435f; border-radius: 20rpx; line-height: 1.5; }
+.order-card { padding: 26rpx; }
+.order-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20rpx; }
+.order-title { flex: 1; font-size: 31rpx; font-weight: 900; color: #172033; line-height: 1.35; }
+.order-status { flex: 0 0 auto; padding: 7rpx 14rpx; border-radius: 999rpx; background: #e8f0ff; color: #0f5fd8; font-size: 20rpx; font-weight: 800; }
+.order-meta { display: flex; justify-content: space-between; gap: 18rpx; margin-top: 18rpx; color: #78849a; font-size: 21rpx; }
+.order-price { margin-top: 14rpx; color: #002fa7; font-size: 32rpx; font-weight: 900; }
+.promise { display: grid; gap: 20rpx; padding: 24rpx; margin-top: 16rpx; }
+.promise-row { display: flex; gap: 18rpx; align-items: flex-start; }
+.promise-icon { width: 54rpx; height: 54rpx; display: flex; align-items: center; justify-content: center; background: #eaf0ff; color: #002fa7; border-radius: 18rpx; font-size: 23rpx; font-weight: 900; }
+.promise-title { font-size: 25rpx; font-weight: 850; color: #202b45; }
+.promise-row .muted { margin-top: 5rpx; font-size: 21rpx; line-height: 1.45; }
+.existing { padding: 30rpx; margin-top: 16rpx; text-align: center; }
+.existing-title { font-size: 30rpx; font-weight: 900; color: #b42318; }
+.existing-copy { margin-top: 12rpx; line-height: 1.45; }
+.existing button { margin: 28rpx 0 0; }
+.form { padding: 28rpx; }
+.type-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12rpx; }
+.type-item { padding: 18rpx 14rpx; border: 2rpx solid #e3e9f5; border-radius: 20rpx; background: #fff; }
+.type-item.active { border-color: #002fa7; background: #f2f6ff; }
+.type-name { font-size: 24rpx; font-weight: 850; color: #202b45; text-align: center; }
+.type-copy { margin-top: 8rpx; font-size: 18rpx; line-height: 1.35; text-align: center; }
+.field { margin-top: 26rpx; }
+.field-label { display: block; margin-bottom: 15rpx; font-size: 23rpx; font-weight: 850; color: #202b45; }
+.reason-grid { display: grid; gap: 12rpx; }
+.reason { padding: 18rpx 20rpx; border: 1rpx solid #e3e9f5; border-radius: 16rpx; background: #fff; color: #33435f; font-size: 22rpx; line-height: 1.4; }
+.reason.active { border-color: #002fa7; background: #f2f6ff; color: #002fa7; font-weight: 700; }
+.textarea { width: auto; box-sizing: border-box; min-height: 200rpx; }
+.primary-button[disabled] { opacity: .5; }
+.privacy { margin-top: 18rpx; text-align: center; font-size: 20rpx; line-height: 1.45; }
