@@ -16,6 +16,12 @@
 .switch-row { display: flex; justify-content: space-between; align-items: center; margin: 10rpx 0 20rpx; }
 .form-actions { display: flex; justify-content: flex-end; gap: 16rpx; }
 .form-actions button { margin: 0; }
+.image-picker { display: flex; align-items: center; gap: 18rpx; }
+.image-picker image { width: 180rpx; height: 180rpx; border-radius: 16rpx; background: #f5f7fb; }
+.image-picker button { margin: 0; }
+.product-head { display: flex; gap: 20rpx; align-items: center; margin-bottom: 10rpx; }
+.product-thumb { width: 108rpx; height: 108rpx; border-radius: 14rpx; background: #f5f7fb; flex-shrink: 0; }
+.product-head .head { flex: 1; margin-bottom: 0; }
 .product { padding: 25rpx; margin-bottom: 18rpx; }
 .head { display: flex; justify-content: space-between; margin-bottom: 10rpx; }
 .strong { font-weight: 900; }

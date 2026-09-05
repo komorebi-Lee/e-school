@@ -11,7 +11,7 @@
   </view>
   <view wx:if="{{!loading && !filtered.length}}" class="empty card"><view class="muted">没有匹配的车型</view></view>
   <view wx:for="{{filtered}}" wx:key="id" class="product card" data-id="{{item.id}}" bindtap="goDetail">
-    <view class="visual" style="background: {{item.color}}"><text>{{item.icon}}</text><view class="pill badge">{{item.badge}}</view></view>
+    <view class="visual" style="background: {{item.color}}"><image wx:if="{{item.imageUrl}}" class="product-image" src="{{item.imageUrl}}" mode="aspectFit" /><text wx:else>{{item.icon}}</text><view class="pill badge">{{item.badge}}</view></view>
     <view class="body"><view class="name">{{item.name}}</view><view class="muted subtitle">{{item.subtitle}}</view><view class="rating" wx:if="{{item.ratingText}}"><text class="rating-score">{{item.ratingText}}</text><text class="muted">{{item.ratingCountText}}</text></view><view class="specs"><text>续航 {{item.range}}</text><text>限速 {{item.speed}}</text></view><view class="tags"><text>校内配送</text><text>牌照辅助</text></view><view class="bottom"><text class="stock">{{item.stockText}}</text><text class="price">¥{{item.price}}</text></view></view>
   </view>
 </view>

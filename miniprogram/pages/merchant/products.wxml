@@ -13,6 +13,15 @@
       <view class="field half"><text class="field-label">库存</text><input class="input" type="number" value="{{form.stock}}" data-field="stock" bindinput="setField" /></view>
     </view>
     <view class="field"><text class="field-label">商品简介</text><textarea class="input textarea" value="{{form.description}}" data-field="description" bindinput="setField" maxlength="300" /></view>
+    <view class="field">
+      <text class="field-label">商品图片</text>
+      <view class="image-picker" wx:if="{{form.imageUrl}}">
+        <image src="{{form.imageUrl}}" mode="aspectFill" />
+        <button size="mini" class="ghost-button" bindtap="removeImage">移除</button>
+      </view>
+      <button size="mini" class="ghost-button" wx:else bindtap="chooseImage">上传图片</button>
+      <view class="muted">建议正方形实拍图，JPG/PNG/WebP，不超过 5MB。</view>
+    </view>
     <view class="switch-row"><text>上架销售</text><switch checked="{{form.active}}" bindchange="setActive" color="#002FA7" /></view>
     <view class="form-actions">
       <button size="mini" class="ghost-button" bindtap="reset">{{editId ? '取消编辑' : '清空表单'}}</button>
@@ -31,7 +40,7 @@
   <view wx:elif="{{!filtered.length}}" class="empty card"><view class="muted">没有匹配商品</view></view>
   <block wx:else>
     <view class="product card" wx:for="{{filtered}}" wx:key="id">
-      <view class="head"><view class="strong">{{item.name}}</view><text class="{{item.active ? 'on' : 'off'}}">{{item.active ? '销售中' : '已下架'}}</text></view>
+      <view class="product-head"><image wx:if="{{item.imageUrl}}" class="product-thumb" src="{{item.imageUrl}}" mode="aspectFill" /><view class="head"><view class="strong">{{item.name}}</view><text class="{{item.active ? 'on' : 'off'}}">{{item.active ? '销售中' : '已下架'}}</text></view></view>
       <view class="category-row"><text class="category">{{item.categoryLabel}}</text><text class="{{item.stock < 10 ? 'stock-low' : 'stock'}}">{{item.stockText}}</text></view>
       <view class="muted">{{item.description}}</view>
       <view class="bottom"><text class="price">¥{{item.priceInCents / 100}}</text><text class="muted">库存 {{item.stock}}</text></view>

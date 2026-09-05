@@ -9,7 +9,7 @@ const categories = [
 
 const categoryLabels = { E_BIKE_NEW:'电动车整车', DIGITAL:'数码配件', FOOD:'食品生鲜', SERVICE:'生活服务' };
 
-const emptyForm = { name: '', categoryIndex: 0, price: '', stock: '', description: '', active: true };
+const emptyForm = { name: '', categoryIndex: 0, price: '', stock: '', description: '', imageUrl: '', active: true };
 
 Page({
   data: {
@@ -34,7 +34,8 @@ Page({
       const products = (data.products || []).map((product) => ({
         ...product,
         categoryLabel: categoryLabels[product.category] || product.category,
-        stockText: product.stock === 0 ? '已售罄' : product.stock < 10 ? `仅剩 ${product.stock}` : `库存 ${product.stock}`
+        stockText: product.stock === 0 ? '已售罄' : product.stock < 10 ? `仅剩 ${product.stock}` : `库存 ${product.stock}`,
+        hasImage: Boolean(product.imageUrl)
       }));
       this.setData({
         products,
@@ -93,6 +94,38 @@ Page({
   setCategory(event) {
     this.setData({ 'form.categoryIndex': Number(event.detail.value) });
   },
+  chooseImage() {
+    wx.chooseMedia({
+      count: 1,
+      mediaType: ['image'],
+      sourceType: ['album', 'camera'],
+      success: ({ tempFiles }) => {
+        const file = tempFiles && tempFiles[0];
+        if (!file) return;
+        const extension = file.tempFilePath.split('.').pop().toLowerCase();
+        const mimeType = extension === 'png' ? 'image/png' : extension === 'webp' ? 'image/webp' : 'image/jpeg';
+        wx.getFileSystemManager().readFile({
+          filePath: file.tempFilePath,
+          encoding: 'base64',
+          success: ({ data }) => {
+            wx.showLoading({ title: '上传中' });
+            apiRequest('/api/uploads', { method:'POST', data:{ dataBase64:data, mimeType } }).then(({ data: result }) => {
+              wx.hideLoading();
+              this.setData({ 'form.imageUrl': result.url });
+              wx.showToast({ title: '图片已上传', icon: 'success' });
+            }).catch((error) => {
+              wx.hideLoading();
+              wx.showToast({ title: error.message || '图片上传失败', icon: 'none' });
+            });
+          },
+          fail: () => wx.showToast({ title: '图片读取失败', icon: 'none' })
+        });
+      }
+    });
+  },
+  removeImage() {
+    this.setData({ 'form.imageUrl': '' });
+  },
   select(event) {
     const item = this.data.products.find((product) => product.id === event.currentTarget.dataset.id);
     if (!item) return;
@@ -104,6 +137,7 @@ Page({
         price: String(item.priceInCents / 100),
         stock: String(item.stock),
         description: item.description,
+        imageUrl: item.imageUrl || '',
         active: item.active
       }
     });
@@ -112,13 +146,14 @@ Page({
     this.setData({ editId: '', form: emptyForm });
   },
   submit() {
-    const { name, categoryIndex, price, stock, description, active } = this.data.form;
+    const { name, categoryIndex, price, stock, description, imageUrl, active } = this.data.form;
     const category = this.data.categories[categoryIndex];
     if (!name || !category || !price || stock === '') return wx.showToast({ title: '请完整填写商品信息', icon: 'none' });
     const payload = {
       name,
       category: category.value,
       description: description || '暂无简介',
+      imageUrl,
       priceInCents: Math.round(Number(price) * 100),
       stock: Number(stock),
       active
