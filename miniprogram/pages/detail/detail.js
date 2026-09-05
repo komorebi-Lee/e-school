@@ -3,6 +3,8 @@ const { getScooter } = require('../../services/store');
 
 function normalizeProduct(product) {
   const description = product.description || '支持校内配送和校园牌照辅助。';
+  const reviews = Array.isArray(product.reviews) ? product.reviews : [];
+  const ratingSummary = product.ratingSummary || { average: 0, count: 0 };
   return {
     ...product,
     price: Math.round((product.priceInCents || 0) / 100),
@@ -15,6 +17,20 @@ function normalizeProduct(product) {
     color: product.color || '#eaf0ff',
     icon: product.icon || '车',
     merchantName: product.merchantName || '平台自营',
+    review: {
+      scoreText: ratingSummary.count ? ratingSummary.average.toFixed(1) : '新',
+      count: ratingSummary.count || 0,
+      countText: ratingSummary.count ? `${ratingSummary.count} 条校园订单评价` : '暂无已购订单评价',
+      trustText: '来自平台核验的已购学生'
+    },
+    reviews: reviews.map((review) => ({
+      id: review.id,
+      name: review.customerName || '匿名同学',
+      initial: (review.customerName || '同').slice(0, 1),
+      metaText: `${review.college || '华中农业大学'} · ${review.purchaseVerified ? '已购核验' : '未核验'} · ${String(review.createdAt || '').slice(0, 10)}`,
+      stars: '★★★★★'.slice(0, Math.max(0, Math.min(5, Number(review.rating) || 0))),
+      content: review.content || ''
+    })),
     stockText: product.stock > 0 ? (product.stock < 5 ? `仅剩 ${product.stock} 件` : `库存 ${product.stock}`) : '已售罄'
   };
 }

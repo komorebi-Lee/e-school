@@ -10,6 +10,8 @@ function normalizeProduct(item) {
     speed: item.speed || '25 km/h',
     icon: item.icon || '车',
     color: item.color || '#eaf0ff',
+    ratingText: item.ratingSummary?.count ? item.ratingSummary.average.toFixed(1) : '',
+    ratingCountText: item.ratingSummary?.count ? `${item.ratingSummary.count}条已购评价` : '暂无已购评价',
     stockText: item.stock > 0 ? (item.stock < 5 ? `仅剩 ${item.stock} 件` : `库存 ${item.stock}`) : '已售罄'
   };
 }
