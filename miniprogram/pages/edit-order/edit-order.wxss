@@ -1,1 +1,1 @@
-.order-ref{color:#536078;background:#edf2ff;border-radius:16rpx;padding:18rpx 22rpx}.form{padding:28rpx}.textarea{width:auto;min-height:220rpx}
+.order-ref{color:#536078;background:#edf2ff;border-radius:16rpx;padding:18rpx 22rpx;font-weight:750}.form{padding:28rpx}.notice{margin-top:18rpx;font-size:21rpx;line-height:1.55}

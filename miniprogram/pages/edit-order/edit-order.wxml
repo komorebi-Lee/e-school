@@ -1,1 +1,13 @@
-<view class="page"><view class="order-ref">订单 {{orderId}}</view><view class="form card"><view class="field"><text class="field-label">联系人</text><input class="input" value="{{name}}" placeholder="请输入姓名" bindinput="setName"/></view><view class="field"><text class="field-label">联系电话</text><input class="input" type="number" maxlength="11" value="{{phone}}" placeholder="用于接收联系" bindinput="setPhone"/></view><view class="field"><text class="field-label">期望配送时间</text><input class="input" value="{{time}}" placeholder="例如：本周六下午" bindinput="setTime"/></view><view class="field"><text class="field-label">补充备注</text><textarea class="input textarea" value="{{note}}" placeholder="车辆颜色、宿舍楼等信息" bindinput="setNote"></textarea></view><button class="primary-button" bindtap="save">保存修改</button></view></view>
+<view class="page">
+  <view class="order-ref">订单 {{orderNo || orderId}}</view>
+  <view class="form card" wx:if="{{!loading}}">
+    <view class="field"><text class="field-label">联系人</text><input class="input" value="{{name}}" placeholder="请输入姓名" bindinput="setName"/></view>
+    <view class="field"><text class="field-label">联系电话</text><input class="input" type="number" maxlength="11" value="{{phone}}" placeholder="用于接收联系" bindinput="setPhone"/></view>
+    <view class="field"><text class="field-label">配送日期</text><picker mode="date" start="{{minDate}}" value="{{date}}" bindchange="setDate"><view class="input">{{date}}  ▾</view></picker></view>
+    <view class="field"><text class="field-label">配送时段</text><picker range="{{deliveryTimeSlots}}" value="{{deliveryTimeIndex}}" bindchange="setTimeSlot"><view class="input">{{deliveryTimeSlots[deliveryTimeIndex] || '请选择时段'}}  ▾</view></picker></view>
+    <view class="field"><text class="field-label">校内配送地址</text><input class="input" value="{{address}}" placeholder="例如：荟园学生社区附近" bindinput="setAddress"/></view>
+    <view class="notice muted">改约成功后，商家与平台都会同步看到新的配送安排。</view>
+    <button class="primary-button" loading="{{submitting}}" disabled="{{submitting}}" bindtap="save">保存改约</button>
+  </view>
+  <view wx:if="{{loading}}" class="notice muted">正在加载订单配送信息…</view>
+</view>

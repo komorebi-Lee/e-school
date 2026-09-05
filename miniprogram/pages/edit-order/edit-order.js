@@ -1,8 +1,63 @@
-const { request, userId } = require('../../services/api');
-const { getOrders, updateOrder } = require('../../services/store');
+const { request } = require('../../services/api');
+
 Page({
-  data: { orderId: '', name: '', phone: '', time: '', note: '', submitting: false },
-  onLoad(o) { const id = o.id || ''; const order = getOrders().find(item => item.id === id) || {}; const f = order.fulfillment || {}; this.setData({ orderId: id, name: f.contactName || order.name || '', phone: f.contactPhone || order.phone || '', time: f.date || order.expectedTime || '', note: f.address || order.note || '' }); },
-  setName(e) { this.setData({ name: e.detail.value }); }, setPhone(e) { this.setData({ phone: e.detail.value }); }, setTime(e) { this.setData({ time: e.detail.value }); }, setNote(e) { this.setData({ note: e.detail.value }); },
-  save() { if (!this.data.name || !this.data.phone || this.data.submitting) return wx.showToast({ title: '请填写姓名和电话', icon: 'none' }); this.setData({ submitting: true }); request(`/api/orders/${encodeURIComponent(this.data.orderId)}`, { method: 'PATCH', data: { userId: userId(), fulfillment: { contactName: this.data.name, contactPhone: this.data.phone, date: this.data.time, address: this.data.note } } }).then(() => { updateOrder(this.data.orderId, { name: this.data.name, phone: this.data.phone, expectedTime: this.data.time, note: this.data.note }); wx.showToast({ title: '已保存' }); setTimeout(() => wx.navigateBack(), 500); }).catch((error) => { this.setData({ submitting: false }); wx.showToast({ title: error.message || '保存失败', icon: 'none' }); }); }
+  data: { orderId: '', orderNo: '', name: '', phone: '', date: '', timeSlot: '', address: '', deliveryTimeSlots: [], deliveryTimeIndex: 0, loading: true, submitting: false },
+  onLoad(options) {
+    const id = options.id || '';
+    this.setData({ orderId: id, minDate: this.today() });
+    request(`/api/orders/${encodeURIComponent(id)}`).then(({ data }) => {
+      const fulfillment = data.fulfillment || {};
+      const slots = this.data.deliveryTimeSlots.length ? this.data.deliveryTimeSlots : ['尽快配送'];
+      const timeSlot = fulfillment.timeSlot || slots[0];
+      this.setData({
+        orderNo: data.orderNo || id,
+        name: fulfillment.contactName || '',
+        phone: fulfillment.contactPhone || '',
+        date: fulfillment.date || this.today(),
+        address: fulfillment.address || '',
+        deliveryTimeSlots: slots,
+        deliveryTimeIndex: Math.max(0, slots.indexOf(timeSlot)),
+        loading: false
+      });
+    }).catch(() => {
+      wx.showToast({ title: '订单加载失败', icon: 'none' });
+      setTimeout(() => wx.navigateBack(), 500);
+    });
+    this.loadSlots();
+  },
+  loadSlots() {
+    request('/api/business-config').then(({ data }) => {
+      const slots = Array.isArray(data.deliveryTimeSlots) && data.deliveryTimeSlots.length ? data.deliveryTimeSlots : ['尽快配送'];
+      const current = this.data.deliveryTimeSlots[this.data.deliveryTimeIndex];
+      this.setData({
+        deliveryTimeSlots: slots,
+        deliveryTimeIndex: Math.max(0, slots.indexOf(current))
+      });
+    }).catch(() => {});
+  },
+  today() {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  },
+  setName(e) { this.setData({ name: e.detail.value }); },
+  setPhone(e) { this.setData({ phone: e.detail.value }); },
+  setDate(e) { this.setData({ date: e.detail.value }); },
+  setTimeSlot(e) { this.setData({ deliveryTimeIndex: Number(e.detail.value) }); },
+  setAddress(e) { this.setData({ address: e.detail.value }); },
+  save() {
+    const { name, phone, date, timeSlot, address } = this.data;
+    if (!name || !phone || !date || !address || this.data.submitting) return wx.showToast({ title: '请填写完整配送信息', icon: 'none' });
+    if (!/^1\d{10}$/.test(phone)) return wx.showToast({ title: '请输入正确手机号', icon: 'none' });
+    this.setData({ submitting: true });
+    request(`/api/orders/${encodeURIComponent(this.data.orderId)}`, {
+      method: 'PATCH',
+      data: { fulfillment: { type: 'DELIVERY', contactName: name, contactPhone: phone, date, timeSlot, address } }
+    }).then(() => {
+      wx.showToast({ title: '配送已改约' });
+      setTimeout(() => wx.navigateBack(), 500);
+    }).catch((error) => {
+      this.setData({ submitting: false });
+      wx.showToast({ title: error.message || '保存失败', icon: 'none' });
+    });
+  }
 });
