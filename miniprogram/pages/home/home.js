@@ -1,4 +1,5 @@
 const { getScooters } = require("../../services/store");
+const { loadBusinessConfig } = require("../../services/business");
 
 function normalizePhonePlan(item) {
   return {
@@ -10,10 +11,11 @@ function normalizePhonePlan(item) {
 }
 
 Page({
-  data: { school: "华中农业大学", campus: "狮山校区", scooters: [], phonePlans: [] },
+  data: { school: "华中农业大学", campus: "狮山校区", scooters: [], phonePlans: [], config: null },
   onShow() {
     this.setData({ scooters: getScooters().slice(0, 1) });
     const { request } = require("../../services/api");
+    loadBusinessConfig().then((config) => this.setData({ config, school: config.schoolName, campus: config.campusName }));
     request('/api/products').then(({ data }) => {
       const scooters = (data || []).filter((item) => item.category === 'E_BIKE_NEW' && item.active !== false).map((item) => ({
         ...item,

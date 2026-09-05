@@ -16,5 +16,5 @@
   <view class="product-card card" wx:for="{{phonePlans}}" wx:key="name" bindtap="goCard"><view class="product-type phone-type">电话卡</view><view class="product-main"><view class="product-name">{{item.name}}</view><view class="muted product-desc">{{item.data}} · {{item.badge}}</view></view><view class="product-price">¥{{item.price}}<text>/月</text></view></view>
   <view class="product-card card" wx:for="{{scooters}}" wx:key="id" data-id="{{item.id}}" bindtap="goDetail"><view class="product-type scooter-type">电动车</view><view class="product-main"><view class="product-name">{{item.name}}</view><view class="muted product-desc">{{item.range}}续航 · 校内配送</view></view><view class="product-price">¥{{item.price}}</view></view>
   <view class="plate-banner card" bindtap="goPlate"><view class="plate-symbol">牌</view><view class="plate-content"><view class="plate-title">校园牌照辅助</view><view class="plate-copy">平台购车可申请免费协助，自带车辆人工确认报价</view></view><view class="plate-arrow">›</view></view>
-  <view class="notice">服务范围及办理结果以学校及合作方最终确认为准</view>
+  <view class="notice">{{config.platformNotice || '服务范围及办理结果以学校及合作方最终确认为准'}}</view>
 </view>
