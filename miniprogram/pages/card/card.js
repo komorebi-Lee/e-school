@@ -1,5 +1,5 @@
 Page({
-  data:{plans:[],rechargePromos:[],selectedPlan:0,selectedPromo:null,activeSection:0,profileName:'',profilePhone:'',companionPhone:'',submitting:false},
+    data:{plans:[],rechargePromos:[],selectedPlan:0,selectedPromo:null,activeSection:0,profileName:'',profilePhone:'',companionPhone:'',submitting:false},
   onLoad(){
     const profile=wx.getStorageSync('shishanUserProfile')||{};
     this.setData({profileName:profile.name||'',profilePhone:profile.phone||'',companionPhone:profile.companionPhone||''});
@@ -45,13 +45,13 @@ Page({
     const promo=this.data.selectedPromo===null?null:this.data.rechargePromos[this.data.selectedPromo];
     const saved=this.currentProfile();
     this.setData({submitting:true});
-    request('/api/phone-card-orders',{method:'POST',header:{'Idempotency-Key':'tel-'+Date.now()+'-'+Math.random().toString(36).slice(2,8)},data:{customerName:saved.name,phone:saved.phone,planName:p.name,amountInCents:p.monthlyFee*100}})
+    request('/api/phone-card-orders',{method:'POST',header:{'Idempotency-Key':'tel-'+Date.now()+'-'+Math.random().toString(36).slice(2,8)},data:{customerName:saved.name,phone:saved.phone,productId:p.id}})
       .then(({data,paymentOrder})=>{
         const finish=(benefitText)=>{this.setData({submitting:false});wx.showModal({title:'支付成功',content:`${p.name}已进入实名激活跟进${benefitText}，客服将在24小时内联系你。`,confirmText:'查看订单',cancelText:'继续浏览',success:(result)=>{if(result.confirm)wx.switchTab({url:'/pages/orders/orders'})}})};
         if(!paymentOrder||!paymentOrder.id) throw new Error('支付单创建失败');
         return request(`/api/payment-orders/${encodeURIComponent(paymentOrder.id)}/confirm`,{method:'POST'}).then(()=>{
           if(!promo)return finish('');
-          return request('/api/recharge-orders',{method:'POST',header:{'Idempotency-Key':'rech-'+Date.now()+'-'+Math.random().toString(36).slice(2,8)},data:{phone:saved.phone,paidInCents:promo.pay*100,receiveInCents:promo.receive*100}})
+          return request('/api/recharge-orders',{method:'POST',header:{'Idempotency-Key':'rech-'+Date.now()+'-'+Math.random().toString(36).slice(2,8)},data:{phone:saved.phone,promoId:promo.id}})
             .then(({paymentOrder:benefitPayment})=>{
               if(!benefitPayment||!benefitPayment.id)return finish('，限时福利已同步创建');
               return request(`/api/payment-orders/${encodeURIComponent(benefitPayment.id)}/confirm`,{method:'POST'}).then(()=>finish('，限时福利已同步创建'));

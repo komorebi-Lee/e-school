@@ -53,7 +53,7 @@ Page({
     this.setData({ submitting: true });
     request('/api/recharge-orders', {
       method: 'POST',
-      data: { phone: saved.phone, paidInCents: promo.pay * 100, receiveInCents: promo.receive * 100 }
+      data: { phone: saved.phone, promoId: promo.id }
     }).then(({ data, paymentOrder }) => {
       this.setData({ orderId: data.id, paymentOrderId: paymentOrder?.id || '', paymentStatus: 'UNPAID', paid: false });
       return this.simulatePay(paymentOrder?.id);
