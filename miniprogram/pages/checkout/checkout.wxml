@@ -9,5 +9,10 @@
     <view class="field"><text class="field-label">付款方式</text><view class="input fixed">在线支付（模拟）</view></view>
   </view>
   <view class="price-summary card"><view class="summary-row"><text>车辆费用</text><text>¥{{itemsFee}}</text></view><view class="summary-row"><text>校内配送</text><text>{{config.deliveryFeeText || '免费'}}</text></view><view class="summary-row total"><text>合计</text><text>¥{{totalFee}}</text></view><view class="summary-note">{{config.deliveryResponseHours || 24}}小时内响应，支付成功后进入待配送并同步免费校园牌照辅助。</view></view>
-  <view class="agreement">支付成功后创建校内配送订单，并同步免费校园牌照辅助。</view><button class="primary-button" bindtap="submit">提交并支付（模拟）</button>
+  <view class="agreement">支付成功后创建校内配送订单，并同步免费校园牌照辅助。</view>
+  <view class="agreement-row">
+    <view class="checkbox {{agreed ? 'checked' : ''}}" bindtap="toggleAgreement"><text wx:if="{{agreed}}">✓</text></view>
+    <text>我已阅读并同意</text><text class="agreement-link" bindtap="openAgreement">《服务协议》</text><text>与</text><text class="agreement-link" bindtap="openPrivacy">《隐私政策》</text>
+  </view>
+  <button class="primary-button" disabled="{{!agreed}}" bindtap="submit">提交并支付（模拟）</button>
 </view>

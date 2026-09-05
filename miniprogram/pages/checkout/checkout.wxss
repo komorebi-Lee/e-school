@@ -1,4 +1,8 @@
-.summary { display: flex; padding: 24rpx; align-items: center; }.mark { width: 130rpx; height: 130rpx; border-radius: 22rpx; display: flex; align-items: center; justify-content: center; font-size: 54rpx; color: #1746a2; font-weight: 900; margin-right: 22rpx; }.name { font-size: 31rpx; font-weight: 900; }.summary .price { margin-top: 12rpx; }.form { padding: 28rpx; }.fixed { color: #536078; }.agreement { color: #78849a; font-size: 22rpx; line-height: 1.6; margin: 24rpx 4rpx; }
+.summary { display: flex; padding: 24rpx; align-items: center; }.mark { width: 130rpx; height: 130rpx; border-radius: 22rpx; display: flex; align-items: center; justify-content: center; font-size: 54rpx; color: #1746a2; font-weight: 900; margin-right: 22rpx; }.name { font-size: 31rpx; font-weight: 900; }.summary .price { margin-top: 12rpx; }.form { padding: 28rpx; }.fixed { color: #536078; }.agreement { color: #78849a; font-size: 22rpx; line-height: 1.6; margin: 24rpx 4rpx 16rpx; }
+.agreement-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8rpx; margin: 0 4rpx 24rpx; color: #536078; font-size: 22rpx; }
+.checkbox { width: 32rpx; height: 32rpx; border: 2rpx solid #b8c3d8; border-radius: 10rpx; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 20rpx; font-weight: 900; }
+.checkbox.checked { background: #002fa7; border-color: #002fa7; }
+.agreement-link { color: #002fa7; font-weight: 750; }
 .price-summary { padding: 24rpx; margin-top: 22rpx; }
 .summary-row { display: flex; justify-content: space-between; color: #536078; font-size: 24rpx; margin-bottom: 16rpx; }
 .summary-row.total { color: #172033; font-size: 30rpx; font-weight: 900; margin-bottom: 14rpx; }

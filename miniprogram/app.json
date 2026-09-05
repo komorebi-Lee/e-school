@@ -15,6 +15,7 @@
     "pages/merchant/index",
     "pages/merchant/orders",
     "pages/merchant/products",
+    "pages/agreement/agreement",
     "pages/recharge/detail"
   ],
   "window": {

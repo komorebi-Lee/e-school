@@ -3,7 +3,7 @@ const { getScooter } = require('../../services/store');
 const { loadBusinessConfig } = require('../../services/business');
 
 Page({
-  data: { scooter: null, config: null, deliveryTimeSlots: [], deliveryTimeIndex: 0, name: '', phone: '', date: '', minDate: '', deliveryAddress: '', submitting: false, payToken: '', itemsFee: 0, deliveryFee: 0, totalFee: 0 },
+  data: { scooter: null, config: null, deliveryTimeSlots: [], deliveryTimeIndex: 0, name: '', phone: '', date: '', minDate: '', deliveryAddress: '', submitting: false, payToken: '', itemsFee: 0, deliveryFee: 0, totalFee: 0, agreed: false },
   onShow() {
     const now = new Date();
     const minDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -39,6 +39,7 @@ Page({
   setDeliveryTime(e) { this.setData({ deliveryTimeIndex: Number(e.detail.value) }); },
   setAddress(e) { this.setData({ deliveryAddress: e.detail.value }); },
   submit() {
+    if (!this.data.agreed) return wx.showToast({ title: '请先阅读并同意协议', icon: 'none' });
     const { name, phone, date, deliveryAddress, scooter } = this.data;
     if (!name || !phone || !date || !deliveryAddress || !scooter || this.data.submitting) return wx.showToast({ title: '请填写完整信息', icon: 'none' });
     if (!/^1\d{10}$/.test(phone)) return wx.showToast({ title: '请输入正确手机号', icon: 'none' });
@@ -58,5 +59,8 @@ Page({
         });
       })
       .catch((error) => { this.setData({ submitting: false }); wx.showToast({ title: error.message || '提交失败', icon: 'none' }); });
-  }
+  },
+  toggleAgreement() { this.setData({ agreed: !this.data.agreed }); },
+  openAgreement() { wx.navigateTo({ url: '/pages/agreement/agreement?type=service' }); },
+  openPrivacy() { wx.navigateTo({ url: '/pages/agreement/agreement?type=privacy' }); }
 });

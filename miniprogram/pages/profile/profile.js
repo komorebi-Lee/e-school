@@ -76,6 +76,7 @@ Page({
     wx.navigateTo({ url: "/pages/merchant/index" });
   },
   goPlate() { wx.navigateTo({ url: "/pages/plate/plate" }); },
+  goAgreement() { wx.navigateTo({ url: "/pages/agreement/agreement?type=privacy" }); },
   callService() { wx.makePhoneCall({ phoneNumber: this.data.customerService }); },
   copyWechat() { wx.setClipboardData({ data: this.data.customerService }); }
 });
