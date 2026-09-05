@@ -37,7 +37,7 @@ function card(item) {
   const isEbike = item.type === 'E_BIKE';
   const type = item.type;
   const actions = [];
-  if (isEbike && item.status === 'PENDING_PAYMENT') {
+  if (item.status === 'PENDING_PAYMENT' && ['E_BIKE','PHONE_PLAN','RECHARGE'].includes(type)) {
     actions.push({ key:'pay', text:'去支付' });
     actions.push({ key:'cancel', text:'取消订单' });
   }
@@ -220,7 +220,9 @@ Page({
     if(!id) return;
     wx.showModal({title:'取消订单',content:'确定取消这笔待支付订单吗？',success:({confirm})=>{
       if(!confirm) return;
-      request(`/api/orders/${encodeURIComponent(id)}/cancel`,{method:'POST'})
+      const order=(this.data.records||[]).find(record=>record.id===id);
+      const url=order?.paymentOrderId?`/api/payment-orders/${encodeURIComponent(order.paymentOrderId)}/cancel`:`/api/orders/${encodeURIComponent(id)}/cancel`;
+      request(url,{method:'POST'})
         .then(()=>{wx.showToast({title:'已取消',icon:'success'});this.loadRecords();})
         .catch(error=>wx.showToast({title:error.message||'取消失败',icon:'none'}));
     }});
