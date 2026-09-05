@@ -15,6 +15,20 @@
     <button size="mini" class="primary-button" bindtap="verify">模拟认证</button>
   </view>
   <view class="section-title">我的服务</view>
+  <view class="notification-card card">
+    <view class="notification-head">
+      <view>
+        <view class="notification-title">最新业务提醒</view>
+        <view class="muted">{{unreadNotificationCount ? unreadNotificationCount + ' 条未读' : '支付、上牌、到账动态都会在这里同步'}}</view>
+      </view>
+      <button wx:if="{{unreadNotificationCount}}" size="mini" class="ghost-button" bindtap="markNotificationsRead">全部已读</button>
+    </view>
+    <view wx:for="{{notifications}}" wx:key="id" class="notification-item {{item.unread ? 'unread' : ''}}">
+      <view class="notification-main"><strong>{{item.title}}</strong><text>{{item.content}}</text></view>
+      <text class="notification-time">{{item.timeText}}</text>
+    </view>
+    <view wx:if="{{!notifications.length}}" class="notification-empty">暂无业务提醒</view>
+  </view>
   <view class="login-card card">
     <view class="login-info">
       <view class="login-title">{{loginState === 'ready' ? '已登录' : '微信登录'}}</view>

@@ -4,3 +4,15 @@
 .login-title { font-size: 30rpx; font-weight: 900; }
 .login-note { font-size: 21rpx; margin-top: 6rpx; max-width: 420rpx; }
 .login-card button { margin: 0; }
+.notification-card { margin-bottom: 20rpx; padding: 24rpx 28rpx; }
+.notification-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 18rpx; }
+.notification-title { font-size: 30rpx; font-weight: 900; }
+.notification-card .muted { font-size: 22rpx; margin-top: 6rpx; }
+.notification-item { display: flex; justify-content: space-between; gap: 20rpx; padding: 20rpx 0; border-bottom: 1rpx solid #edf0f5; }
+.notification-item:last-child { border-bottom: 0; }
+.notification-item.unread { border-left: 6rpx solid #002fa7; padding-left: 18rpx; }
+.notification-main { display: flex; flex-direction: column; gap: 6rpx; color: #1b2537; }
+.notification-main strong { font-size: 26rpx; }
+.notification-main text { font-size: 22rpx; color: #536078; line-height: 1.5; }
+.notification-time { color: #8895a8; font-size: 21rpx; white-space: nowrap; }
+.notification-empty { padding: 24rpx 0 8rpx; color: #8895a8; font-size: 24rpx; }

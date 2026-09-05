@@ -1,7 +1,7 @@
 const { request, userId } = require('../../services/api');
 
 Page({
-  data: { promo: null, orderId: '', paymentStatus: 'UNPAID', submitting: false, paid: false },
+  data: { promo: null, orderId: '', paymentOrderId: '', paymentStatus: 'UNPAID', submitting: false, paid: false },
   onLoad(options) {
     const promo = this.decode(options.promo);
     this.setData({
@@ -24,7 +24,8 @@ Page({
           badge: record.badge || '限时权益',
           phone: record.phone
         },
-        paid: record.status !== 'UNPAID'
+        paymentOrderId: record.paymentOrderId || '',
+        paid: record.status !== 'PENDING_PAYMENT' && record.status !== 'CANCELLED'
       });
     }).catch(() => wx.navigateBack());
   },
@@ -53,22 +54,27 @@ Page({
     request('/api/recharge-orders', {
       method: 'POST',
       data: { phone: saved.phone, paidInCents: promo.pay * 100, receiveInCents: promo.receive * 100 }
-    }).then(({ data }) => {
-      this.setData({ orderId: data.id, paymentStatus: 'UNPAID' });
-      this.simulatePay();
+    }).then(({ data, paymentOrder }) => {
+      this.setData({ orderId: data.id, paymentOrderId: paymentOrder?.id || '', paymentStatus: 'UNPAID', paid: false });
+      return this.simulatePay(paymentOrder?.id);
     }).catch((error) => {
       wx.showModal({ title: '提交失败', content: error.message || '请稍后重试', showCancel: false });
     }).finally(() => this.setData({ submitting: false }));
   },
-  simulatePay() {
+  simulatePay(paymentOrderId) {
+    const paymentId = paymentOrderId || this.data.paymentOrderId;
     if (!this.data.orderId) return this.createOrder();
+    if (!paymentId) return wx.showToast({ title: '支付单不存在', icon: 'none' });
     this.setData({ submitting: true });
     wx.showLoading({ title: '模拟支付中', mask: true });
-    setTimeout(() => {
+    request(`/api/payment-orders/${encodeURIComponent(paymentId)}/confirm`, { method: 'POST' }).then(({ data }) => {
+      this.setData({ paid: true, paymentStatus: data.rechargeOrder?.status || 'PENDING_CREDIT' });
       wx.hideLoading();
-      this.setData({ paid: true, paymentStatus: 'PENDING_CREDIT', submitting: false });
       wx.showToast({ title: '支付成功', icon: 'success' });
-    }, 900);
+    }).catch((error) => {
+      wx.hideLoading();
+      wx.showToast({ title: error.message || '支付失败', icon: 'none' });
+    }).finally(() => this.setData({ submitting: false }));
   },
   consult() {
         const { promo, orderId } = this.data;

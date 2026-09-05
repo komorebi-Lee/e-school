@@ -11,12 +11,14 @@ Page({
     verified: false,
     customerService: "15527111396",
     merchantBadge: false,
+    notifications: [],
+    unreadNotificationCount: 0,
     latestApprovedAt: "",
     userId: "",
     loginState: "loading",
     loggingIn: false
   },
-  onShow() { this.refreshLoginState(); this.loadMerchantBadge(); },
+  onShow() { this.refreshLoginState(); this.loadMerchantBadge(); this.loadNotifications(); },
   refreshLoginState() {
     const stored = wx.getStorageSync("campusGoUserId") || "";
     this.setData({ userId: maskUserId(stored), loginState: stored ? "ready" : "guest" });
@@ -48,6 +50,20 @@ Page({
         merchantBadge: Boolean(approvedAt && approvedAt > badgeSeenAt)
       });
     }).catch(() => this.setData({ merchantBadge: false }));
+  },
+  loadNotifications() {
+    request("/api/my/notifications").then(({ data }) => {
+      const items = (data || []).slice(0, 3).map((item) => ({
+        ...item,
+        timeText: String(item.createdAt || "").slice(5, 16).replace("T", " "),
+        unread: !item.read
+      }));
+      this.setData({ notifications: items, unreadNotificationCount: (data || []).filter((item) => !item.read).length });
+    }).catch(() => this.setData({ notifications: [], unreadNotificationCount: 0 }));
+  },
+  markNotificationsRead() {
+    if (!this.data.unreadNotificationCount) return;
+    request("/api/my/notifications/read", { method: "POST" }).then(() => this.loadNotifications()).catch(() => {});
   },
   verify() { this.setData({ verified: true }); wx.showToast({ title: "演示认证成功" }); },
   goOrders() { wx.switchTab({ url: "/pages/orders/orders" }); },
