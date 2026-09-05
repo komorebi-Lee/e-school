@@ -1,0 +1,24 @@
+<view class="page">
+  <view wx:if="{{loading}}" class="empty card"><view class="muted">正在加载评价…</view></view>
+  <view wx:elif="{{!reviews.length}}" class="empty card"><view class="muted">暂无已购评价</view></view>
+  <block wx:else>
+    <view class="summary card">共 {{reviews.length}} 条评价，{{reviews.length - reviews.filter(item => item.replied).length}} 条待回复</view>
+    <view class="review card" wx:for="{{reviews}}" wx:key="id">
+      <view class="head">
+        <view><view class="product">{{item.productName}}</view><view class="muted">{{item.customerName}} · {{item.dateText}}</view></view>
+        <text class="stars">{{item.stars}}</text>
+      </view>
+      <view class="content">{{item.content}}</view>
+      <view class="images" wx:if="{{item.images.length}}">
+        <image wx:for="{{item.images}}" wx:for-item="image" wx:key="*this" src="{{image}}" mode="aspectFill" />
+      </view>
+      <view class="reply" wx:if="{{item.reply}}">
+        <view class="reply-title">{{item.reply.merchantName}}</view>
+        <view class="reply-content">{{item.reply.content}}</view>
+      </view>
+      <view class="actions">
+        <button size="mini" class="{{item.replied ? 'ghost-button' : 'primary-button'}}" data-id="{{item.id}}" bindtap="reply">{{item.replied ? '修改回复' : '回复评价'}}</button>
+      </view>
+    </view>
+  </block>
+</view>

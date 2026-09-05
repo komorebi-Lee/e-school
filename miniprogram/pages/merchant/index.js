@@ -45,5 +45,8 @@ Page({
   },
   goProducts() {
     wx.navigateTo({ url: '/pages/merchant/products' });
+  },
+  goReviews() {
+    wx.navigateTo({ url: '/pages/merchant/reviews' });
   }
 });

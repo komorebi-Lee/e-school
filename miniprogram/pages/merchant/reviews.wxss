@@ -1,0 +1,13 @@
+.summary { padding: 24rpx; color: #536078; font-size: 23rpx; font-weight: 700; }
+.review { padding: 25rpx; margin-top: 18rpx; }
+.head { display: flex; justify-content: space-between; align-items: flex-start; gap: 18rpx; }
+.product { font-size: 28rpx; font-weight: 900; }
+.stars { color: #ff9f1a; font-size: 25rpx; font-weight: 900; }
+.content { margin-top: 16rpx; color: #33435f; font-size: 24rpx; line-height: 1.55; }
+.images { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12rpx; margin-top: 16rpx; }
+.images image { width: 100%; aspect-ratio: 4 / 3; border-radius: 14rpx; background: #f2f5fa; }
+.reply { margin-top: 16rpx; padding: 18rpx; background: #f7f9ff; border-radius: 16rpx; }
+.reply-title { color: #002fa7; font-size: 21rpx; font-weight: 850; }
+.reply-content { margin-top: 8rpx; color: #33435f; font-size: 22rpx; line-height: 1.5; }
+.actions { margin-top: 18rpx; display: flex; justify-content: flex-end; }
+.actions button { margin: 0; }
