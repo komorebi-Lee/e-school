@@ -35,6 +35,12 @@
 .payout-button { margin: 0; padding: 0 28rpx; height: 64rpx; line-height: 64rpx; font-size: 24rpx; font-weight: 800; color: #fff; background: #002fa7; border-radius: 999rpx; }
 .payout-button.disabled { background: #cbd3e1; color: #f2f5fa; }
 .payout-note { font-size: 20rpx; margin-top: 12rpx; }
+.sla { border-left: 6rpx solid #c0392b; }
+.sla-item { display: flex; justify-content: space-between; align-items: flex-start; gap: 16rpx; padding: 16rpx 0; border-bottom: 1rpx solid #edf0f5; }
+.sla-item:last-of-type { border-bottom: 0; }
+.sla-main { flex: 1; min-width: 0; }
+.sla-main .muted { margin-top: 6rpx; line-height: 1.45; }
+.sla-note { font-size: 20rpx; margin-top: 12rpx; }
 .flow-step { display: flex; align-items: center; gap: 8rpx; }
 .flow-index { width: 30rpx; height: 30rpx; line-height: 30rpx; text-align: center; border-radius: 999rpx; background: #eaefff; color: #002fa7; font-size: 18rpx; font-weight: 900; }
 .flow-text { font-size: 20rpx; color: #4a5568; }

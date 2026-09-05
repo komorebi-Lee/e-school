@@ -60,10 +60,30 @@ function decoratePayoutRequest(item) {
   };
 }
 
+// 平台巡检会把逾期/临期的履约事项推给责任商家，这里换成一眼能看懂的倒计时。
+function decorateSlaAlert(item) {
+  const dueMs = new Date(item.dueAt).getTime();
+  const diffMinutes = Number.isFinite(dueMs) ? Math.round((dueMs - Date.now()) / 60000) : 0;
+  let countdown = '';
+  if (diffMinutes <= 0) {
+    const overdue = Math.abs(diffMinutes);
+    countdown = overdue >= 60 ? `已超时 ${Math.floor(overdue / 60)} 小时` : `已超时 ${overdue} 分钟`;
+  } else {
+    countdown = diffMinutes >= 60 ? `剩余 ${Math.floor(diffMinutes / 60)} 小时` : `剩余 ${diffMinutes} 分钟`;
+  }
+  return {
+    ...item,
+    countdownText: countdown,
+    levelLabel: item.level === 'OVERDUE' ? '已超时' : '即将超时',
+    levelTone: item.level === 'OVERDUE' ? 'warn' : 'todo',
+    ackText: item.status === 'ACKNOWLEDGED' && item.acknowledgeNote ? `平台跟进：${item.acknowledgeNote}` : ''
+  };
+}
+
 Page({
   data: {
     merchant: null, metrics: null, products: [], orders: [], settlements: [], payoutRequests: [],
-    notifications: [], unreadNotificationCount: 0, loading: true,
+    slaAlerts: [], notifications: [], unreadNotificationCount: 0, loading: true,
     payoutMinimumText: '100.00', payableText: '0.00', canRequestPayout: false, payoutHint: '', payoutSubmitting: false
   },
   onShow() {
@@ -108,6 +128,7 @@ Page({
         orders,
         settlements: (data.settlements || []).slice(0, 5).map(decorateSettlement),
         payoutRequests: (data.payoutRequests || []).slice(0, 3).map(decoratePayoutRequest),
+        slaAlerts: (data.slaAlerts || []).slice(0, 4).map(decorateSlaAlert),
         payableText: (payableInCents / 100).toFixed(2),
         payoutMinimumText: (minimumInCents / 100).toFixed(2),
         canRequestPayout: Boolean(data.merchant?.settlementAccountReady) && !pendingRequest && payableInCents >= minimumInCents && payableInCents > 0,

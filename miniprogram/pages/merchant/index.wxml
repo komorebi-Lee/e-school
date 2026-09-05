@@ -5,6 +5,18 @@
       <view><view class="merchant-name">{{merchant.name}}</view><view class="muted">{{merchant.ownerNameMasked}} · {{merchant.phoneMasked}}</view></view>
       <view class="status">已入驻</view>
     </view>
+    <view class="sla card" wx:if="{{slaAlerts.length}}">
+      <view class="notice-head"><view class="strong">履约提醒</view><text class="muted">待处理 {{metrics.slaOpenCount || 0}} · 已超时 {{metrics.slaOverdueCount || 0}}</text></view>
+      <view class="sla-item" wx:for="{{slaAlerts}}" wx:key="id">
+        <view class="sla-main">
+          <view class="strong">{{item.ruleLabel}} · {{item.businessNo}}</view>
+          <view class="muted">{{item.detail}}</view>
+          <view class="muted" wx:if="{{item.ackText}}">{{item.ackText}}</view>
+        </view>
+        <view class="right"><view class="status-text tone-{{item.levelTone}}">{{item.levelLabel}}</view><view class="muted">{{item.countdownText}}</view></view>
+      </view>
+      <view class="muted sla-note">超时会影响店铺履约评分，请优先处理已超时事项</view>
+    </view>
     <view class="notification card" wx:if="{{notifications.length}}">
       <view class="notice-head"><view class="strong">商家提醒</view><text class="muted">未读 {{unreadNotificationCount}}</text></view>
       <view class="notice-item" wx:for="{{notifications}}" wx:key="id">
