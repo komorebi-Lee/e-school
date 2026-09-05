@@ -5,10 +5,19 @@
       <view><view class="merchant-name">{{merchant.name}}</view><view class="muted">{{merchant.ownerNameMasked}} · {{merchant.phoneMasked}}</view></view>
       <view class="status">已入驻</view>
     </view>
+    <view class="notification card" wx:if="{{notifications.length}}">
+      <view class="notice-head"><view class="strong">商家提醒</view><text class="muted">未读 {{unreadNotificationCount}}</text></view>
+      <view class="notice-item" wx:for="{{notifications}}" wx:key="id">
+        <view class="strong">{{item.title}}</view>
+        <view class="muted">{{item.content}}</view>
+        <view class="muted notice-time">{{item.timeText}}</view>
+      </view>
+    </view>
     <view class="metric-grid">
-      <view class="metric card"><text>营收（元）</text><strong>{{metrics.revenueInCents / 100}}</strong></view>
+      <view class="metric card"><text>已支付营收（元）</text><strong>{{metrics.revenueInCents / 100}}</strong></view>
       <view class="metric card"><text>订单</text><strong>{{metrics.orderCount}}</strong></view>
       <view class="metric card"><text>待履约</text><strong>{{metrics.pendingCount}}</strong></view>
+      <view class="metric card"><text>处理中售后</text><strong>{{metrics.afterSaleCount || 0}}</strong></view>
       <view class="metric card"><text>库存预警</text><strong>{{metrics.lowStockCount}}</strong></view>
       <view class="metric card"><text>待回复评价</text><strong>{{metrics.pendingReplyCount || 0}}</strong></view>
     </view>

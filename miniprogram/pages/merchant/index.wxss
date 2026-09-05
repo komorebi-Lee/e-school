@@ -1,6 +1,12 @@
 .merchant { display: flex; justify-content: space-between; align-items: center; padding: 28rpx; }
 .merchant-name { font-size: 36rpx; font-weight: 900; }
 .status { color: #157552; background: #dcf7ea; padding: 8rpx 16rpx; border-radius: 999rpx; font-size: 22rpx; font-weight: 800; }
+.notification { padding: 24rpx; margin-top: 20rpx; }
+.notice-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10rpx; }
+.notice-item { padding: 16rpx 0; border-bottom: 1rpx solid #edf0f5; }
+.notice-item:last-child { border-bottom: 0; }
+.notice-item .muted { margin-top: 6rpx; line-height: 1.45; }
+.notice-time { font-size: 20rpx; }
 .metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18rpx; margin-top: 22rpx; }
 .metric { padding: 24rpx; display: flex; flex-direction: column; gap: 8rpx; }
 .metric text { color: #78849a; font-size: 22rpx; }
