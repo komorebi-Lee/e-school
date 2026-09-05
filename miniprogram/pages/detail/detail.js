@@ -29,6 +29,6 @@ Page({
     });
   },
   checkout() {
-    wx.navigateTo({ url: `/pages/consult/consult?type=${encodeURIComponent('电动车')}&interest=${encodeURIComponent(this.data.scooter.name)}` });
+    wx.navigateTo({ url: `/pages/checkout/checkout?id=${encodeURIComponent(this.data.scooter.id)}` });
   }
 });

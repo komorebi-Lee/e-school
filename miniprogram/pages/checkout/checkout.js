@@ -2,10 +2,11 @@ const { request, userId } = require('../../services/api');
 const { getScooter } = require('../../services/store');
 
 Page({
-  data: { scooter: null, name: '', phone: '', date: '', deliveryAddress: '', submitting: false },
+  data: { scooter: null, name: '', phone: '', date: '', deliveryAddress: '', submitting: false, payToken: '' },
   onShow() { const profile=wx.getStorageSync('shishanUserProfile')||{}; if(profile.name||profile.phone) this.setData({name:profile.name||'',phone:profile.phone||''}); },
   onLoad(options) {
     const id = options.id || '';
+    this.setData({ payToken: `ebike-${id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` });
     request(`/api/products/${encodeURIComponent(id)}`).then(({ data }) => {
       this.setData({ scooter: { ...data, price: Math.round(data.priceInCents / 100), subtitle: data.description, color: '#eaf0ff', icon: '车' } });
     }).catch(() => {
@@ -24,9 +25,9 @@ Page({
     if (!/^1\d{10}$/.test(phone)) return wx.showToast({ title: '请输入正确手机号', icon: 'none' });
     wx.setStorageSync('shishanUserProfile',{...wx.getStorageSync('shishanUserProfile')||{},name,phone});
     this.setData({ submitting: true });
-    request('/api/orders', { method: 'POST', data: { userId: userId(), items: [{ productId: scooter.id, quantity: 1 }], fulfillment: { type: 'DELIVERY', address: deliveryAddress, date, contactName: name, contactPhone: phone } } })
+    request('/api/orders', { method: 'POST', header: { 'Idempotency-Key': this.data.payToken }, data: { userId: userId(), items: [{ productId: scooter.id, quantity: 1 }], fulfillment: { type: 'DELIVERY', address: deliveryAddress, date, contactName: name, contactPhone: phone } } })
       .then(({ data }) => {
-        wx.showModal({ title:'购车订单已提交', content:'系统已同步生成免费校园牌照辅助，可在订单中心跟进。', confirmText:'查看订单', showCancel:false, success:()=>wx.switchTab({url:'/pages/orders/orders'}) });
+        wx.showModal({ title:'模拟支付成功', content:'购车订单已进入待配送状态，系统已同步生成免费校园牌照辅助。', confirmText:'查看订单', showCancel:false, success:()=>wx.switchTab({url:'/pages/orders/orders'}) });
       })
       .catch((error) => { this.setData({ submitting: false }); wx.showToast({ title: error.message || '提交失败', icon: 'none' }); });
   }
