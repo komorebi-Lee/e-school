@@ -8,6 +8,22 @@ const consultQuestions = {
   PLATE: ['还需要补充哪些材料？','办理进度请帮忙查询','办理完成后如何领牌？']
 };
 const consultPhones = { PHONE_PLAN:'15527111396', RECHARGE:'15527111396', BROADBAND:'15527111396', PLATE:'15527111396' };
+
+function uploadReviewImage(file) {
+  const extension = file.tempFilePath.split('.').pop().toLowerCase();
+  const mimeType = extension === 'png' ? 'image/png' : extension === 'webp' ? 'image/webp' : 'image/jpeg';
+  return new Promise((resolve, reject) => {
+    wx.getFileSystemManager().readFile({
+      filePath: file.tempFilePath,
+      encoding: 'base64',
+      success: ({ data }) => resolve(data),
+      fail: () => reject(new Error('图片读取失败'))
+    });
+  }).then((dataBase64) => request('/api/uploads', {
+    method: 'POST',
+    data: { dataBase64, mimeType }
+  }).then(({ data }) => data.url));
+}
 const roleNames = { USER:'我', MERCHANT:'商家', PLATFORM:'平台' };
 const statusTones = {
   PAID:'blue', FULFILLING:'run', COMPLETED:'done', CANCELLED:'closed', AFTER_SALE:'warn',
@@ -149,13 +165,31 @@ Page({
             const content=(res.content||'').trim();
             if(!content)return wx.showToast({title:'请填写评价内容',icon:'none'});
             this.setData({reviewing:true});
-            request('/api/product-reviews',{method:'POST',data:{orderId:record.id,productId,rating,content}}).then(()=>{
-              this.setData({reviewing:false});
-              wx.showToast({title:'评价已发布',icon:'success'});
-              setTimeout(()=>this.loadRecords(),400);
-            }).catch(error=>{
-              this.setData({reviewing:false});
-              wx.showToast({title:error.message||'评价发布失败',icon:'none'});
+            wx.chooseMedia({
+              count: 3,
+              mediaType: ['image'],
+              sourceType: ['album', 'camera'],
+              success: ({ tempFiles }) => Promise.all(tempFiles.map(file => uploadReviewImage(file)))
+                .then(images => request('/api/product-reviews', { method:'POST', data:{ orderId:record.id, productId, rating, content, images } }))
+                .then(() => {
+                  this.setData({reviewing:false});
+                  wx.showToast({title:'评价已发布',icon:'success'});
+                  setTimeout(()=>this.loadRecords(),400);
+                })
+                .catch(error => {
+                  this.setData({reviewing:false});
+                  wx.showToast({title:error.message||'评价发布失败',icon:'none'});
+                }),
+              fail: () => {
+                request('/api/product-reviews',{method:'POST',data:{orderId:record.id,productId,rating,content}}).then(()=>{
+                  this.setData({reviewing:false});
+                  wx.showToast({title:'评价已发布',icon:'success'});
+                  setTimeout(()=>this.loadRecords(),400);
+                }).catch(error=>{
+                  this.setData({reviewing:false});
+                  wx.showToast({title:error.message||'评价发布失败',icon:'none'});
+                });
+              }
             });
           }
         });
