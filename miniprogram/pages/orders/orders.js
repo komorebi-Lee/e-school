@@ -8,6 +8,7 @@ const consultQuestions = {
   PLATE: ['还需要补充哪些材料？','办理进度请帮忙查询','办理完成后如何领牌？']
 };
 const consultPhones = { PHONE_PLAN:'15527111396', RECHARGE:'15527111396', BROADBAND:'15527111396', PLATE:'15527111396' };
+const roleNames = { USER:'我', MERCHANT:'商家', PLATFORM:'平台' };
 const statusTones = {
   PAID:'blue', FULFILLING:'run', COMPLETED:'done', CANCELLED:'closed', AFTER_SALE:'warn',
   PENDING_REALNAME:'todo', ACTIVATED:'done', REJECTED:'closed',
@@ -53,7 +54,13 @@ function card(item) {
     merchantName:item.merchantName || '',
     nextStep:item.collaboration?.roleActions?.MERCHANT?.length ? '商家确认履约' : item.collaboration?.roleActions?.PLATFORM?.length ? '平台介入处理' : item.status === 'COMPLETED' ? '等待用户确认服务' : '等待履约更新',
     intervention:item.collaboration?.intervention?.status === 'REQUESTED',
-    messages:(item.collaboration?.messages || []).slice(0,2)
+    messages:(item.collaboration?.messages || []).slice(0,2),
+    timeline:(item.collaboration?.handoffs || []).slice(0,4).map((handoff, index) => ({
+      id:index,
+      roleLabel:roleNames[handoff.role] || '平台',
+      note:handoff.note || '状态已更新',
+      timeText:String(handoff.createdAt || '').replace('T',' ').slice(5,16)
+    }))
   };
 }
 

@@ -41,6 +41,14 @@
 .role-MERCHANT { background: #fff2d9; color: #9a5b00; }
 .role-PLATFORM { background: #e6f7f0; color: #157552; }
 .alert { margin-top: 10rpx; color: #b42318; background: #ffe9e6; border-radius: 12rpx; padding: 10rpx; font-size: 21rpx; font-weight: 700; }
+.timeline { margin-top: 16rpx; padding: 16rpx; background: #fff; border: 1rpx solid #e3e9f5; border-radius: 16rpx; }
+.timeline-title { font-size: 23rpx; font-weight: 800; color: #172033; margin-bottom: 14rpx; }
+.timeline-item { display: flex; gap: 14rpx; margin-bottom: 16rpx; }
+.timeline-item:last-child { margin-bottom: 0; }
+.timeline-dot { width: 14rpx; height: 14rpx; margin-top: 9rpx; border-radius: 50%; background: #002fa7; box-shadow: 0 0 0 6rpx #eaf0ff; }
+.timeline-role { color: #002fa7; font-size: 20rpx; font-weight: 800; margin-right: 10rpx; }
+.timeline-note { color: #33435f; font-size: 22rpx; line-height: 1.5; }
+.timeline-time { font-size: 19rpx; margin-top: 5rpx; }
 .consult-mask { position: fixed; inset: 0; z-index: 999; background: rgba(15, 24, 44, .52); display: flex; align-items: flex-end; }
 .consult-sheet { width: 100%; box-sizing: border-box; min-height: 62vh; max-height: 86vh; overflow: auto; background: linear-gradient(180deg, #f6f8ff 0%, #fff 34%); border-radius: 30rpx 30rpx 0 0; padding: 14rpx 28rpx calc(24rpx + env(safe-area-inset-bottom)); }
 .sheet-grip { width: 72rpx; height: 7rpx; margin: 6rpx auto 22rpx; border-radius: 999rpx; background: #d8dfec; }

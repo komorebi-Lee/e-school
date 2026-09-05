@@ -1,5 +1,6 @@
 const statusLabels = { PAID: '待发货', FULFILLING: '履约中', COMPLETED: '已完成', CANCELLED: '已取消', AFTER_SALE: '售后中' };
 const nextSteps = { PAID:'确认履约', FULFILLING:'完成配送', COMPLETED:'等待用户确认', CANCELLED:'已关闭' };
+const roleLabels = { USER:'用户', MERCHANT:'商家', PLATFORM:'平台' };
 
 Page({
   data: { orders: [], loading: true },
@@ -24,7 +25,13 @@ Page({
           address: order.fulfillment.address || '未填写'
         } : null,
         intervention: order.collaboration?.intervention?.status === 'REQUESTED',
-        userMessages: (order.collaboration?.messages || []).filter((message)=>message.role==='USER').slice(0,2)
+        userMessages: (order.collaboration?.messages || []).filter((message)=>message.role==='USER').slice(0,2),
+        timeline: (order.collaboration?.handoffs || []).slice(0,4).map((event, index) => ({
+          id:index,
+          roleLabel: roleLabels[event.role] || '平台',
+          note: event.note || '状态已更新',
+          timeText: String(event.createdAt || '').replace('T',' ').slice(5,16)
+        }))
       }));
       this.setData({ orders, loading: false });
     }).catch(() => {

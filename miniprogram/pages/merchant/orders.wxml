@@ -14,6 +14,10 @@
       </view>
       <view class="collab">
         <view class="collab-row"><text class="muted">下一步</text><text>{{item.nextStep}}</text></view>
+        <view class="timeline" wx:if="{{item.timeline.length}}">
+          <view class="timeline-title">履约轨迹</view>
+          <view class="timeline-item" wx:for="{{item.timeline}}" wx:for-item="event" wx:key="id"><text class="timeline-dot"></text><view><view><text class="timeline-role">{{event.roleLabel}}</text><text class="timeline-note">{{event.note}}</text></view><view class="muted timeline-time">{{event.timeText}}</view></view></view>
+        </view>
         <view class="message" wx:for="{{item.userMessages}}" wx:for-item="message" wx:key="id"><text class="role">用户</text><text>{{message.text}}</text></view>
         <view class="alert" wx:if="{{item.intervention}}">用户已请求平台协助</view>
       </view>
