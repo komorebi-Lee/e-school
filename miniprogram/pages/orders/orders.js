@@ -33,6 +33,22 @@ const statusTones = {
   MATERIAL_PENDING:'todo', REVIEWING:'run'
 };
 
+function uploadPlateMaterial(file) {
+  const extension = file.tempFilePath.split('.').pop().toLowerCase();
+  const mimeType = extension === 'png' ? 'image/png' : extension === 'webp' ? 'image/webp' : 'image/jpeg';
+  return new Promise((resolve, reject) => {
+    wx.getFileSystemManager().readFile({
+      filePath: file.tempFilePath,
+      encoding: 'base64',
+      success: ({ data }) => resolve(data),
+      fail: () => reject(new Error('材料图片读取失败'))
+    });
+  }).then((dataBase64) => request('/api/uploads', {
+    method: 'POST',
+    data: { dataBase64, mimeType }
+  }).then(({ data }) => data.url));
+}
+
 function card(item) {
   const isEbike = item.type === 'E_BIKE';
   const type = item.type;
@@ -67,7 +83,10 @@ function card(item) {
     if (item.relatedIds.phoneCardOrderId) actions.push({ key:'action', text:'激活电话卡', action:'ACTIVATE_CARD', disabled:item.status !== 'CREDITED', reason:'到账后可激活' });
   }
   if (type === 'BROADBAND') actions.push({ key:'consult', text:item.status === 'APPROVED' ? '预约安装' : '核验咨询', business:item.status === 'APPROVED' ? '宽带安装预约' : '宽带资格核验' });
-  if (type === 'PLATE' && item.status !== 'PENDING_PAYMENT') actions.push({ key:'consult', text:item.status === 'MATERIAL_PENDING' ? '补充材料' : '办理咨询', business:'校园牌照辅助' });
+  if (type === 'PLATE' && item.status !== 'PENDING_PAYMENT') {
+    actions.push({ key:'materials', text:`上传材料${item.materialCount ? ` (${item.materialCount}/9)` : ''}`, disabled:item.status !== 'MATERIAL_PENDING' && item.status !== 'REVIEWING' });
+    actions.push({ key:'consult', text:'办理咨询', business:'校园牌照辅助' });
+  }
 
   return {
     ...item,
@@ -234,6 +253,32 @@ Page({
         .then(()=>{wx.showToast({title:'已取消',icon:'success'});this.loadRecords();})
         .catch(error=>wx.showToast({title:error.message||'取消失败',icon:'none'}));
     }});
+  },
+  uploadMaterials(e){
+    const id=e.currentTarget.dataset.id;
+    if(!id)return;
+    const record=this.data.records.find(item=>item.id===id);
+    if(record && record.status!=='MATERIAL_PENDING' && record.status!=='REVIEWING')return wx.showToast({title:'当前状态暂不能上传',icon:'none'});
+    wx.chooseMedia({
+      count:9,
+      mediaType:['image'],
+      sourceType:['album','camera'],
+      success:({tempFiles})=>{
+        if(!tempFiles?.length)return;
+        wx.showLoading({title:'上传中'});
+        Promise.all(tempFiles.map(file=>uploadPlateMaterial(file)))
+          .then(images=>request(`/api/plate-applications/${encodeURIComponent(id)}/materials`,{method:'POST',data:{images}}))
+          .then(()=>{
+            wx.hideLoading();
+            wx.showToast({title:'材料已提交',icon:'success'});
+            setTimeout(()=>this.loadRecords(),500);
+          })
+          .catch(error=>{
+            wx.hideLoading();
+            wx.showToast({title:error.message||'上传失败',icon:'none'});
+          });
+      }
+    });
   },
   sendCollab(e){
     const {id,action,text}=e.currentTarget.dataset;
