@@ -64,7 +64,7 @@ Page({
       } : null,
       intervention: order.collaboration?.intervention?.status === 'REQUESTED',
       userMessages: (order.collaboration?.messages || []).filter((message)=>message.role==='USER').slice(0,2),
-      afterSale: afterSales.find((record) => record.orderId === order.id && record.status !== 'CLOSED') || null,
+      afterSale: afterSales.find((record) => record.orderId === order.id) || null,
       timeline: (order.collaboration?.handoffs || []).slice(0,4).map((event, index) => ({
         id:index,
         roleLabel: roleLabels[event.role] || '平台',
@@ -75,7 +75,21 @@ Page({
   },
   updateAfterSale(e) {
     const { id, status } = e.currentTarget.dataset;
-    this.request(`/api/merchant/after-sales/${id}/status`, { method: 'POST', data: { status } }).then(() => {
+    if (status !== 'CLOSED') {
+      return this.submitAfterSaleStatus(id, { status });
+    }
+    wx.showModal({
+      title: '填写处理结果',
+      editable: true,
+      placeholderText: '例如：已上门更换刹车片并试车完成',
+      success: ({ confirm, content }) => {
+        if (!confirm) return;
+        this.submitAfterSaleStatus(id, { status, resolutionNote: (content || '').trim() });
+      }
+    });
+  },
+  submitAfterSaleStatus(id, data) {
+    return this.request(`/api/merchant/after-sales/${id}/status`, { method: 'POST', data }).then(() => {
       wx.showToast({ title: '售后已更新' });
       this.load();
     }).catch((error) => wx.showToast({ title: error.message || '更新失败', icon: 'none' }));

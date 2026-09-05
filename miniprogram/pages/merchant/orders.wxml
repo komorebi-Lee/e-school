@@ -35,7 +35,14 @@
         <view class="aftersale-box" wx:if="{{item.afterSale}}">
           <view class="aftersale-title">售后工单 · {{item.afterSale.typeLabel}}</view>
           <view class="aftersale-reason">{{item.afterSale.reason}}</view>
+          <view class="evidence-grid" wx:if="{{item.afterSale.images.length}}">
+            <image wx:for="{{item.afterSale.images}}" wx:for-item="evidence" wx:key="*this" src="{{evidence}}" mode="aspectFill" />
+          </view>
           <view class="muted aftersale-meta">编号 {{item.afterSale.id}} · {{item.afterSale.statusLabel}}<text wx:if="{{item.afterSale.dueText}}"> · {{item.afterSale.dueText}}前响应</text></view>
+          <view class="aftersale-resolution" wx:if="{{item.afterSale.resolutionNote}}">
+            <text class="aftersale-resolution-label">处理结论</text>
+            <text>{{item.afterSale.resolutionNote}}</text>
+          </view>
           <view class="aftersale-actions">
             <button size="mini" class="ghost-button" data-id="{{item.afterSale.id}}" data-status="REVIEWING" bindtap="updateAfterSale" disabled="{{item.afterSale.status === 'REVIEWING'}}">处理中</button>
             <button size="mini" class="primary-button" data-id="{{item.afterSale.id}}" data-status="CLOSED" bindtap="updateAfterSale" disabled="{{item.afterSale.status === 'CLOSED'}}">处理完成</button>

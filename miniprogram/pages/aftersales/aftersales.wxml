@@ -17,6 +17,10 @@
     <view class="existing-title">该订单已有处理中的售后</view>
     <view class="existing-copy muted">{{existing.typeLabel}} · {{existing.statusLabel}}</view>
     <view class="existing-copy muted" wx:if="{{existing.dueText}}">预计 {{existing.dueText}} 前响应</view>
+    <view class="evidence-grid" wx:if="{{existing.images.length}}">
+      <image wx:for="{{existing.images}}" wx:key="*this" src="{{item}}" mode="aspectFill" />
+    </view>
+    <button wx:if="{{existing.images.length < 9}}" size="mini" class="ghost-button" bindtap="chooseImage">补充问题图片</button>
     <button class="ghost-button" open-type="contact">联系客服处理</button>
   </view>
 
@@ -40,6 +44,18 @@
       <view class="field">
         <text class="field-label">补充说明</text>
         <textarea class="input textarea" placeholder="可补充时间、地点、车辆问题或期望处理方式" bindinput="setDetail"></textarea>
+      </view>
+
+      <view class="field">
+        <text class="field-label">问题图片（选填）</text>
+        <view class="evidence-grid">
+          <view class="evidence-item" wx:for="{{images}}" wx:key="*this">
+            <image src="{{item}}" mode="aspectFill" />
+            <text class="evidence-remove" data-index="{{index}}" bindtap="removeImage">×</text>
+          </view>
+          <view wx:if="{{images.length < 3}}" class="evidence-add" bindtap="chooseImage">＋</view>
+        </view>
+        <view class="muted">建议上传车辆问题、外包装或异常部位照片，最多 3 张。</view>
       </view>
 
       <button class="primary-button" bindtap="submit" disabled="{{submitting}}">{{submitting ? '正在提交…' : '提交售后申请'}}</button>

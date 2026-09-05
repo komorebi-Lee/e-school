@@ -13,9 +13,25 @@ function formatDate(value) {
   return `${date.getMonth() + 1}月${date.getDate()}日 ${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}`;
 }
 
+function uploadAfterSaleImage(file) {
+  const extension = file.tempFilePath.split('.').pop().toLowerCase();
+  const mimeType = extension === 'png' ? 'image/png' : extension === 'webp' ? 'image/webp' : 'image/jpeg';
+  return new Promise((resolve, reject) => {
+    wx.getFileSystemManager().readFile({
+      filePath: file.tempFilePath,
+      encoding: 'base64',
+      success: ({ data }) => resolve(data),
+      fail: () => reject(new Error('图片读取失败'))
+    });
+  }).then((dataBase64) => request('/api/uploads', {
+    method: 'POST',
+    data: { dataBase64, mimeType }
+  }).then(({ data }) => data.url));
+}
+
 Page({
   data: {
-    orderId: '', order: null, existing: null, typeOptions, selectedType: typeOptions[0],
+    orderId: '', order: null, existing: null, typeOptions, selectedType: typeOptions[0], images: [],
     detail: '', submitting: false, loading: true, dueText: ''
   },
   onLoad(options) {
@@ -41,7 +57,8 @@ Page({
           id: existing.id,
           typeLabel: existing.typeLabel || existing.type,
           statusLabel: { SUBMITTED:'已提交', REVIEWING:'处理中', CLOSED:'已关闭' }[existing.status] || existing.status,
-          dueText: formatDate(existing.responseDueAt)
+          dueText: formatDate(existing.responseDueAt),
+          images: existing.images || [],
         } : null,
         loading: false
       });
@@ -55,13 +72,48 @@ Page({
     this.setData({ detail: e.currentTarget.dataset.reason });
   },
   setDetail(e) { this.setData({ detail: e.detail.value }); },
+  chooseImage() {
+    const limit = this.data.existing ? Math.max(0, 9 - this.data.existing.images.length) : 3;
+    if (!limit) return wx.showToast({ title: '图片数量已达上限', icon: 'none' });
+    wx.chooseMedia({
+      count: limit,
+      mediaType: ['image'],
+      sourceType: ['album', 'camera'],
+      success: ({ tempFiles }) => {
+        if (!tempFiles?.length) return;
+        wx.showLoading({ title: '上传中', mask: true });
+        Promise.all(tempFiles.map(file => uploadAfterSaleImage(file))).then((urls) => {
+          wx.hideLoading();
+          if (this.data.existing) {
+            return request(`/api/after-sales/${encodeURIComponent(this.data.existing.id)}/materials`, {
+              method: 'POST',
+              data: { images: urls }
+            }).then(() => {
+              wx.showToast({ title: '图片已补充', icon: 'success' });
+              return this.loadContext();
+            });
+          }
+          this.setData({ images: [...this.data.images, ...urls].slice(0, 3) });
+        }).catch((error) => {
+          wx.hideLoading();
+          wx.showToast({ title: error.message || '图片上传失败', icon: 'none' });
+        });
+      }
+    });
+  },
+  removeImage(e) {
+    const index = Number(e.currentTarget.dataset.index);
+    const images = [...this.data.images];
+    images.splice(index, 1);
+    this.setData({ images });
+  },
   submit() {
     if (this.data.existing) return wx.showToast({ title: '该订单已有处理中的售后', icon:'none' });
     if (!this.data.detail.trim() || this.data.submitting) return wx.showToast({ title: '请描述具体问题', icon: 'none' });
     this.setData({ submitting: true });
     request('/api/after-sales', {
       method: 'POST',
-      data: { userId: userId(), orderId: this.data.orderId, type: this.data.selectedType.key, reason: this.data.detail.trim() }
+      data: { userId: userId(), orderId: this.data.orderId, type: this.data.selectedType.key, reason: this.data.detail.trim(), images: this.data.images }
     }).then(({ data }) => wx.showModal({
       title: '已提交',
       content: `预计${formatDate(data.responseDueAt) || '24 小时内'}前响应。`,
