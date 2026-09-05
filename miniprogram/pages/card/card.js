@@ -1,8 +1,27 @@
 Page({
-  data:{plans:[{id:'plan-campus',name:'校园畅享卡',monthlyFee:29,data:'80GB校园流量',voice:'100分钟通话',badge:'学生常选'},{id:'plan-plus',name:'校园畅联卡',monthlyFee:39,data:'120GB校园流量',voice:'200分钟通话',badge:'流量推荐'},{id:'plan-basic',name:'校园轻享卡',monthlyFee:19,data:'40GB校园流量',voice:'50分钟通话',badge:'基础套餐'}],rechargePromos:[{id:'r150',pay:150,receive:200,badge:'多得50元'},{id:'r200',pay:200,receive:300,badge:'多得100元'}],selectedPlan:0,activeSection:0,profileName:'',profilePhone:'',companionPhone:''},
+  data:{plans:[],rechargePromos:[],selectedPlan:0,activeSection:0,profileName:'',profilePhone:'',companionPhone:''},
   onLoad(){
     const profile=wx.getStorageSync('shishanUserProfile')||{};
     this.setData({profileName:profile.name||'',profilePhone:profile.phone||'',companionPhone:profile.companionPhone||''});
+    this.loadCatalog();
+  },
+  loadCatalog(){
+    const { request } = require('../../services/api');
+    request('/api/products?category=PHONE_PLAN').then(({data})=>{
+      const plans=(data||[]).filter(item=>item.active!==false).map(item=>({
+        id:item.id,
+        name:item.name,
+        monthlyFee:Math.round((item.priceInCents||0)/100),
+        data:item.description||'套餐详情以运营商确认为准',
+        voice:'详情见套餐说明',
+        badge:item.stock>0?'可办理':'已售罄'
+      }));
+      if(plans.length)this.setData({plans,selectedPlan:0});
+    }).catch(()=>{});
+    request('/api/recharge-promos').then(({data})=>{
+      const rechargePromos=(data||[]).map(item=>({id:item.id,pay:item.pay,receive:item.receive,badge:item.badge||'限时优惠'}));
+      if(rechargePromos.length)this.setData({rechargePromos});
+    }).catch(()=>{});
   },
   choosePlan(e){this.setData({selectedPlan:Number(e.currentTarget.dataset.index)})},
   onReady(){this.measureSections()},
@@ -26,6 +45,7 @@ Page({
   buyRecharge(e){
     const p=this.data.rechargePromos[Number(e.currentTarget.dataset.index)];
     const { request, userId } = require('../../services/api');
+    if(!p)return wx.showToast({title:'暂无可办理套餐',icon:'none'});
     if(!this.profileValid())return wx.showModal({title:'补充办理信息',content:'请先填写办理人姓名和手机号',showCancel:false});
     if(this.creatingRecharge)return;
     this.creatingRecharge=true;
