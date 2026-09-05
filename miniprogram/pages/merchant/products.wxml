@@ -1,4 +1,9 @@
 <view class="page">
+  <view class="metric-strip card" wx:if="{{metrics}}">
+    <view><text class="metric-value">{{metrics.productCount}}</text><text class="muted">在售商品</text></view>
+    <view><text class="metric-value warning">{{metrics.lowStockCount}}</text><text class="muted">低库存</text></view>
+    <view><text class="metric-value">{{metrics.orderCount}}</text><text class="muted">订单</text></view>
+  </view>
   <view class="page-title">{{editId ? '编辑商品' : '新增商品'}}</view>
   <view class="form card">
     <view class="field"><text class="field-label">商品名称</text><input class="input" value="{{form.name}}" data-field="name" bindinput="setField" placeholder="请输入商品名称" /></view>
@@ -14,15 +19,24 @@
       <button size="mini" class="primary-button" bindtap="submit">保存商品</button>
     </view>
   </view>
+
+  <view class="operations card">
+    <input class="input search" placeholder="搜索商品或简介" value="{{query}}" bindinput="setSearch" />
+    <view class="filter-row">
+      <view wx:for="{{filters}}" wx:key="key" class="filter-tab {{filter === item.key ? 'active' : ''}}" data-key="{{item.key}}" bindtap="setFilter">{{item.label}}</view>
+    </view>
+  </view>
   <view class="section-title">商品列表</view>
   <view wx:if="{{loading}}" class="empty card"><view class="muted">正在加载…</view></view>
-  <view wx:elif="{{!products.length}}" class="empty card"><view class="muted">暂无商品，请先新增</view></view>
+  <view wx:elif="{{!filtered.length}}" class="empty card"><view class="muted">没有匹配商品</view></view>
   <block wx:else>
-    <view class="product card" wx:for="{{products}}" wx:key="id">
+    <view class="product card" wx:for="{{filtered}}" wx:key="id">
       <view class="head"><view class="strong">{{item.name}}</view><text class="{{item.active ? 'on' : 'off'}}">{{item.active ? '销售中' : '已下架'}}</text></view>
+      <view class="category-row"><text class="category">{{item.categoryLabel}}</text><text class="{{item.stock < 10 ? 'stock-low' : 'stock'}}">{{item.stockText}}</text></view>
       <view class="muted">{{item.description}}</view>
       <view class="bottom"><text class="price">¥{{item.priceInCents / 100}}</text><text class="muted">库存 {{item.stock}}</text></view>
       <view class="actions">
+        <button size="mini" class="ghost-button" data-id="{{item.id}}" bindtap="restock">补货</button>
         <button size="mini" class="ghost-button" data-id="{{item.id}}" bindtap="select">编辑</button>
         <button size="mini" class="{{item.active ? 'ghost-button' : 'primary-button'}}" data-id="{{item.id}}" data-active="{{item.active}}" bindtap="toggle">{{item.active ? '下架' : '上架'}}</button>
       </view>
