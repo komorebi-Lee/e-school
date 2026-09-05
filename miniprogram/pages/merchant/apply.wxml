@@ -77,6 +77,14 @@
       <view class="field"><text class="field-label">服务区域</text><input class="input" value="{{serviceArea}}" data-field="serviceArea" bindinput="setField" placeholder="例如：狮山校区 / 荟园片区" /></view>
       <view class="field"><text class="field-label">店铺简介</text><textarea class="input textarea" value="{{description}}" data-field="description" bindinput="setField" placeholder="请填写主营业务、门店位置、服务范围" maxlength="300" /></view>
 
+      <view class="upload card">
+        <view class="upload-head"><text class="field-label">结算收款账户</text></view>
+        <view class="field"><text class="field-label">收款人姓名</text><input class="input" value="{{settlementAccountName}}" data-field="settlementAccountName" bindinput="setField" placeholder="请填写开户人真实姓名" /></view>
+        <view class="field"><text class="field-label">开户银行</text><input class="input" value="{{settlementBank}}" data-field="settlementBank" bindinput="setField" placeholder="例如：中国银行武汉华中农业大学支行" /></view>
+        <view class="field"><text class="field-label">银行卡号 / 对公账号</text><input class="input" type="number" value="{{settlementAccount}}" data-field="settlementAccount" bindinput="setField" maxlength="32" placeholder="仅用于平台结算打款" /></view>
+        <view class="muted">账户资料仅运营管理员可见，打款页面展示脱敏信息。</view>
+      </view>
+
       <view wx:if="{{merchantTypes[merchantTypeIndex].value !== 'PERSONAL'}}" class="upload card">
         <view class="upload-head"><text class="field-label">营业执照照片</text><button size="mini" class="ghost-button" bindtap="chooseLicense">上传</button></view>
         <view class="muted">

@@ -31,6 +31,9 @@ Page({
     licenseNo: '',
     serviceArea: '',
     description: '',
+    settlementAccountName: '',
+    settlementBank: '',
+    settlementAccount: '',
     licenseFile: null,
     agreeAgreement: false,
     agreePrivacy: false,
@@ -143,6 +146,9 @@ Page({
     if (!this.data.serviceArea || !this.data.description) {
       return wx.showToast({ title: '请填写服务区域和店铺简介', icon: 'none' });
     }
+    if (!this.data.settlementAccountName || !this.data.settlementBank || !/^\d{9,32}$/.test(this.data.settlementAccount.replace(/\s+/g, ''))) {
+      return wx.showToast({ title: '请填写完整收款账户信息', icon: 'none' });
+    }
     if (merchantType.value === 'PERSONAL' && !this.data.identityVerification) {
       return wx.showToast({ title: '请先完成模拟实名验证', icon: 'none' });
     }
@@ -173,6 +179,9 @@ Page({
         category: category.value,
         serviceArea: this.data.serviceArea,
         description: this.data.description,
+        settlementAccountName: this.data.settlementAccountName,
+        settlementBank: this.data.settlementBank,
+        settlementAccount: this.data.settlementAccount,
         identityVerificationToken: merchantType.value === 'PERSONAL' ? this.data.identityVerification.token : '',
         agreeAgreement: this.data.agreeAgreement,
         agreePrivacy: this.data.agreePrivacy
