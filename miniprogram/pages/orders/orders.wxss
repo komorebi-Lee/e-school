@@ -27,6 +27,8 @@
 .tone-closed { color: #667289; background: #eef1f5; }
 .record-title { font-size: 31rpx; font-weight: 900; margin: 20rpx 0 10rpx; }
 .record-meta { display: flex; justify-content: space-between; color: #78849a; font-size: 21rpx; }
+.countdown { display: flex; align-items: center; gap: 10rpx; margin-top: 14rpx; padding: 12rpx 16rpx; background: #fff5e6; border-radius: 12rpx; color: #a55a00; font-size: 21rpx; font-weight: 700; }
+.countdown-dot { width: 12rpx; height: 12rpx; border-radius: 50%; background: #f59f00; flex: none; }
 .delivery-row { display: flex; gap: 16rpx; align-items: flex-start; margin-top: 16rpx; padding: 16rpx; background: #f7f9ff; border-radius: 14rpx; color: #33435f; font-size: 21rpx; line-height: 1.5; }
 .delivery-code { display: flex; align-items: center; gap: 18rpx; margin-top: 18rpx; padding: 18rpx; background: linear-gradient(135deg, #002fa7 0%, #204fd4 100%); border-radius: 18rpx; color: #fff; }
 .code-meta { flex: 1; min-width: 0; }

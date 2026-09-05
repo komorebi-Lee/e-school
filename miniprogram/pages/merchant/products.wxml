@@ -1,7 +1,7 @@
 <view class="page">
   <view class="metric-strip card" wx:if="{{metrics}}">
     <view><text class="metric-value">{{metrics.productCount}}</text><text class="muted">在售商品</text></view>
-    <view><text class="metric-value warning">{{metrics.lowStockCount}}</text><text class="muted">低库存</text></view>
+  <view><text class="metric-value warning">{{metrics.lowStockCount}}</text><text class="muted">可售偏低</text></view>
     <view><text class="metric-value">{{metrics.orderCount}}</text><text class="muted">订单</text></view>
   </view>
   <view class="page-title">{{editId ? '编辑商品' : '新增商品'}}</view>
@@ -41,9 +41,9 @@
   <block wx:else>
     <view class="product card" wx:for="{{filtered}}" wx:key="id">
       <view class="product-head"><image wx:if="{{item.imageUrl}}" class="product-thumb" src="{{item.imageUrl}}" mode="aspectFill" /><view class="head"><view class="strong">{{item.name}}</view><text class="{{item.active ? 'on' : 'off'}}">{{item.active ? '销售中' : '已下架'}}</text></view></view>
-      <view class="category-row"><text class="category">{{item.categoryLabel}}</text><text class="{{item.stock < 10 ? 'stock-low' : 'stock'}}">{{item.stockText}}</text></view>
+      <view class="category-row"><text class="category">{{item.categoryLabel}}</text><text class="{{item.sellableStock < 10 ? 'stock-low' : 'stock'}}">{{item.stockText}}</text></view>
       <view class="muted">{{item.description}}</view>
-      <view class="bottom"><text class="price">¥{{item.priceInCents / 100}}</text><text class="muted">库存 {{item.stock}}</text></view>
+      <view class="bottom"><text class="price">¥{{item.priceInCents / 100}}</text><text class="muted">{{item.stockDetailText}}</text></view>
       <view class="actions">
         <button size="mini" class="ghost-button" data-id="{{item.id}}" bindtap="restock">补货</button>
         <button size="mini" class="ghost-button" data-id="{{item.id}}" bindtap="select">编辑</button>

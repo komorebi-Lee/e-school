@@ -31,12 +31,20 @@ Page({
   },
   load() {
     this.request('/api/merchant/overview').then(({ data }) => {
-      const products = (data.products || []).map((product) => ({
-        ...product,
-        categoryLabel: categoryLabels[product.category] || product.category,
-        stockText: product.stock === 0 ? '已售罄' : product.stock < 10 ? `仅剩 ${product.stock}` : `库存 ${product.stock}`,
-        hasImage: Boolean(product.imageUrl)
-      }));
+      const products = (data.products || []).map((product) => {
+        // 商家看到的“可售”已扣除待支付订单占用，补货判断以可售库存为准。
+        const sellableStock = Number(product.availableStock !== undefined ? product.availableStock : product.stock || 0);
+        const reservedStock = Number(product.reservedStock || 0);
+        return {
+          ...product,
+          categoryLabel: categoryLabels[product.category] || product.category,
+          sellableStock,
+          reservedStock,
+          stockText: sellableStock === 0 ? '可售 0' : sellableStock < 10 ? `可售仅剩 ${sellableStock}` : `可售 ${sellableStock}`,
+          stockDetailText: reservedStock > 0 ? `总库存 ${product.stock} · 待支付占用 ${reservedStock}` : `总库存 ${product.stock}`,
+          hasImage: Boolean(product.imageUrl)
+        };
+      });
       this.setData({
         products,
         filtered: this.filterProducts(products, this.data.query, this.data.filter),
@@ -59,7 +67,7 @@ Page({
   filterProducts(products, query, filter) {
     const keyword = String(query || '').toLowerCase();
     return products.filter((product) => `${product.name} ${product.description}`.toLowerCase().includes(keyword)).filter((product) => {
-      if (filter === 'LOW') return product.stock > 0 && product.stock < 10;
+      if (filter === 'LOW') return product.sellableStock < 10;
       if (filter === 'OFF') return !product.active;
       return true;
     });

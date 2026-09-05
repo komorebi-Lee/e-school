@@ -25,6 +25,18 @@ function uploadReviewImage(file) {
   }).then(({ data }) => data.url));
 }
 const roleNames = { USER:'我', MERCHANT:'商家', PLATFORM:'平台' };
+
+// 待支付订单会占用库存，超时后服务端自动关闭，这里把剩余时间翻译成用户能读懂的文案。
+function paymentCountdownText(expiresAt) {
+  if (!expiresAt) return '';
+  const remainMs = new Date(expiresAt).getTime() - Date.now();
+  if (!Number.isFinite(remainMs)) return '';
+  if (remainMs <= 0) return '支付已超时，刷新后订单将关闭';
+  const minutes = Math.floor(remainMs / 60000);
+  if (minutes >= 60) return `请在 ${Math.floor(minutes / 60)} 小时 ${minutes % 60} 分钟内完成支付`;
+  if (minutes >= 1) return `请在 ${minutes} 分钟内完成支付，超时自动取消`;
+  return '不足 1 分钟，请尽快完成支付';
+}
 const statusTones = {
   PENDING_PAYMENT:'todo', PAID:'blue', FULFILLING:'run', COMPLETED:'done', CANCELLED:'closed', AFTER_SALE:'warn',
   PENDING_REALNAME:'todo', ACTIVATED:'done', REJECTED:'closed',
@@ -94,6 +106,7 @@ function card(item) {
     icon: type === 'E_BIKE' ? '车' : type === 'PHONE_PLAN' ? '卡' : type === 'RECHARGE' ? '充' : type === 'BROADBAND' ? '网' : '牌',
     tone: statusTones[item.status] || 'todo',
     timeText: (item.updatedAt || item.createdAt || '').slice(5,16).replace('T',' '),
+    countdownText: item.status === 'PENDING_PAYMENT' ? paymentCountdownText(item.paymentExpiresAt) : '',
     deliveryCode: isEbike && !['PENDING_PAYMENT','CANCELLED'].includes(item.status) ? (item.deliveryCode || '') : '',
     priceText: item.amountInCents ? `¥${(item.amountInCents / 100).toFixed(2)}` : '',
     statusLabel:item.statusLabel || '处理中',
@@ -132,6 +145,7 @@ Page({
         title:order.items.map(item=>`${item.name}${item.quantity>1?` ×${item.quantity}`:''}`).join(' + '),
         status:order.status, amountInCents:order.totalInCents,
         paymentOrderId:order.paymentOrderId,
+        paymentExpiresAt:order.paymentExpiresAt || '',
         fulfillment:order.fulfillment || {},
         deliveryCode:order.deliveryCode || '',
         items:order.items || [],

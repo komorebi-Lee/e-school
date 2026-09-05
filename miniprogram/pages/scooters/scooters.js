@@ -2,6 +2,8 @@ const { request } = require('../../services/api');
 const { getScooters } = require('../../services/store');
 
 function normalizeProduct(item) {
+  // 可售库存已扣除待支付订单占用，避免展示“有货”却下不了单。
+  const sellableStock = Number(item.availableStock !== undefined ? item.availableStock : item.stock || 0);
   return {
     ...item,
     price: Math.round((item.priceInCents || 0) / 100),
@@ -12,7 +14,8 @@ function normalizeProduct(item) {
     color: item.color || '#eaf0ff',
     ratingText: item.ratingSummary?.count ? item.ratingSummary.average.toFixed(1) : '',
     ratingCountText: item.ratingSummary?.count ? `${item.ratingSummary.count}条已购评价` : '暂无已购评价',
-    stockText: item.stock > 0 ? (item.stock < 5 ? `仅剩 ${item.stock} 件` : `库存 ${item.stock}`) : '已售罄'
+    sellableStock,
+    stockText: sellableStock > 0 ? (sellableStock < 5 ? `仅剩 ${sellableStock} 件` : `库存 ${sellableStock}`) : '已售罄'
   };
 }
 
@@ -28,7 +31,12 @@ Page({
     request('/api/products?category=E_BIKE_NEW').then(({ data }) => {
       const scooters = (data || []).map(normalizeProduct);
       this.setData({ scooters, filtered: this.filterProducts(scooters, this.data.query, this.data.sortKey), loading: false });
-    }).catch((error) => { console.error('云端商品加载失败:', error); this.setData({ scooters: getScooters(), filtered: getScooters(), loading: false }); wx.showToast({ title: '云端加载失败，已显示缓存', icon: 'none' }); });
+    }).catch((error) => {
+      console.error('云端商品加载失败:', error);
+      const cached = (getScooters() || []).map(normalizeProduct);
+      this.setData({ scooters: cached, filtered: this.filterProducts(cached, this.data.query, this.data.sortKey), loading: false });
+      wx.showToast({ title: '云端加载失败，已显示缓存', icon: 'none' });
+    });
   },
   goDetail(e) { wx.navigateTo({ url: `/pages/detail/detail?id=${e.currentTarget.dataset.id}` }); },
   setSearch(e) {
@@ -46,7 +54,7 @@ Page({
     const sorters = {
       price: (a, b) => a.price - b.price,
       range: (a, b) => rangeValue(b.range) - rangeValue(a.range),
-      stock: (a, b) => b.stock - a.stock
+      stock: (a, b) => b.sellableStock - a.sellableStock
     };
     return sorters[sortKey] ? filtered.sort(sorters[sortKey]) : filtered;
   }

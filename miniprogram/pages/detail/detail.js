@@ -6,6 +6,9 @@ function normalizeProduct(product) {
   const reviews = Array.isArray(product.reviews) ? product.reviews : [];
   const ratingSummary = product.ratingSummary || { average: 0, count: 0 };
   const relatedProducts = Array.isArray(product.relatedProducts) ? product.relatedProducts : [];
+  // 可售库存 = 总库存 - 待支付订单占用，作为购买按钮与文案的唯一依据。
+  const sellableStock = Number(product.availableStock !== undefined ? product.availableStock : product.stock || 0);
+  const reservedStock = Number(product.reservedStock || 0);
   return {
     ...product,
     price: Math.round((product.priceInCents || 0) / 100),
@@ -47,7 +50,10 @@ function normalizeProduct(product) {
       imageUrl: item.imageUrl || '',
       color: item.color || '#eaf0ff',
       icon: item.icon || '车',
-      stockText: item.stock > 0 ? (item.stock < 5 ? `仅剩 ${item.stock} 件` : `库存 ${item.stock}`) : '已售罄',
+      stockText: (() => {
+        const relatedStock = Number(item.availableStock !== undefined ? item.availableStock : item.stock || 0);
+        return relatedStock > 0 ? (relatedStock < 5 ? `仅剩 ${relatedStock} 件` : `库存 ${relatedStock}`) : '已售罄';
+      })(),
       ratingText: item.ratingSummary?.count ? item.ratingSummary.average.toFixed(1) : '新'
     })),
     questions: [
@@ -55,7 +61,9 @@ function normalizeProduct(product) {
       { id: 'q2', question: '校园牌照怎么办理？', answer: '平台购车订单免费同步牌照辅助，支付后即可查看办理入口。' },
       { id: 'q3', question: '有售后保障吗？', answer: '订单支持在线协商、平台协助和售后工单，重点看车况与充电适配。' }
     ],
-    stockText: product.stock > 0 ? (product.stock < 5 ? `仅剩 ${product.stock} 件` : `库存 ${product.stock}`) : '已售罄'
+    sellableStock,
+    stockText: sellableStock > 0 ? (sellableStock < 5 ? `仅剩 ${sellableStock} 件` : `库存 ${sellableStock}`) : '已售罄',
+    stockHint: reservedStock > 0 && sellableStock > 0 ? `另有 ${reservedStock} 件待支付占用，付款后释放` : ''
   };
 }
 
@@ -71,7 +79,7 @@ Page({
     });
   },
   checkout() {
-    if (this.data.scooter.stock <= 0) return wx.showToast({ title: '该车型已售罄', icon: 'none' });
+    if (Number(this.data.scooter.sellableStock || 0) <= 0) return wx.showToast({ title: '该车型暂无可售库存', icon: 'none' });
     wx.navigateTo({ url: `/pages/checkout/checkout?id=${encodeURIComponent(this.data.scooter.id)}` });
   },
   goRelated(e) {

@@ -29,6 +29,7 @@
     </view>
     <view class="delivery-row" wx:if="{{item.deliveryText}}"><text class="muted">配送</text><text>{{item.deliveryText}}</text></view>
     <view class="record-meta"><text>{{item.recordNo}}</text><text>{{item.timeText}}</text></view>
+    <view class="countdown" wx:if="{{item.countdownText}}"><text class="countdown-dot"></text><text>{{item.countdownText}}</text></view>
     <view class="collab" wx:if="{{item.collaboration}}">
       <view class="collab-row"><text class="muted">商家</text><text>{{item.merchantName || '平台自营'}}</text></view>
       <view class="collab-row"><text class="muted">下一步</text><text>{{item.nextStep}}</text></view>
