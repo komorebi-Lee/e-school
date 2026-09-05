@@ -52,7 +52,7 @@ function card(item) {
       });
     }
     if (!['COMPLETED','CANCELLED','AFTER_SALE'].includes(item.status)) actions.push({ key:'edit', text:'修改配送' });
-    if (item.status !== 'CANCELLED') actions.push({ key:'collab', text:'联系商家', action:'NOTE' });
+  if (item.status !== 'CANCELLED') actions.push({ key:'collab', text:'联系商家', action:'NOTE' });
     if (!['COMPLETED','CANCELLED','AFTER_SALE'].includes(item.status)) actions.push({ key:'appeal', text:'平台协助', action:'APPEAL' });
     if (!['CANCELLED'].includes(item.status)) actions.push({ key:'aftersale', text:'申请售后' });
   }
@@ -75,12 +75,13 @@ function card(item) {
     icon: type === 'E_BIKE' ? '车' : type === 'PHONE_PLAN' ? '卡' : type === 'RECHARGE' ? '充' : type === 'BROADBAND' ? '网' : '牌',
     tone: statusTones[item.status] || 'todo',
     timeText: (item.updatedAt || item.createdAt || '').slice(5,16).replace('T',' '),
+    deliveryCode: isEbike && !['PENDING_PAYMENT','CANCELLED'].includes(item.status) ? (item.deliveryCode || '') : '',
     priceText: item.amountInCents ? `¥${(item.amountInCents / 100).toFixed(2)}` : '',
     statusLabel:item.statusLabel || '处理中',
     deliveryText: fulfillment.address ? `${fulfillment.date || '尽快配送'} · ${fulfillment.address}` : '',
     actions,
     merchantName:item.merchantName || '',
-    nextStep:item.collaboration?.roleActions?.MERCHANT?.length ? '商家确认履约' : item.collaboration?.roleActions?.PLATFORM?.length ? '平台介入处理' : item.status === 'COMPLETED' ? '等待用户确认服务' : '等待履约更新',
+    nextStep: isEbike && item.status === 'FULFILLING' ? '向商家出示交付码完成配送' : item.collaboration?.roleActions?.MERCHANT?.length ? '商家确认履约' : item.collaboration?.roleActions?.PLATFORM?.length ? '平台介入处理' : item.status === 'COMPLETED' ? '可评价本次服务' : '等待履约更新',
     intervention:item.collaboration?.intervention?.status === 'REQUESTED',
     messages:(item.collaboration?.messages || []).slice(0,2),
     timeline:(item.collaboration?.handoffs || []).slice(0,4).map((handoff, index) => ({
@@ -112,6 +113,8 @@ Page({
         title:order.items.map(item=>`${item.name}${item.quantity>1?` ×${item.quantity}`:''}`).join(' + '),
         status:order.status, amountInCents:order.totalInCents,
         paymentOrderId:order.paymentOrderId,
+        fulfillment:order.fulfillment || {},
+        deliveryCode:order.deliveryCode || '',
         items:order.items || [],
         reviewedProductIds:reviewedProductIds.filter(key=>key.startsWith(`${order.id}:`)).map(key=>key.split(':')[1]),
         relatedIds:order.plateApplicationId?{plateApplicationId:order.plateApplicationId}:{},
@@ -143,6 +146,11 @@ Page({
   },
   goCard(){wx.navigateTo({url:'/pages/card/card'})},
   goShop(){wx.navigateTo({url:'/pages/scooters/scooters'})},
+  copyDeliveryCode(e){
+    const code=e.currentTarget.dataset.code;
+    if(!code)return;
+    wx.setClipboardData({data:code,success:()=>wx.showToast({title:'已复制',icon:'success'})});
+  },
   goLinkage(e){
     const view=e.currentTarget.dataset.view;
     const filter=e.currentTarget.dataset.filter;

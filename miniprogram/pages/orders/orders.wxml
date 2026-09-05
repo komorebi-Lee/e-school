@@ -22,6 +22,11 @@
   <view class="record card" wx:for="{{filtered}}" wx:key="id">
     <view class="record-head"><view class="record-type"><text class="record-icon">{{item.icon}}</text>{{item.typeLabel}}</view><text class="status tone-{{item.tone}}">{{item.statusLabel}}</text></view>
     <view class="record-title">{{item.title}}</view>
+    <view class="delivery-code" wx:if="{{item.deliveryCode}}">
+      <view class="code-meta"><text class="code-label">{{item.status === 'COMPLETED' ? '已核验交付码' : '交付码'}}</text><text class="code-hint">{{item.status === 'FULFILLING' ? '配送时向商家出示' : '已核验，可留存备查'}}</text></view>
+      <view class="code-value">{{item.deliveryCode}}</view>
+      <button class="code-copy" data-code="{{item.deliveryCode}}" bindtap="copyDeliveryCode">复制</button>
+    </view>
     <view class="delivery-row" wx:if="{{item.deliveryText}}"><text class="muted">配送</text><text>{{item.deliveryText}}</text></view>
     <view class="record-meta"><text>{{item.recordNo}}</text><text>{{item.timeText}}</text></view>
     <view class="collab" wx:if="{{item.collaboration}}">

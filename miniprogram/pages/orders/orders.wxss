@@ -28,6 +28,13 @@
 .record-title { font-size: 31rpx; font-weight: 900; margin: 20rpx 0 10rpx; }
 .record-meta { display: flex; justify-content: space-between; color: #78849a; font-size: 21rpx; }
 .delivery-row { display: flex; gap: 16rpx; align-items: flex-start; margin-top: 16rpx; padding: 16rpx; background: #f7f9ff; border-radius: 14rpx; color: #33435f; font-size: 21rpx; line-height: 1.5; }
+.delivery-code { display: flex; align-items: center; gap: 18rpx; margin-top: 18rpx; padding: 18rpx; background: linear-gradient(135deg, #002fa7 0%, #204fd4 100%); border-radius: 18rpx; color: #fff; }
+.code-meta { flex: 1; min-width: 0; }
+.code-label { display: block; font-size: 21rpx; font-weight: 800; }
+.code-hint { display: block; margin-top: 7rpx; color: #d7e2ff; font-size: 19rpx; line-height: 1.35; }
+.code-value { font-size: 40rpx; font-weight: 900; letter-spacing: 4rpx; }
+.code-copy { min-width: 88rpx; height: 54rpx; line-height: 52rpx; margin: 0; padding: 0 18rpx; background: rgba(255,255,255,.16); color: #fff; font-size: 20rpx; font-weight: 800; border-radius: 999rpx; }
+.code-copy::after { border: 0; }
 .record-bottom { display: flex; align-items: center; justify-content: space-between; margin-top: 22rpx; padding-top: 20rpx; border-top: 1rpx solid #edf0f5; }
 .record-actions { display: flex; gap: 12rpx; flex-wrap: wrap; justify-content: flex-end; }
 .record-actions button { margin: 0; font-size: 22rpx; padding: 0 20rpx; }

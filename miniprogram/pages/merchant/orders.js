@@ -1,7 +1,9 @@
+const { request: apiRequest } = require('../../services/api');
+
 const statusLabels = { PAID: '待发货', FULFILLING: '履约中', COMPLETED: '已完成', CANCELLED: '已取消', AFTER_SALE: '售后中' };
 const afterSaleLabels = { SUBMITTED: '待处理', REVIEWING: '处理中', CLOSED: '已完成' };
 const afterSaleTypes = { REFUND: '申请退款', RETURN: '退货', REPAIR: '维修' };
-const nextSteps = { PAID:'确认履约', FULFILLING:'完成配送', COMPLETED:'等待用户确认', CANCELLED:'已关闭' };
+const nextSteps = { PAID:'确认履约', FULFILLING:'核验交付码并完成配送', COMPLETED:'已交付', CANCELLED:'已关闭' };
 const roleLabels = { USER:'用户', MERCHANT:'商家', PLATFORM:'平台' };
 
 Page({
@@ -80,7 +82,21 @@ Page({
   },
   update(e) {
     const { id, status } = e.currentTarget.dataset;
-    this.request(`/api/merchant/orders/${id}/status`, { method: 'POST', data: { status } }).then(() => {
+    if (status !== 'COMPLETED') {
+      return this.submitStatus(id, { status });
+    }
+    wx.showModal({
+      title: '核验交付码',
+      editable: true,
+      placeholderText: '请向用户确认 6 位交付码',
+      success: (res) => {
+        if (!res.confirm) return;
+        this.submitStatus(id, { status, deliveryCode: (res.content || '').trim() });
+      }
+    });
+  },
+  submitStatus(id, data) {
+    return this.request(`/api/merchant/orders/${id}/status`, { method: 'POST', data }).then(() => {
       wx.showToast({ title: '订单已更新' });
       this.load();
     }).catch((error) => wx.showToast({ title: error.message || '更新失败', icon: 'none' }));
