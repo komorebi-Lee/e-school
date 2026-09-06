@@ -41,7 +41,7 @@
   <block wx:else>
     <view class="product card" wx:for="{{filtered}}" wx:key="id">
       <view class="product-head"><image wx:if="{{item.imageUrl}}" class="product-thumb" src="{{item.imageUrl}}" mode="aspectFill" /><view class="head"><view class="strong">{{item.name}}</view><text class="{{item.active ? 'on' : 'off'}}">{{item.active ? '销售中' : '已下架'}}</text></view></view>
-      <view class="category-row"><text class="category">{{item.categoryLabel}}</text><text class="{{item.sellableStock < 10 ? 'stock-low' : 'stock'}}">{{item.stockText}}</text></view>
+      <view class="category-row"><text class="category">{{item.categoryLabel}}</text><text class="{{item.sellableStock <= lowStockThreshold ? 'stock-low' : 'stock'}}">{{item.stockText}}</text></view>
       <view class="muted">{{item.description}}</view>
       <view class="risk-note" wx:if="{{item.autoDelisted}}">已自动下架：{{item.autoDelistText}}</view>
       <view class="bottom"><text class="price">¥{{item.priceInCents / 100}}</text><text class="muted">{{item.stockDetailText}}</text></view>

@@ -13,7 +13,7 @@ const emptyForm = { name: '', categoryIndex: 0, price: '', stock: '', descriptio
 
 Page({
   data: {
-    categories, products: [], filtered: [], metrics: null, query: '', filter: 'ALL',
+    categories, products: [], filtered: [], metrics: null, lowStockThreshold: 10, query: '', filter: 'ALL',
     filters: [
       { key:'ALL', label:'全部' },
       { key:'LOW', label:'低库存' },
@@ -35,12 +35,13 @@ Page({
         // 商家看到的“可售”已扣除待支付订单占用，补货判断以可售库存为准。
         const sellableStock = Number(product.availableStock !== undefined ? product.availableStock : product.stock || 0);
         const reservedStock = Number(product.reservedStock || 0);
+        const lowStockThreshold = Number(data.lowStockThreshold ?? 10);
         return {
           ...product,
           categoryLabel: categoryLabels[product.category] || product.category,
           sellableStock,
           reservedStock,
-          stockText: sellableStock === 0 ? '可售 0' : sellableStock < 10 ? `可售仅剩 ${sellableStock}` : `可售 ${sellableStock}`,
+          stockText: sellableStock === 0 ? '已售罄' : sellableStock <= lowStockThreshold ? `可售仅剩 ${sellableStock}` : `可售 ${sellableStock}`,
           stockDetailText: reservedStock > 0 ? `总库存 ${product.stock} · 待支付占用 ${reservedStock}` : `总库存 ${product.stock}`,
           hasImage: Boolean(product.imageUrl),
           autoDelisted: product.autoDelistRule === 'LOW_QUALITY' && !product.active,
@@ -51,6 +52,7 @@ Page({
         products,
         filtered: this.filterProducts(products, this.data.query, this.data.filter),
         metrics: data.metrics || null,
+        lowStockThreshold: Number(data.lowStockThreshold ?? 10),
         loading: false
       });
     }).catch(() => {
@@ -69,7 +71,7 @@ Page({
   filterProducts(products, query, filter) {
     const keyword = String(query || '').toLowerCase();
     return products.filter((product) => `${product.name} ${product.description}`.toLowerCase().includes(keyword)).filter((product) => {
-      if (filter === 'LOW') return product.sellableStock < 10;
+      if (filter === 'LOW') return product.sellableStock <= (this.data.lowStockThreshold || 10);
       if (filter === 'OFF') return !product.active;
       return true;
     });

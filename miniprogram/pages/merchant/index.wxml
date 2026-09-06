@@ -112,6 +112,16 @@
       <view class="metric card"><text>待回复评价</text><strong>{{metrics.pendingReplyCount || 0}}</strong></view>
       <view class="metric card"><text>售后超时</text><strong>{{metrics.afterSaleOverdueCount || 0}}</strong></view>
     </view>
+    <view class="sla card" wx:if="{{lowStockProducts.length}}">
+      <view class="notice-head"><view class="strong">库存偏低</view><text class="muted">阈值 {{lowStockThreshold}} 件</text></view>
+      <view class="sla-item" wx:for="{{lowStockProducts}}" wx:key="id">
+        <view class="sla-main">
+          <view class="strong">{{item.name}}</view>
+          <view class="muted">可售 {{item.availableStock}} 件{{item.reservedStock ? ' · 待支付占用 ' + item.reservedStock + ' 件' : ''}}</view>
+        </view>
+        <button size="mini" class="ghost-button" bindtap="goProducts">去补货</button>
+      </view>
+    </view>
     <view class="section-title">资金账户</view>
     <view class="settle-panel card">
       <view class="settle-head">

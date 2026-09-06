@@ -153,6 +153,7 @@ function decorateServiceScore(score) {
 Page({
   data: {
     merchant: null, metrics: null, products: [], orders: [], settlements: [], payoutRequests: [],
+    lowStockProducts: [], lowStockThreshold: 10,
     slaAlerts: [], notifications: [], unreadNotificationCount: 0, loading: true,
     serviceScore: null, pendingPublishProducts: [], scoreCases: [], scoreNoticeSubscribed: false,
     scoreEvidence: [], uploadingScoreEvidence: false,
@@ -200,6 +201,8 @@ Page({
         merchant: data.merchant,
         metrics: data.metrics,
         products: data.products,
+        lowStockProducts: data.lowStockProducts || [],
+        lowStockThreshold: data.lowStockThreshold || 10,
         orders,
         settlements: (data.settlements || []).slice(0, 5).map(decorateSettlement),
         payoutRequests: (data.payoutRequests || []).slice(0, 3).map(decoratePayoutRequest),
