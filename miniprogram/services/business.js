@@ -8,6 +8,7 @@ const defaultConfig = {
   deliveryResponseHours: 24,
   plateResponseHours: 48,
   externalPlateFeeInCents: 4900,
+  leadResponseHours: 24,
   afterSaleResponseHours: 24,
   afterSaleResolutionHours: 72,
   deliveryTimeSlots: ['尽快配送'],
