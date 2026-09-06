@@ -28,6 +28,7 @@
       <text class="notification-time">{{item.timeText}}</text>
     </view>
     <view wx:if="{{!notifications.length}}" class="notification-empty">暂无业务提醒</view>
+    <button class="message-toggle" bindtap="toggleOrderMessages">{{orderMessageSubscribed ? '关闭订单微信提醒' : '开启订单微信提醒'}}</button>
   </view>
   <view class="login-card card">
     <view class="login-info">

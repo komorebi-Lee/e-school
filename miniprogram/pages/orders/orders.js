@@ -301,7 +301,7 @@ Page({
       editable:true, placeholderText: action === 'APPEAL' ? '请说明需要平台协助的问题' : '请填写备注，例如明天上午配送',
       success:res=>{
         if(!res.confirm)return;
-        request('/api/order-collab',{method:'POST',data:{role:'USER',userId:userId(),orderId:id,action,note:res.content||text||'用户留言'}}).then(()=>{
+        request('/api/order-collab',{method:'POST',data:{role:'USER',orderId:id,action,note:res.content||text||'用户留言'}}).then(()=>{
           wx.showToast({title:'已发送'});
           setTimeout(()=>this.loadRecords(),400);
         }).catch(error=>wx.showToast({title:error.message||'发送失败',icon:'none'}));
@@ -365,7 +365,7 @@ Page({
     const consult=this.data.consult;
     if(!consult || consult.sending)return;
     this.setData({'consult.sending':text});
-    request('/api/order-collab',{method:'POST',data:{role:'USER',userId:userId(),orderId:consult.id,action:'NOTE',note:text}}).then(({data})=>{
+    request('/api/order-collab',{method:'POST',data:{role:'USER',orderId:consult.id,action:'NOTE',note:text}}).then(({data})=>{
       const updated=card(data);
       const records=this.data.records.map(item=>item.id===updated.id?updated:item);
       this.setData({records,filtered:this.filterRecords(records,this.data.active),consult:null});

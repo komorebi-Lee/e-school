@@ -249,7 +249,7 @@ Page({
   },
   subscribeScoreNotice() {
     apiRequest('/api/subscribe-templates').then(({ data = [] }) => {
-      const tmplIds = data.map((item) => item.configuredId).filter(Boolean).slice(0, 3);
+      const tmplIds = data.filter((item) => item.audience !== 'USER').map((item) => item.configuredId).filter(Boolean).slice(0, 3);
       if (!tmplIds.length) {
         wx.showToast({ title: '请先在后台配置模板 ID', icon: 'none' });
         return;

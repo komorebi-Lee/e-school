@@ -16,3 +16,5 @@
 .notification-main text { font-size: 22rpx; color: #536078; line-height: 1.5; }
 .notification-time { color: #8895a8; font-size: 21rpx; white-space: nowrap; }
 .notification-empty { padding: 24rpx 0 8rpx; color: #8895a8; font-size: 24rpx; }
+.message-toggle { height: 68rpx; line-height: 66rpx; margin: 18rpx 0 0; border-radius: 999rpx; background: #eaf0ff; color: #002fa7; font-size: 23rpx; font-weight: 800; }
+.message-toggle::after { border: 0; }

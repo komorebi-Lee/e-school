@@ -16,9 +16,10 @@ Page({
     latestApprovedAt: "",
     userId: "",
     loginState: "loading",
-    loggingIn: false
+    loggingIn: false,
+    orderMessageSubscribed: false
   },
-  onShow() { this.refreshLoginState(); this.loadMerchantBadge(); this.loadNotifications(); },
+  onShow() { this.refreshLoginState(); this.loadMerchantBadge(); this.loadNotifications(); this.loadOrderMessageState(); },
   refreshLoginState() {
     const stored = wx.getStorageSync("campusGoUserId") || "";
     this.setData({ userId: maskUserId(stored), loginState: stored ? "ready" : "guest" });
@@ -64,6 +65,34 @@ Page({
   markNotificationsRead() {
     if (!this.data.unreadNotificationCount) return;
     request("/api/my/notifications/read", { method: "POST" }).then(() => this.loadNotifications()).catch(() => {});
+  },
+  loadOrderMessageState() {
+    request("/api/order-message-subscriptions").then(({ data }) => {
+      this.setData({ orderMessageSubscribed: data.subscribed === true });
+    }).catch(() => this.setData({ orderMessageSubscribed: false }));
+  },
+  toggleOrderMessages() {
+    if (this.data.orderMessageSubscribed) {
+      request("/api/order-message-subscriptions", { method: "POST", data: { accepted: false } }).then(() => {
+        this.setData({ orderMessageSubscribed: false });
+        wx.showToast({ title: "已关闭提醒", icon: "success" });
+      }).catch((error) => wx.showToast({ title: error.message || "设置失败", icon: "none" }));
+      return;
+    }
+    request("/api/subscribe-templates").then(({ data }) => {
+      const templateIds = data.filter((item) => item.audience === "USER").map((item) => item.configuredId).filter(Boolean).slice(0, 3);
+      const finish = () => request("/api/order-message-subscriptions", { method: "POST", data: { accepted: true } }).then(() => {
+        this.setData({ orderMessageSubscribed: true });
+        wx.showToast({ title: "已开启提醒", icon: "success" });
+      });
+      if (!templateIds.length) {
+        return finish();
+      }
+      wx.requestSubscribeMessage({
+        tmplIds: templateIds,
+        complete: finish
+      });
+    }).catch((error) => wx.showToast({ title: error.message || "开启失败", icon: "none" }));
   },
   verify() { this.setData({ verified: true }); wx.showToast({ title: "演示认证成功" }); },
   goOrders() { wx.switchTab({ url: "/pages/orders/orders" }); },
