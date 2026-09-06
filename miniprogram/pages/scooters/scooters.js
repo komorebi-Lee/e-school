@@ -15,13 +15,16 @@ function normalizeProduct(item) {
     ratingText: item.ratingSummary?.count ? item.ratingSummary.average.toFixed(1) : '',
     ratingCountText: item.ratingSummary?.count ? `${item.ratingSummary.count}条已购评价` : '暂无已购评价',
     sellableStock,
-    stockText: sellableStock > 0 ? (sellableStock < 5 ? `仅剩 ${sellableStock} 件` : `库存 ${sellableStock}`) : '已售罄'
+    urgent: sellableStock > 0 && sellableStock < 5,
+    stockText: sellableStock > 0 ? (sellableStock < 5 ? `仅剩 ${sellableStock} 件` : `库存 ${sellableStock}`) : '已售罄',
+    salesText: item.salesCount > 0 ? `已售 ${item.salesCount}` : '新品上架'
   };
 }
 
 Page({
-  data: { scooters: [], filtered: [], query: '', sortKey: 'recommend', sortOptions: [
+  data: { scooters: [], filtered: [], hotProducts: [], query: '', sortKey: 'recommend', sortOptions: [
     { key: 'recommend', label: '综合推荐' },
+    { key: 'rating', label: '评分优先' },
     { key: 'price', label: '价格优先' },
     { key: 'range', label: '续航优先' },
     { key: 'stock', label: '库存优先' }
@@ -31,10 +34,12 @@ Page({
     request('/api/products?category=E_BIKE_NEW').then(({ data }) => {
       const scooters = (data || []).map(normalizeProduct);
       this.setData({ scooters, filtered: this.filterProducts(scooters, this.data.query, this.data.sortKey), loading: false });
+      this.refreshHotProducts(scooters);
     }).catch((error) => {
       console.error('云端商品加载失败:', error);
       const cached = (getScooters() || []).map(normalizeProduct);
       this.setData({ scooters: cached, filtered: this.filterProducts(cached, this.data.query, this.data.sortKey), loading: false });
+      this.refreshHotProducts(cached);
       wx.showToast({ title: '云端加载失败，已显示缓存', icon: 'none' });
     });
   },
@@ -52,10 +57,21 @@ Page({
     const filtered = products.filter(item => `${item.name} ${item.subtitle}`.toLowerCase().includes(keyword));
     const rangeValue = value => Number(String(value || '').replace(/[^\d.]/g, '')) || 0;
     const sorters = {
+      rating: (a, b) => this.ratingWeight(b) - this.ratingWeight(a),
       price: (a, b) => a.price - b.price,
       range: (a, b) => rangeValue(b.range) - rangeValue(a.range),
       stock: (a, b) => b.sellableStock - a.sellableStock
     };
     return sorters[sortKey] ? filtered.sort(sorters[sortKey]) : filtered;
+  },
+  ratingWeight(item) {
+    const score = Number(item.ratingSummary?.average || 0.1) * 100;
+    return score + Math.min(Number(item.salesCount || 0), 50);
+  },
+  refreshHotProducts(scooters) {
+    const hotProducts = scooters.filter(item => item.sellableStock > 0)
+      .sort((a, b) => this.ratingWeight(b) - this.ratingWeight(a))
+      .slice(0, 3);
+    this.setData({ hotProducts });
   }
 });
