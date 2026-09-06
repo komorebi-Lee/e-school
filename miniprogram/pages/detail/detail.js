@@ -30,6 +30,7 @@ function normalizeProduct(product, config = {}, reviewFilter = 'ALL') {
     color: product.color || '#eaf0ff',
     icon: product.icon || '车',
     merchantName: product.merchantName || '平台自营',
+    storeProfile: product.storeProfile || null,
     // 店铺服务分是平台已核验的履约结果，学生下单前应该看得到。
     merchantScoreCard: (() => {
       const score = product.merchantServiceScore;

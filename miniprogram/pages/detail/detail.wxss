@@ -37,3 +37,16 @@
 .review-tabs { display: flex; gap: 12rpx; margin-top: 16rpx; flex-wrap: wrap; }
 .review-tab { padding: 9rpx 18rpx; border-radius: 999rpx; background: #f2f5fa; color: #536078; font-size: 21rpx; font-weight: 700; }
 .review-tab.active { background: #002fa7; color: #fff; }
+
+.storefront { margin-top: 14rpx; padding: 24rpx; }
+.storefront-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18rpx; }
+.storefront-name { font-size: 27rpx; font-weight: 900; color: #17233d; }
+.storefront-score { text-align: right; }
+.storefront-score-value { color: #002fa7; font-size: 30rpx; font-weight: 900; line-height: 1.1; }
+.storefront-score.good .storefront-score-value { color: #1f8f4e; }
+.storefront-score.watch .storefront-score-value { color: #d98219; }
+.storefront-score.risk .storefront-score-value { color: #c0392b; }
+.storefront-score.new .storefront-score-value { color: #536078; }
+.storefront-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14rpx; margin-top: 18rpx; padding-top: 18rpx; border-top: 1rpx solid #edf0f5; text-align: center; }
+.storefront-stat-value { font-size: 27rpx; font-weight: 900; color: #202b45; }
+.storefront-foot { margin-top: 14rpx; line-height: 1.5; }

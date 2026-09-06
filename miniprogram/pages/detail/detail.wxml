@@ -4,6 +4,21 @@
   <block wx:else>
   <view class="visual" style="background: {{scooter.color}}"><view class="pill badge">{{scooter.badge}}</view><image wx:if="{{scooter.imageUrl}}" class="product-image" src="{{scooter.imageUrl}}" mode="aspectFit" /><text wx:else>{{scooter.icon}}</text></view>
   <view class="main card"><view class="name">{{scooter.name}}</view><view class="muted">{{scooter.subtitle}}</view><view class="price-line"><text class="price">¥{{scooter.price}}</text><text wx:if="{{scooter.originalPrice}}" class="original">¥{{scooter.originalPrice}}</text></view><view class="seller-line"><text class="seller">{{scooter.merchantName}}</text><text class="muted">{{scooter.stockText}}</text></view><view class="muted small" wx:if="{{scooter.stockHint}}">{{scooter.stockHint}}</view></view>
+  <view class="storefront card" wx:if="{{scooter.storeProfile}}">
+    <view class="storefront-head">
+      <view class="storefront-name">{{scooter.storeProfile.name}}</view>
+      <view class="storefront-score {{scooter.storeProfile.scoreToneClass}}">
+        <view class="storefront-score-value">{{scooter.storeProfile.scoreText}}</view>
+        <view class="muted small">{{scooter.storeProfile.scoreLabel}}</view>
+      </view>
+    </view>
+    <view class="storefront-stats">
+      <view><view class="storefront-stat-value">{{scooter.storeProfile.soldCount}}</view><view class="muted small">销量</view></view>
+      <view><view class="storefront-stat-value">{{scooter.storeProfile.ratingText}}</view><view class="muted small">评分</view></view>
+      <view><view class="storefront-stat-value">{{scooter.storeProfile.scoreText}}</view><view class="muted small">服务分</view></view>
+    </view>
+    <view class="muted small storefront-foot">{{scooter.storeProfile.responseText}} · {{scooter.storeProfile.positiveText}}</view>
+  </view>
   <view class="trust-grid"><view class="trust-item card"><text class="trust-mark">配</text><text>校内配送</text></view><view class="trust-item card"><text class="trust-mark">牌</text><text>牌照辅助</text></view><view class="trust-item card"><text class="trust-mark">付</text><text>在线支付</text></view></view>
   <view class="promise-grid" wx:if="{{scooter.servicePromises.length}}">
     <view class="promise card" wx:for="{{scooter.servicePromises}}" wx:key="title">
