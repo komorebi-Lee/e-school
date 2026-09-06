@@ -148,6 +148,22 @@
         <view class="right"><view class="price">¥{{item.amountText}}</view><view class="status-text tone-{{item.statusTone}}">{{item.statusLabel}}</view></view>
       </view>
     </block>
+    <view class="section-title">对账单</view>
+    <view class="card order">
+      <view class="settle-main">
+        <view class="strong">{{statementMonth}} 资金对账</view>
+        <view class="muted" wx:if="{{statement}}">收入 ¥{{statement.totals.businessGrossInCents / 100}} · 佣金 ¥{{statement.totals.commissionInCents / 100}}</view>
+        <view class="muted" wx:if="{{statement}}">本月应收 ¥{{statement.totals.businessPayableInCents / 100}} · 已冲销 ¥{{statement.totals.refundInCents / 100}}</view>
+        <view class="muted" wx:if="{{statement}}">净应收 ¥{{statement.totals.netInCents / 100}} · 已提现 ¥{{statement.totals.payoutPaidInCents / 100}}</view>
+      </view>
+      <view class="right">
+        <picker mode="date" fields="month" value="{{statementMonth}}" bindchange="setStatementMonth">
+          <button size="mini" class="ghost-button">选月份</button>
+        </picker>
+        <button size="mini" class="ghost-button" disabled="{{!statement || statementSaving}}" bindtap="saveStatement">导出文件</button>
+      </view>
+    </view>
+    <view wx:if="{{!statement}}" class="empty card"><view class="muted">暂无本月对账数据</view></view>
     <view class="section-title">最近订单</view>
     <view class="card order" wx:for="{{orders}}" wx:key="id">
       <view><view class="strong">{{item.orderNo}}</view><view class="muted">{{item.items[0].name}}{{item.items.length > 1 ? ' 等' : ''}}</view></view>

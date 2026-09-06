@@ -9,6 +9,42 @@ const orderStatusLabels = {
   AFTER_SALE: '售后中'
 };
 
+function statementMoney(value) {
+  return ((Number(value) || 0) / 100).toFixed(2);
+}
+
+function statementCsvCell(value) {
+  const text = String(value ?? '');
+  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function buildStatementCsv(statement) {
+  const rows = [
+    ['记录类型', '单据号', '状态', '金额(元)', '平台佣金(元)', '商家应收(元)', '时间', '打款凭证']
+  ];
+  for (const item of statement.settlements || []) {
+    rows.push([
+      '收入分账', item.orderNo, item.statusLabel, statementMoney(item.amountInCents),
+      statementMoney(item.platformFeeInCents), statementMoney(item.payableInCents),
+      item.createdAt, item.settlementReference
+    ]);
+  }
+  for (const item of statement.payouts || []) {
+    const paid = item.paidAmountInCents || (item.status === 'SETTLED' ? item.amountInCents : 0);
+    rows.push([
+      '提现出账', item.requestNo, item.statusLabel, `-${statementMoney(paid)}`,
+      '', `-${statementMoney(paid)}`, item.reviewedAt || item.createdAt, item.settlementReference
+    ]);
+  }
+  const totals = statement.totals || {};
+  rows.push([
+    '本月汇总', '', '', statementMoney(totals.businessGrossInCents),
+    statementMoney(totals.commissionInCents), statementMoney(totals.netInCents),
+    statement.generatedAt, ''
+  ]);
+  return rows.map((row) => row.map(statementCsvCell).join(',')).join('\r\n');
+}
+
 // 分账要经过“交付核验 → 账期 → 可结算”，商家需要看懂钱卡在哪一步。
 const settlementStageLabels = {
   PENDING_DELIVERY: '待交付核验',
@@ -122,7 +158,8 @@ Page({
     scoreEvidence: [], uploadingScoreEvidence: false,
     delistedProducts: [], rectifyProductIndex: 0,
     scoreCaseType: 'APPEAL', scoreCaseReasonTypeIndex: 0, appealReasons,
-    payoutMinimumText: '100.00', payableText: '0.00', canRequestPayout: false, payoutHint: '', payoutSubmitting: false
+    payoutMinimumText: '100.00', payableText: '0.00', canRequestPayout: false, payoutHint: '', payoutSubmitting: false,
+    statement: null, statementMonth: new Date().toISOString().slice(0, 7), statementSaving: false
   },
   onShow() {
     this.load();
@@ -208,7 +245,8 @@ Page({
       const subscriptionTask = this.request('/api/merchant/message-subscriptions').then(({ data }) => {
         this.setData({ scoreNoticeSubscribed: data.subscribed === true });
       });
-      return Promise.all([notificationTask, subscriptionTask]).catch(() => {});
+      const statementTask = this.loadStatement();
+      return Promise.all([notificationTask, subscriptionTask, statementTask]).catch(() => {});
     }).catch(() => {
       this.setData({ loading: false });
       wx.removeStorageSync('campusGoMerchantId');
@@ -230,6 +268,37 @@ Page({
   },
   goReviews() {
     wx.navigateTo({ url: '/pages/merchant/reviews' });
+  },
+  setStatementMonth(event) {
+    this.setData({ statementMonth: event.detail.value });
+    this.loadStatement();
+  },
+  loadStatement() {
+    const month = this.data.statementMonth || new Date().toISOString().slice(0, 7);
+    return this.request(`/api/merchant/settlement-statement?month=${encodeURIComponent(month)}`)
+      .then(({ data }) => {
+        this.setData({ statement: data });
+      })
+      .catch(() => {});
+  },
+  saveStatement() {
+    if (this.data.statementSaving || !this.data.statement) return;
+    const month = this.data.statementMonth;
+    const filePath = `${wx.env.USER_DATA_PATH}/shishan-statement-${month}.csv`;
+    try {
+      wx.getFileSystemManager().writeFileSync(filePath, buildStatementCsv(this.data.statement), 'utf8');
+      this.setData({ statementSaving: true });
+      wx.shareFileMessage({
+        filePath,
+        fileName: `狮山智生活-${month}-商家对账单.csv`,
+        success: () => wx.showToast({ title: '已生成对账文件', icon: 'success' }),
+        fail: () => wx.showToast({ title: '当前环境不支持分享文件', icon: 'none' }),
+        complete: () => this.setData({ statementSaving: false })
+      });
+    } catch (error) {
+      this.setData({ statementSaving: false });
+      wx.showToast({ title: '生成对账文件失败', icon: 'none' });
+    }
   },
 
   setScoreCaseType(event) {
