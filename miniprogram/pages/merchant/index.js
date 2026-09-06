@@ -80,10 +80,38 @@ function decorateSlaAlert(item) {
   };
 }
 
+// 服务分要让商家看懂三件事：现在多少分、平台对我做了什么、哪一项拖了后腿。
+const scoreStageTone = { NORMAL: 'done', LIMITED: 'todo', RESTRICTED: 'warn' };
+const scoreStageConsequences = {
+  NORMAL: '商品曝光正常，可自主上新',
+  LIMITED: '商品曝光已降权，新增商品需平台复核',
+  RESTRICTED: '已暂停上新，商品曝光大幅降低'
+};
+
+function decorateServiceScore(score) {
+  if (!score) return null;
+  const breakdown = (score.breakdown || []).map((part) => ({
+    ...part,
+    toneClass: part.score >= 90 ? 'done' : part.score >= 75 ? 'todo' : 'warn'
+  }));
+  const weakest = breakdown.slice().sort((a, b) => a.score - b.score)[0];
+  return {
+    ...score,
+    breakdown,
+    stageTone: scoreStageTone[score.stage] || 'todo',
+    consequenceText: scoreStageConsequences[score.stage] || '',
+    weakestText: weakest ? `${weakest.label} ${weakest.score} 分 · ${weakest.detail}` : '',
+    onTimeRateText: score.metrics && score.metrics.completedOrderCount
+      ? `${Math.round((score.metrics.onTimeCount / score.metrics.completedOrderCount) * 100)}%`
+      : '—'
+  };
+}
+
 Page({
   data: {
     merchant: null, metrics: null, products: [], orders: [], settlements: [], payoutRequests: [],
     slaAlerts: [], notifications: [], unreadNotificationCount: 0, loading: true,
+    serviceScore: null, pendingPublishProducts: [],
     payoutMinimumText: '100.00', payableText: '0.00', canRequestPayout: false, payoutHint: '', payoutSubmitting: false
   },
   onShow() {
@@ -129,6 +157,8 @@ Page({
         settlements: (data.settlements || []).slice(0, 5).map(decorateSettlement),
         payoutRequests: (data.payoutRequests || []).slice(0, 3).map(decoratePayoutRequest),
         slaAlerts: (data.slaAlerts || []).slice(0, 4).map(decorateSlaAlert),
+        serviceScore: decorateServiceScore(data.serviceScore),
+        pendingPublishProducts: data.pendingPublishProducts || [],
         payableText: (payableInCents / 100).toFixed(2),
         payoutMinimumText: (minimumInCents / 100).toFixed(2),
         canRequestPayout: Boolean(data.merchant?.settlementAccountReady) && !pendingRequest && payableInCents >= minimumInCents && payableInCents > 0,

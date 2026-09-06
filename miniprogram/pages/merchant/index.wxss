@@ -47,3 +47,16 @@
 .flow-arrow { color: #c3cbd9; font-size: 24rpx; }
 .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18rpx; margin-top: 26rpx; }
 .action-grid button { margin: 0; }
+.score { border-left: 6rpx solid #002fa7; }
+.score-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16rpx; }
+.score-value { display: flex; flex-direction: column; align-items: flex-end; gap: 4rpx; }
+.score-number { font-size: 46rpx; font-weight: 900; color: #002fa7; line-height: 1; }
+.score-bars { margin-top: 18rpx; display: flex; flex-direction: column; gap: 14rpx; }
+.score-bar-head { display: flex; justify-content: space-between; font-size: 22rpx; color: #4a5568; font-weight: 700; }
+.score-track { margin-top: 6rpx; height: 10rpx; border-radius: 999rpx; background: #edf0f5; overflow: hidden; }
+.score-fill { height: 100%; border-radius: 999rpx; background: #002fa7; }
+.score-fill.tone-done { background: #1f8f4e; }
+.score-fill.tone-todo { background: #d98219; }
+.score-fill.tone-warn { background: #c0392b; }
+.score-detail { font-size: 20rpx; margin-top: 6rpx; line-height: 1.45; }
+.score-note { font-size: 20rpx; margin-top: 12rpx; line-height: 1.5; }

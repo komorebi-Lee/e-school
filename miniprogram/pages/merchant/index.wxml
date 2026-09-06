@@ -5,6 +5,36 @@
       <view><view class="merchant-name">{{merchant.name}}</view><view class="muted">{{merchant.ownerNameMasked}} · {{merchant.phoneMasked}}</view></view>
       <view class="status">已入驻</view>
     </view>
+    <view class="score card" wx:if="{{serviceScore}}">
+      <view class="score-head">
+        <view>
+          <view class="strong">店铺服务分</view>
+          <view class="muted">按时交付 {{serviceScore.onTimeRateText}} · 已购评价 {{serviceScore.metrics.reviewCount}} 条</view>
+        </view>
+        <view class="score-value">
+          <text class="score-number">{{serviceScore.score}}</text>
+          <text class="status-text tone-{{serviceScore.stageTone}}">{{serviceScore.stageLabel}}</text>
+        </view>
+      </view>
+      <view class="score-bars">
+        <view class="score-bar" wx:for="{{serviceScore.breakdown}}" wx:key="key">
+          <view class="score-bar-head"><text>{{item.label}}</text><text class="tone-{{item.toneClass}}">{{item.score}}</text></view>
+          <view class="score-track"><view class="score-fill tone-{{item.toneClass}}" style="width:{{item.score}}%"></view></view>
+          <view class="muted score-detail">{{item.detail}}</view>
+        </view>
+      </view>
+      <view class="muted score-note">{{serviceScore.consequenceText}}</view>
+      <view class="muted score-note" wx:if="{{serviceScore.weakestText}}">最需要改进：{{serviceScore.weakestText}}</view>
+    </view>
+    <view class="score card" wx:if="{{pendingPublishProducts.length}}">
+      <view class="notice-head"><view class="strong">待平台复核商品</view><text class="muted">{{pendingPublishProducts.length}} 件</text></view>
+      <view class="sla-item" wx:for="{{pendingPublishProducts}}" wx:key="id">
+        <view class="sla-main">
+          <view class="strong">{{item.name}}</view>
+          <view class="muted">{{item.publishReviewNote}}</view>
+        </view>
+      </view>
+    </view>
     <view class="sla card" wx:if="{{slaAlerts.length}}">
       <view class="notice-head"><view class="strong">履约提醒</view><text class="muted">待处理 {{metrics.slaOpenCount || 0}} · 已超时 {{metrics.slaOverdueCount || 0}}</text></view>
       <view class="sla-item" wx:for="{{slaAlerts}}" wx:key="id">

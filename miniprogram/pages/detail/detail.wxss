@@ -19,3 +19,14 @@
 .question-item:last-child { border-bottom: 0; }
 .question { color: #17233d; font-size: 24rpx; font-weight: 850; }
 .answer { margin-top: 7rpx; color: #536078; font-size: 21rpx; line-height: 1.5; }
+
+.shop-score { margin-top: 20rpx; }
+.shop-score-head { display: flex; justify-content: space-between; align-items: center; gap: 16rpx; }
+.shop-score-title { font-size: 26rpx; font-weight: 800; color: #1f2733; }
+.shop-score-value { display: flex; flex-direction: column; align-items: flex-end; }
+.shop-score-number { font-size: 40rpx; font-weight: 900; line-height: 1; }
+.shop-score-grade { font-size: 20rpx; font-weight: 700; margin-top: 4rpx; }
+.shop-score-value.tone-good { color: #1f8f4e; }
+.shop-score-value.tone-watch { color: #d98219; }
+.shop-score-value.tone-risk { color: #c0392b; }
+.shop-score-note { margin-top: 10rpx; line-height: 1.5; }

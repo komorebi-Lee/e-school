@@ -21,6 +21,26 @@ function normalizeProduct(product) {
     color: product.color || '#eaf0ff',
     icon: product.icon || '车',
     merchantName: product.merchantName || '平台自营',
+    // 店铺服务分是平台已核验的履约结果，学生下单前应该看得到。
+    merchantScoreCard: (() => {
+      const score = product.merchantServiceScore;
+      if (!score) return null;
+      const stageNotes = {
+        NORMAL: '履约与售后达标，平台正常展示',
+        LIMITED: '平台已限流整改，下单前建议先咨询客服',
+        RESTRICTED: '平台已暂停该店上新，下单前请联系客服确认'
+      };
+      return {
+        score: score.score,
+        gradeLabel: score.gradeLabel || '',
+        stage: score.stage,
+        stageLabel: score.stageLabel || '',
+        toneClass: score.stage === 'NORMAL' ? 'good' : score.stage === 'LIMITED' ? 'watch' : 'risk',
+        onTimeText: score.onTimeRate === null || score.onTimeRate === undefined ? '暂无完成订单' : `按时交付 ${score.onTimeRate}%`,
+        reviewText: score.reviewCount ? `${score.reviewCount} 条已购评价 · 均分 ${Number(score.averageRating || 0).toFixed(1)}` : '暂无已购评价',
+        noteText: stageNotes[score.stage] || ''
+      };
+    })(),
     review: {
       scoreText: ratingSummary.count ? ratingSummary.average.toFixed(1) : '新',
       count: ratingSummary.count || 0,
