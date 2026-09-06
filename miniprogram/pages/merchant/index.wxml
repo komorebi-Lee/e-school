@@ -25,6 +25,23 @@
       </view>
       <view class="muted score-note">{{serviceScore.consequenceText}}</view>
       <view class="muted score-note" wx:if="{{serviceScore.weakestText}}">最需要改进：{{serviceScore.weakestText}}</view>
+      <view class="score-actions">
+        <picker wx:if="{{scoreCaseType === 'APPEAL'}}" range="{{appealReasons}}" range-key="label" value="{{scoreCaseReasonTypeIndex}}" bindchange="setAppealReason">
+          <view class="appeal-picker">{{appealReasons[scoreCaseReasonTypeIndex].label}} ▾</view>
+        </picker>
+        <button size="mini" class="{{scoreCaseType === 'APPEAL' ? 'primary-button' : 'ghost-button'}}" data-type="APPEAL" bindtap="openScoreCase">提交申诉</button>
+        <button size="mini" class="{{scoreCaseType === 'RECTIFY' ? 'primary-button' : 'ghost-button'}}" data-type="RECTIFY" bindtap="openScoreCase">提交整改</button>
+        <button size="mini" class="ghost-button" bindtap="subscribeScoreNotice">开启提醒</button>
+      </view>
+      <view class="score-case" wx:for="{{scoreCases}}" wx:key="id">
+        <view class="score-case-head">
+          <view class="strong">{{item.caseNo}} · {{item.typeLabel}}</view>
+          <text class="status-text tone-{{item.statusTone}}">{{item.statusLabel}}</text>
+        </view>
+        <view class="muted">{{item.reasonTypeLabel || item.typeLabel}}：{{item.reason}}</view>
+        <view class="muted" wx:if="{{item.resultText}}">{{item.resultText}} · {{item.adminNote}}</view>
+        <view class="muted notice-time">{{item.timeText}}</view>
+      </view>
     </view>
     <view class="score card" wx:if="{{pendingPublishProducts.length}}">
       <view class="notice-head"><view class="strong">待平台复核商品</view><text class="muted">{{pendingPublishProducts.length}} 件</text></view>

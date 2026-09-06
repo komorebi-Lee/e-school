@@ -42,7 +42,9 @@ Page({
           reservedStock,
           stockText: sellableStock === 0 ? '可售 0' : sellableStock < 10 ? `可售仅剩 ${sellableStock}` : `可售 ${sellableStock}`,
           stockDetailText: reservedStock > 0 ? `总库存 ${product.stock} · 待支付占用 ${reservedStock}` : `总库存 ${product.stock}`,
-          hasImage: Boolean(product.imageUrl)
+          hasImage: Boolean(product.imageUrl),
+          autoDelisted: product.autoDelistRule === 'LOW_QUALITY' && !product.active,
+          autoDelistText: product.autoDelistRule === 'LOW_QUALITY' ? product.autoDelistReason || '触发低质风控规则' : ''
         };
       });
       this.setData({

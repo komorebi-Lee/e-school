@@ -87,6 +87,13 @@ const scoreStageConsequences = {
   LIMITED: '商品曝光已降权，新增商品需平台复核',
   RESTRICTED: '已暂停上新，商品曝光大幅降低'
 };
+const scoreCaseStatusLabels = { SUBMITTED: '待平台审核', REVIEWING: '处理中', COMPLETED: '已通过', REJECTED: '未通过' };
+const scoreCaseStatusTones = { SUBMITTED: 'todo', REVIEWING: 'blue', COMPLETED: 'done', REJECTED: 'warn' };
+const appealReasons = [
+  { key: 'REMOVED_NEGATIVE_REVIEW', label: '差评记录有误' },
+  { key: 'DELAYED_DELIVERY', label: '履约有合理原因' },
+  { key: 'AFTER_SALE_ISSUE', label: '售后责任有异议' }
+];
 
 function decorateServiceScore(score) {
   if (!score) return null;
@@ -111,7 +118,8 @@ Page({
   data: {
     merchant: null, metrics: null, products: [], orders: [], settlements: [], payoutRequests: [],
     slaAlerts: [], notifications: [], unreadNotificationCount: 0, loading: true,
-    serviceScore: null, pendingPublishProducts: [],
+    serviceScore: null, pendingPublishProducts: [], scoreCases: [],
+    scoreCaseType: 'APPEAL', scoreCaseReasonTypeIndex: 0, appealReasons,
     payoutMinimumText: '100.00', payableText: '0.00', canRequestPayout: false, payoutHint: '', payoutSubmitting: false
   },
   onShow() {
@@ -158,6 +166,13 @@ Page({
         payoutRequests: (data.payoutRequests || []).slice(0, 3).map(decoratePayoutRequest),
         slaAlerts: (data.slaAlerts || []).slice(0, 4).map(decorateSlaAlert),
         serviceScore: decorateServiceScore(data.serviceScore),
+        scoreCases: (data.scoreCases || []).slice(0, 5).map((item) => ({
+          ...item,
+          statusLabel: scoreCaseStatusLabels[item.status] || item.status,
+          statusTone: scoreCaseStatusTones[item.status] || 'todo',
+          timeText: String(item.updatedAt || item.createdAt).slice(5, 16).replace('T', ' '),
+          resultText: item.type === 'APPEAL' && item.appliedAdjustment ? `核定补分 +${item.appliedAdjustment}` : ''
+        })),
         pendingPublishProducts: data.pendingPublishProducts || [],
         payableText: (payableInCents / 100).toFixed(2),
         payoutMinimumText: (minimumInCents / 100).toFixed(2),
@@ -195,6 +210,55 @@ Page({
   },
   goReviews() {
     wx.navigateTo({ url: '/pages/merchant/reviews' });
+  },
+
+  setScoreCaseType(event) {
+    this.setData({ scoreCaseType: event.currentTarget.dataset.type || 'APPEAL' });
+  },
+  setAppealReason(event) {
+    this.setData({ scoreCaseReasonTypeIndex: Number(event.detail.value) });
+  },
+  openScoreCase() {
+    const score = this.data.serviceScore;
+    if (!score) return;
+    const pending = (this.data.scoreCases || []).find((item) => ['SUBMITTED', 'REVIEWING'].includes(item.status));
+    if (pending) {
+      wx.showToast({ title: '已有一件工单在处理中', icon: 'none' });
+      return;
+    }
+    const isAppeal = this.data.scoreCaseType === 'APPEAL';
+    wx.showModal({
+      title: isAppeal ? '提交记录申诉' : '提交整改申请',
+      editable: true,
+      placeholderText: isAppeal
+        ? '请说明记录有误的证据或事实'
+        : '请填写整改措施，例如 48 小时内清空超时工单',
+      success: ({ confirm, content }) => {
+        const reason = (content || '').trim();
+        if (!confirm) return;
+        if (reason.length < 8) return wx.showToast({ title: '说明至少 8 个字', icon: 'none' });
+        const payload = isAppeal
+          ? { type: 'APPEAL', reasonType: this.data.appealReasons[this.data.scoreCaseReasonTypeIndex].key, reason }
+          : { type: 'RECTIFY', reason, plan: reason };
+        this.request('/api/merchant/score-cases', { method: 'POST', data: payload }).then(() => {
+          wx.showToast({ title: '已提交', icon: 'success' });
+          setTimeout(() => this.load(), 450);
+        }).catch((error) => wx.showToast({ title: error.message || '提交失败', icon: 'none' }));
+      }
+    });
+  },
+  subscribeScoreNotice() {
+    apiRequest('/api/subscribe-templates').then(({ data = [] }) => {
+      const tmplIds = data.map((item) => item.configuredId).filter(Boolean).slice(0, 3);
+      if (!tmplIds.length) {
+        wx.showToast({ title: '请先在后台配置模板 ID', icon: 'none' });
+        return;
+      }
+      wx.requestSubscribeMessage({
+        tmplIds,
+        complete: () => wx.showToast({ title: '已开启服务分提醒', icon: 'success' })
+      });
+    }).catch((error) => wx.showToast({ title: error.message || '订阅配置读取失败', icon: 'none' }));
   },
 
   // 商家只能发起申请，实际打款由平台在管理端审核，前端提前把不满足的原因说清楚。

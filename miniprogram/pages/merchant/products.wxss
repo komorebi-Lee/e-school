@@ -26,6 +26,7 @@
 .head { display: flex; justify-content: space-between; margin-bottom: 10rpx; }
 .strong { font-weight: 900; }
 .category-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12rpx; font-size: 21rpx; }
+.risk-note { margin: 12rpx 0; padding: 12rpx 16rpx; background: #ffe9e6; color: #b42318; border-radius: 12rpx; font-size: 21rpx; line-height: 1.45; }
 .category { color: #002fa7; background: #eaf0ff; padding: 7rpx 13rpx; border-radius: 999rpx; font-weight: 700; }
 .stock { color: #157552; font-weight: 700; }
 .stock-low { color: #b42318; font-weight: 700; }

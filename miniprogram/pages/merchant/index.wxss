@@ -60,3 +60,11 @@
 .score-fill.tone-warn { background: #c0392b; }
 .score-detail { font-size: 20rpx; margin-top: 6rpx; line-height: 1.45; }
 .score-note { font-size: 20rpx; margin-top: 12rpx; line-height: 1.5; }
+.score-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14rpx; margin-top: 24rpx; }
+.score-actions .appeal-picker, .score-actions button { min-height: 68rpx; display: flex; align-items: center; justify-content: center; border-radius: 18rpx; font-size: 24rpx; font-weight: 750; }
+.score-actions .appeal-picker { grid-column: 1 / 3; background: #fff; border: 1rpx solid #d8dfec; color: #33435f; padding: 0 22rpx; }
+.score-actions button { margin: 0; padding: 0; }
+.score-actions button::after { border: 0; }
+.score-case { margin-top: 18rpx; padding: 18rpx; background: #fff; border: 1rpx solid #e3e9f5; border-radius: 18rpx; }
+.score-case-head { display: flex; justify-content: space-between; gap: 16rpx; font-size: 23rpx; }
+.score-case .muted { margin-top: 8rpx; font-size: 21rpx; line-height: 1.45; }
