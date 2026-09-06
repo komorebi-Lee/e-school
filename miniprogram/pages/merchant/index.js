@@ -119,6 +119,7 @@ Page({
     merchant: null, metrics: null, products: [], orders: [], settlements: [], payoutRequests: [],
     slaAlerts: [], notifications: [], unreadNotificationCount: 0, loading: true,
     serviceScore: null, pendingPublishProducts: [], scoreCases: [], scoreNoticeSubscribed: false,
+    scoreEvidence: [], uploadingScoreEvidence: false,
     delistedProducts: [], rectifyProductIndex: 0,
     scoreCaseType: 'APPEAL', scoreCaseReasonTypeIndex: 0, appealReasons,
     payoutMinimumText: '100.00', payableText: '0.00', canRequestPayout: false, payoutHint: '', payoutSubmitting: false
@@ -188,7 +189,7 @@ Page({
         payoutHint: this.buildPayoutHint(data.merchant, settlementMetrics, payableInCents, minimumInCents),
         loading: false
       });
-      return this.request('/api/merchant/notifications').then(({ data: items }) => {
+      const notificationTask = this.request('/api/merchant/notifications').then(({ data: items }) => {
         const notifications = (items || []).slice(0, 5).map((item) => ({
           ...item,
           timeText: String(item.createdAt || '').slice(5, 16).replace('T', ' ')
@@ -196,10 +197,11 @@ Page({
         const unreadNotificationCount = (items || []).filter((item) => !item.read).length;
         this.setData({ notifications, unreadNotificationCount });
         if (unreadNotificationCount) return this.request('/api/merchant/notifications/read', { method: 'POST' });
-      }).catch(() => {});
-      return this.request('/api/merchant/message-subscriptions').then(({ data }) => {
+      });
+      const subscriptionTask = this.request('/api/merchant/message-subscriptions').then(({ data }) => {
         this.setData({ scoreNoticeSubscribed: data.subscribed === true });
-      }).catch(() => {});
+      });
+      return Promise.all([notificationTask, subscriptionTask]).catch(() => {});
     }).catch(() => {
       this.setData({ loading: false });
       wx.removeStorageSync('campusGoMerchantId');
@@ -232,6 +234,50 @@ Page({
   setRectifyProduct(event) {
     this.setData({ rectifyProductIndex: Number(event.detail.value) });
   },
+  chooseScoreEvidence() {
+    const remaining = 6 - this.data.scoreEvidence.length;
+    if (remaining <= 0) {
+      wx.showToast({ title: '最多上传 6 张凭证', icon: 'none' });
+      return;
+    }
+    wx.chooseMedia({
+      count: remaining,
+      mediaType: ['image'],
+      sizeType: ['compressed'],
+      success: ({ tempFiles = [] }) => {
+        if (!tempFiles.length) return;
+        this.setData({ uploadingScoreEvidence: true });
+        const uploadOne = (file) => new Promise((resolve, reject) => {
+          if ((file.size || 0) > 5 * 1024 * 1024) {
+            reject(new Error('凭证图片不能超过 5MB'));
+            return;
+          }
+          const extension = String(file.tempFilePath || '').split('.').pop().toLowerCase();
+          const mimeType = extension === 'png' ? 'image/png' : extension === 'webp' ? 'image/webp' : 'image/jpeg';
+          wx.getFileSystemManager().readFile({
+            filePath: file.tempFilePath,
+            encoding: 'base64',
+            success: ({ data }) => resolve({ dataBase64: data, mimeType }),
+            fail: () => reject(new Error('读取凭证图片失败'))
+          });
+        }).then((payload) => this.request('/api/uploads', { method: 'POST', data: payload }))
+          .then(({ data }) => {
+            this.setData({ scoreEvidence: [...this.data.scoreEvidence, data.url] });
+          });
+        tempFiles.reduce((task, file) => task.then(() => uploadOne(file)), Promise.resolve())
+          .catch((error) => wx.showToast({ title: error.message || '凭证上传失败', icon: 'none' }))
+          .finally(() => this.setData({ uploadingScoreEvidence: false }));
+      }
+    });
+  },
+  removeScoreEvidence(event) {
+    const url = event.currentTarget.dataset.url;
+    this.setData({ scoreEvidence: this.data.scoreEvidence.filter((item) => item !== url) });
+  },
+  previewScoreEvidence(event) {
+    const url = event.currentTarget.dataset.url;
+    wx.previewImage({ current: url, urls: this.data.scoreEvidence.length ? this.data.scoreEvidence : [url] });
+  },
   openScoreCase() {
     const score = this.data.serviceScore;
     if (!score) return;
@@ -259,8 +305,10 @@ Page({
             plan: reason,
             productId: this.data.delistedProducts[this.data.rectifyProductIndex]?.id || ''
           };
+        payload.evidence = this.data.scoreEvidence;
         this.request('/api/merchant/score-cases', { method: 'POST', data: payload }).then(() => {
           wx.showToast({ title: '已提交', icon: 'success' });
+          this.setData({ scoreEvidence: [] });
           setTimeout(() => this.load(), 450);
         }).catch((error) => wx.showToast({ title: error.message || '提交失败', icon: 'none' }));
       }

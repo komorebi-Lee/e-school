@@ -36,12 +36,27 @@
         <button size="mini" class="{{scoreCaseType === 'RECTIFY' ? 'primary-button' : 'ghost-button'}}" data-type="RECTIFY" bindtap="openScoreCase">提交整改</button>
         <button size="mini" class="ghost-button" bindtap="subscribeScoreNotice">{{scoreNoticeSubscribed ? '提醒已开启' : '开启提醒'}}</button>
       </view>
+      <view class="evidence-block">
+        <view class="evidence-head">
+          <view class="muted">凭证材料（最多 6 张）</view>
+          <button size="mini" class="ghost-button" disabled="{{uploadingScoreEvidence}}" bindtap="chooseScoreEvidence">{{uploadingScoreEvidence ? '上传中' : '添加凭证'}}</button>
+        </view>
+        <view class="evidence-grid" wx:if="{{scoreEvidence.length}}">
+          <view class="evidence-item" wx:for="{{scoreEvidence}}" wx:key="*this">
+            <image src="{{item}}" mode="aspectFill" bindtap="previewScoreEvidence" data-url="{{item}}" />
+            <view class="evidence-remove" data-url="{{item}}" catchtap="removeScoreEvidence">×</view>
+          </view>
+        </view>
+      </view>
       <view class="score-case" wx:for="{{scoreCases}}" wx:key="id">
         <view class="score-case-head">
           <view class="strong">{{item.caseNo}} · {{item.typeLabel}}</view>
           <text class="status-text tone-{{item.statusTone}}">{{item.statusLabel}}</text>
         </view>
         <view class="muted">{{item.reasonTypeLabel || item.typeLabel}}：{{item.reason}}</view>
+        <view class="evidence-grid" wx:if="{{item.evidence.length}}">
+          <image wx:for="{{item.evidence}}" wx:for-item="evidence" wx:key="*this" src="{{evidence}}" mode="aspectFill" bindtap="previewScoreEvidence" data-url="{{evidence}}" />
+        </view>
         <view class="muted" wx:if="{{item.resultText}}">{{item.resultText}} · {{item.adminNote}}</view>
         <view class="muted notice-time">{{item.timeText}}</view>
       </view>

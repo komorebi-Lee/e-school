@@ -66,5 +66,12 @@
 .score-actions button { margin: 0; padding: 0; }
 .score-actions button::after { border: 0; }
 .score-case { margin-top: 18rpx; padding: 18rpx; background: #fff; border: 1rpx solid #e3e9f5; border-radius: 18rpx; }
+.evidence-block { margin-top: 18rpx; padding-top: 18rpx; border-top: 1rpx solid #edf0f5; }
+.evidence-head { display: flex; justify-content: space-between; align-items: center; gap: 14rpx; }
+.evidence-head .ghost-button { min-width: 180rpx; margin: 0; }
+.evidence-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12rpx; margin-top: 14rpx; }
+.evidence-item { position: relative; }
+.evidence-grid image { width: 100%; height: 150rpx; border-radius: 12rpx; background: #edf0f5; display: block; }
+.evidence-remove { position: absolute; right: 8rpx; top: 8rpx; width: 36rpx; height: 36rpx; line-height: 34rpx; text-align: center; border-radius: 50%; background: rgba(17, 24, 39, .68); color: #fff; font-size: 24rpx; }
 .score-case-head { display: flex; justify-content: space-between; gap: 16rpx; font-size: 23rpx; }
 .score-case .muted { margin-top: 8rpx; font-size: 21rpx; line-height: 1.45; }
