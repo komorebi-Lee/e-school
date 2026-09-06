@@ -72,6 +72,12 @@ function paymentCountdownText(expiresAt) {
   if (minutes >= 1) return `请在 ${minutes} 分钟内完成支付，超时自动取消`;
   return '不足 1 分钟，请尽快完成支付';
 }
+
+function isPaymentExpired(expiresAt) {
+  if (!expiresAt) return false;
+  const time = new Date(expiresAt).getTime();
+  return Number.isFinite(time) && time <= Date.now();
+}
 const statusTones = {
   PENDING_PAYMENT:'todo', PAID:'blue', FULFILLING:'run', COMPLETED:'done', CANCELLED:'closed', AFTER_SALE:'warn',
   PENDING_REALNAME:'todo', ACTIVATED:'done', REJECTED:'closed',
@@ -171,7 +177,35 @@ function buildSessionFrom(record) {
 
 Page({
   data:{ active:'ALL', records:[], filtered:[], linkage:[], loading:true, consult:null, reviewing:false },
-  onShow(){ this.loadRecords(); },
+  onShow(){
+    this.loadRecords();
+    this.startCountdownTimer();
+  },
+  onHide(){ this.stopCountdownTimer(); },
+  onUnload(){ this.stopCountdownTimer(); },
+  startCountdownTimer(){
+    if (this.countdownTimer) return;
+    this.countdownTimer = setInterval(() => this.refreshCountdowns(), 30000);
+  },
+  stopCountdownTimer(){
+    if (!this.countdownTimer) return;
+    clearInterval(this.countdownTimer);
+    this.countdownTimer = null;
+  },
+  refreshCountdowns(){
+    const records = this.data.records || [];
+    if (!records.some((item) => item.status === 'PENDING_PAYMENT' && item.paymentExpiresAt)) return;
+    if (records.some((item) => item.status === 'PENDING_PAYMENT' && isPaymentExpired(item.paymentExpiresAt))) {
+      this.loadRecords();
+      return;
+    }
+    const nextRecords = records.map((item) => (
+      item.status === 'PENDING_PAYMENT'
+        ? { ...item, countdownText: paymentCountdownText(item.paymentExpiresAt) }
+        : item
+    ));
+    this.setData({ records: nextRecords, filtered: this.filterRecords(nextRecords, this.data.active) });
+  },
   loadRecords(){
     Promise.all([
       request('/api/my/orders'),
@@ -290,8 +324,13 @@ Page({
   runPayment(e){
     const id=e.currentTarget.dataset.id;
     if(!id||this.data.submitting) return;
-    this.setData({submitting:true});
     const order=(this.data.records||[]).find(record=>record.id===id);
+    if (order && isPaymentExpired(order.paymentExpiresAt)) {
+      wx.showToast({ title: '支付已超时，正在刷新订单', icon: 'none' });
+      this.loadRecords();
+      return;
+    }
+    this.setData({submitting:true});
     this.runOrderPayment(order?.paymentOrderId)
       .then(()=>{wx.showToast({title:'支付成功',icon:'success'});this.loadRecords();})
       .catch(error=>wx.showToast({title:error.message||'支付失败',icon:'none'}))
