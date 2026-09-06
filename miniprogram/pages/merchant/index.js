@@ -181,10 +181,13 @@ Page({
           .map((item) => ({
             ...item,
             evidenceText: `低分评价 ${item.autoDelistEvidence?.lowRatingCount || 0} 条 · 均分 ${item.autoDelistEvidence?.averageRating || 0}`,
-            statusText: item.complianceCase?.statusLabel || (item.autoDelistStatus === 'REVIEW_PENDING' ? '整改待平台复核' : '待提交整改'),
+            statusText: item.complianceCase?.statusLabel || (item.autoDelistStatus === 'REVIEW_PENDING' ? '整改待平台复核' : item.autoDelistStatus === 'REVIEW_REJECTED' ? '整改未通过' : '待提交整改'),
             nextActionText: item.complianceCase?.status === 'SUBMITTED' || item.complianceCase?.status === 'REVIEWING'
               ? '平台审核中，无需重复提交'
-              : '提交整改工单，平台 48 小时内复核'
+              : item.autoDelistStatus === 'REVIEW_REJECTED' || item.complianceCase?.status === 'REJECTED'
+                ? '请补充整改凭证和措施后重新提交'
+                : '提交整改工单，平台 48 小时内复核',
+            canResubmit: item.autoDelistStatus === 'REVIEW_REJECTED' || item.complianceCase?.status === 'REJECTED'
           })),
         rectifyProductIndex: 0,
         payableText: (payableInCents / 100).toFixed(2),
@@ -230,7 +233,12 @@ Page({
   },
 
   setScoreCaseType(event) {
-    this.setData({ scoreCaseType: event.currentTarget.dataset.type || 'APPEAL' });
+    const target = event.currentTarget.dataset;
+    const productIndex = target.productIndex === undefined ? undefined : Number(target.productIndex);
+    this.setData({
+      scoreCaseType: target.type || 'APPEAL',
+      ...(productIndex === undefined ? {} : { rectifyProductIndex: productIndex })
+    });
   },
   setAppealReason(event) {
     this.setData({ scoreCaseReasonTypeIndex: Number(event.detail.value) });

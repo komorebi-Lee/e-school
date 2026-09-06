@@ -70,7 +70,7 @@
           <view class="muted" wx:if="{{item.complianceCase && item.complianceCase.caseNo}}">工单 {{item.complianceCase.caseNo}}{{item.complianceCase.adminNote ? ' · ' + item.complianceCase.adminNote : ''}}</view>
           <view class="muted sla-note">{{item.nextActionText}}</view>
         </view>
-        <button size="mini" class="ghost-button" data-type="RECTIFY" bindtap="setScoreCaseType" disabled="{{item.complianceCase && (item.complianceCase.status === 'SUBMITTED' || item.complianceCase.status === 'REVIEWING')}}">{{item.complianceCase && (item.complianceCase.status === 'SUBMITTED' || item.complianceCase.status === 'REVIEWING') ? '审核中' : '提交整改'}}</button>
+        <button size="mini" class="ghost-button" data-type="RECTIFY" data-product-index="{{index}}" bindtap="setScoreCaseType" disabled="{{item.complianceCase && (item.complianceCase.status === 'SUBMITTED' || item.complianceCase.status === 'REVIEWING')}}">{{item.canResubmit ? '重新整改' : (item.complianceCase && (item.complianceCase.status === 'SUBMITTED' || item.complianceCase.status === 'REVIEWING') ? '审核中' : '提交整改')}}</button>
       </view>
       <view class="muted sla-note">整改验收通过后商品自动恢复；未通过可补充凭证后重新提交。</view>
     </view>
