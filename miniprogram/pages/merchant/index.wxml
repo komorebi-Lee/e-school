@@ -65,12 +65,14 @@
       <view class="notice-head"><view class="strong">商品自动下架</view><text class="muted">{{delistedProducts.length}} 件待整改</text></view>
       <view class="sla-item" wx:for="{{delistedProducts}}" wx:key="id">
         <view class="sla-main">
-          <view class="strong">{{item.name}}</view>
+          <view class="strong">{{item.name}}<text class="status-text tone-blue risk-status">{{item.statusText}}</text></view>
           <view class="muted">{{item.autoDelistReason}} · {{item.evidenceText}}</view>
+          <view class="muted" wx:if="{{item.complianceCase && item.complianceCase.caseNo}}">工单 {{item.complianceCase.caseNo}}{{item.complianceCase.adminNote ? ' · ' + item.complianceCase.adminNote : ''}}</view>
+          <view class="muted sla-note">{{item.nextActionText}}</view>
         </view>
-        <button size="mini" class="ghost-button" data-type="RECTIFY" bindtap="setScoreCaseType">提交整改</button>
+        <button size="mini" class="ghost-button" data-type="RECTIFY" bindtap="setScoreCaseType" disabled="{{item.complianceCase && (item.complianceCase.status === 'SUBMITTED' || item.complianceCase.status === 'REVIEWING')}}">{{item.complianceCase && (item.complianceCase.status === 'SUBMITTED' || item.complianceCase.status === 'REVIEWING') ? '审核中' : '提交整改'}}</button>
       </view>
-      <view class="muted sla-note">整改申请验收通过后，商品会随工单自动恢复展示。</view>
+      <view class="muted sla-note">整改验收通过后商品自动恢复；未通过可补充凭证后重新提交。</view>
     </view>
     <view class="score card" wx:if="{{pendingPublishProducts.length}}">
       <view class="notice-head"><view class="strong">待平台复核商品</view><text class="muted">{{pendingPublishProducts.length}} 件</text></view>

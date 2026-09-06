@@ -36,6 +36,7 @@
 .payout-button.disabled { background: #cbd3e1; color: #f2f5fa; }
 .payout-note { font-size: 20rpx; margin-top: 12rpx; }
 .sla { border-left: 6rpx solid #c0392b; }
+.risk-status { display: inline-flex; margin-left: 12rpx; margin-top: 0; padding: 2rpx 12rpx; border-radius: 999rpx; background: #eaefff; }
 .sla-item { display: flex; justify-content: space-between; align-items: flex-start; gap: 16rpx; padding: 16rpx 0; border-bottom: 1rpx solid #edf0f5; }
 .sla-item:last-of-type { border-bottom: 0; }
 .sla-main { flex: 1; min-width: 0; }

@@ -180,7 +180,11 @@ Page({
           .filter((item) => item.autoDelistRule === 'LOW_QUALITY' && item.active === false)
           .map((item) => ({
             ...item,
-            evidenceText: `低分评价 ${item.autoDelistEvidence?.lowRatingCount || 0} 条 · 均分 ${item.autoDelistEvidence?.averageRating || 0}`
+            evidenceText: `低分评价 ${item.autoDelistEvidence?.lowRatingCount || 0} 条 · 均分 ${item.autoDelistEvidence?.averageRating || 0}`,
+            statusText: item.complianceCase?.statusLabel || (item.autoDelistStatus === 'REVIEW_PENDING' ? '整改待平台复核' : '待提交整改'),
+            nextActionText: item.complianceCase?.status === 'SUBMITTED' || item.complianceCase?.status === 'REVIEWING'
+              ? '平台审核中，无需重复提交'
+              : '提交整改工单，平台 48 小时内复核'
           })),
         rectifyProductIndex: 0,
         payableText: (payableInCents / 100).toFixed(2),
