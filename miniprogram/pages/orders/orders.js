@@ -108,6 +108,10 @@ function card(item) {
   const reviewedProductIds = item.reviewedProductIds || [];
   if (type === 'E_BIKE') {
     if (item.status === 'COMPLETED') {
+      const buyAgainProduct = (item.items || []).find((orderItem) => orderItem.productId);
+      if (buyAgainProduct) {
+        actions.push({ key:'buyAgain', text:'再次购买', productId:buyAgainProduct.productId });
+      }
       (item.items || []).forEach((orderItem) => {
         if (!reviewedProductIds.includes(orderItem.productId)) {
           actions.push({ key:`review:${orderItem.productId}`, type:'review', text:`评价 ${orderItem.name}`, productId:orderItem.productId });
@@ -215,6 +219,11 @@ Page({
   },
   goCard(){wx.navigateTo({url:'/pages/card/card'})},
   goShop(){wx.navigateTo({url:'/pages/scooters/scooters'})},
+  buyAgain(e){
+    const productId=e.currentTarget.dataset.productId;
+    if(!productId)return;
+    wx.navigateTo({url:`/pages/detail/detail?id=${encodeURIComponent(productId)}`});
+  },
   copyDeliveryCode(e){
     const code=e.currentTarget.dataset.code;
     if(!code)return;

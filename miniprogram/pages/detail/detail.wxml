@@ -34,6 +34,9 @@
       <view class="review-score">{{scooter.review.scoreText}}</view>
       <view class="review-meta"><view class="review-count">{{scooter.review.countText}}</view><view class="muted">{{scooter.review.trustText}}</view></view>
     </view>
+    <view class="review-tabs" wx:if="{{scooter.reviewFilters.length}}">
+      <view class="review-tab {{reviewFilter === item.key ? 'active' : ''}}" wx:for="{{scooter.reviewFilters}}" wx:key="key" data-key="{{item.key}}" bindtap="setReviewFilter">{{item.label}} {{item.count}}</view>
+    </view>
     <view class="review-item" wx:for="{{scooter.reviews}}" wx:key="id">
       <view class="review-head">
         <text class="review-avatar">{{item.initial}}</text>
@@ -44,7 +47,7 @@
       <view class="review-images" wx:if="{{item.images.length}}"><image wx:for="{{item.images}}" wx:for-item="image" wx:key="*this" class="review-image" src="{{image}}" mode="aspectFill" /></view>
       <view class="merchant-reply" wx:if="{{item.reply}}"><view class="reply-head"><text class="reply-name">{{item.reply.merchantName}}</text><text class="muted reply-time">{{item.reply.timeText}}</text></view><view class="reply-content">{{item.reply.content}}</view></view>
     </view>
-    <view wx:if="{{!scooter.reviews.length}}" class="muted review-empty">这款车型暂无已购评价，可先查看平台保障和服务承诺。</view>
+    <view wx:if="{{!scooter.reviews.length}}" class="muted review-empty">{{scooter.review.count ? '这个筛选下暂无评价' : '这款车型暂无已购评价，可先查看平台保障和服务承诺。'}}</view>
   </view>
 
   <view class="section-title">同类车型</view>

@@ -34,3 +34,6 @@
 .promise { padding: 20rpx; border-left: 6rpx solid #002fa7; }
 .promise-title { font-size: 23rpx; font-weight: 850; color: #1f2733; }
 .promise .muted { margin-top: 6rpx; line-height: 1.4; }
+.review-tabs { display: flex; gap: 12rpx; margin-top: 16rpx; flex-wrap: wrap; }
+.review-tab { padding: 9rpx 18rpx; border-radius: 999rpx; background: #f2f5fa; color: #536078; font-size: 21rpx; font-weight: 700; }
+.review-tab.active { background: #002fa7; color: #fff; }

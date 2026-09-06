@@ -2,7 +2,7 @@ const { request } = require('../../services/api');
 const { getScooter } = require('../../services/store');
 const { loadBusinessConfig } = require('../../services/business');
 
-function normalizeProduct(product, config = {}) {
+function normalizeProduct(product, config = {}, reviewFilter = 'ALL') {
   const description = product.description || '支持校内配送和校园牌照辅助。';
   const reviews = Array.isArray(product.reviews) ? product.reviews : [];
   const ratingSummary = product.ratingSummary || { average: 0, count: 0 };
@@ -54,9 +54,18 @@ function normalizeProduct(product, config = {}) {
       scoreText: ratingSummary.count ? ratingSummary.average.toFixed(1) : '新',
       count: ratingSummary.count || 0,
       countText: ratingSummary.count ? `${ratingSummary.count} 条校园订单评价` : '暂无已购订单评价',
-      trustText: '来自平台核验的已购学生'
+      trustText: (() => {
+        if (!ratingSummary.mediumNegativeCount) return '暂无中差评 · 已购核验';
+        return `差评回复率 ${Math.round(Number(ratingSummary.lowReplyRate || 0) * 100)}% · 已购核验`;
+      })()
     },
-    reviews: reviews.map((review) => ({
+    reviewFilters: [
+      { key: 'ALL', label: '全部', count: ratingSummary.count || 0 },
+      { key: 'POSITIVE', label: '好评', count: ratingSummary.positiveCount || 0 },
+      { key: 'MEDIUM', label: '中差评', count: ratingSummary.mediumNegativeCount || 0 },
+      { key: 'REPLIED', label: '已回复', count: reviews.filter((review) => review.reply?.content).length }
+    ],
+    allReviews: reviews.map((review) => ({
       id: review.id,
       name: review.customerName || '匿名同学',
       initial: (review.customerName || '同').slice(0, 1),
@@ -70,6 +79,28 @@ function normalizeProduct(product, config = {}) {
         timeText: String(review.reply.repliedAt || '').slice(0, 10)
       } : null
     })),
+    reviews: (() => {
+      const decorated = reviews.map((review) => ({
+        id: review.id,
+        name: review.customerName || '匿名同学',
+        initial: (review.customerName || '同').slice(0, 1),
+        metaText: `${review.college || '华中农业大学'} · ${review.purchaseVerified ? '已购核验' : '未核验'} · ${String(review.createdAt || '').slice(0, 10)}`,
+        stars: '★★★★★'.slice(0, Math.max(0, Math.min(5, Number(review.rating) || 0))),
+        rating: Number(review.rating) || 0,
+        content: review.content || '',
+        images: Array.isArray(review.images) ? review.images.slice(0, 3) : [],
+        replied: Boolean(review.reply?.content),
+        reply: review.reply ? {
+          merchantName: review.reply.merchantName || '商家回复',
+          content: review.reply.content || '',
+          timeText: String(review.reply.repliedAt || '').slice(0, 10)
+        } : null
+      }));
+      if (reviewFilter === 'POSITIVE') return decorated.filter((review) => review.rating >= 4);
+      if (reviewFilter === 'MEDIUM') return decorated.filter((review) => review.rating <= 3);
+      if (reviewFilter === 'REPLIED') return decorated.filter((review) => review.replied);
+      return decorated;
+    })(),
     relatedProducts: relatedProducts.map((item) => ({
       id: item.id,
       name: item.name,
@@ -97,18 +128,28 @@ function normalizeProduct(product, config = {}) {
 }
 
 Page({
-  data: { scooter: null, config: null, loading: true },
+  data: { scooter: null, config: null, reviewFilter: 'ALL', loading: true },
   onLoad(options) {
     loadBusinessConfig().then((config) => {
       this.setData({ config });
-      if (this.data.scooter) this.setData({ scooter: normalizeProduct(this.data.scooter, config) });
+      if (this.rawProduct) this.setData({ scooter: normalizeProduct(this.rawProduct, config, this.data.reviewFilter) });
     });
     request(`/api/products/${encodeURIComponent(options.id || '')}`).then(({ data }) => {
-      this.setData({ scooter: normalizeProduct(data, this.data.config || {}), loading: false });
+      this.rawProduct = data;
+      this.setData({ scooter: normalizeProduct(data, this.data.config || {}, this.data.reviewFilter), loading: false });
     }).catch(() => {
       const cached = getScooter(options.id);
-      if (cached) this.setData({ scooter: normalizeProduct(cached, this.data.config || {}), loading: false });
+      this.rawProduct = cached;
+      if (cached) this.setData({ scooter: normalizeProduct(cached, this.data.config || {}, this.data.reviewFilter), loading: false });
       else { this.setData({ loading: false }); wx.showToast({ title: '商品加载失败', icon: 'none' }); }
+    });
+  },
+  setReviewFilter(event) {
+    const reviewFilter = event.currentTarget.dataset.key || 'ALL';
+    if (!this.rawProduct) return;
+    this.setData({
+      reviewFilter,
+      scooter: normalizeProduct(this.rawProduct, this.data.config || {}, reviewFilter)
     });
   },
   checkout() {
