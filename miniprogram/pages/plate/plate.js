@@ -1,8 +1,10 @@
 const { request, userId } = require('../../services/api');
+const { loadBusinessConfig } = require('../../services/business');
 
 Page({
   data:{source:'platform',vehicleModel:'',name:'',studentNo:'',phone:'',eligibleOrders:[],selectedOrderIndex:0,serviceFee:49,status:null,submitting:false},
   onShow(){this.loadOrders();this.loadStatus()},
+  onLoad(){loadBusinessConfig().then(({ externalPlateFee = 49 }) => this.setData({ serviceFee: externalPlateFee })).catch(() => {});},
   loadOrders(){
     request(`/api/orders?userId=${encodeURIComponent(userId())}`).then(({data})=>{
       const orders=(data||[]).filter(order=>order.status!=='CANCELLED'&&order.items&&order.items.length);

@@ -7,6 +7,7 @@ const defaultConfig = {
   deliveryFeeInCents: 0,
   deliveryResponseHours: 24,
   plateResponseHours: 48,
+  externalPlateFeeInCents: 4900,
   afterSaleResponseHours: 24,
   afterSaleResolutionHours: 72,
   deliveryTimeSlots: ['尽快配送'],
@@ -18,6 +19,7 @@ function normalizeConfig(config = {}) {
     ...defaultConfig,
     ...config,
     deliveryFee: Math.round(((config.deliveryFeeInCents || 0) / 100) * 100) / 100,
+    externalPlateFee: Math.round(((config.externalPlateFeeInCents ?? 4900) / 100) * 100) / 100,
     deliveryFeeText: config.deliveryFeeInCents ? `¥${config.deliveryFeeInCents / 100}` : '免费'
   };
 }
