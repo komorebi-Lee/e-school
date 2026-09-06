@@ -31,7 +31,7 @@
         </picker>
         <button size="mini" class="{{scoreCaseType === 'APPEAL' ? 'primary-button' : 'ghost-button'}}" data-type="APPEAL" bindtap="openScoreCase">提交申诉</button>
         <button size="mini" class="{{scoreCaseType === 'RECTIFY' ? 'primary-button' : 'ghost-button'}}" data-type="RECTIFY" bindtap="openScoreCase">提交整改</button>
-        <button size="mini" class="ghost-button" bindtap="subscribeScoreNotice">开启提醒</button>
+        <button size="mini" class="ghost-button" bindtap="subscribeScoreNotice">{{scoreNoticeSubscribed ? '提醒已开启' : '开启提醒'}}</button>
       </view>
       <view class="score-case" wx:for="{{scoreCases}}" wx:key="id">
         <view class="score-case-head">

@@ -118,7 +118,7 @@ Page({
   data: {
     merchant: null, metrics: null, products: [], orders: [], settlements: [], payoutRequests: [],
     slaAlerts: [], notifications: [], unreadNotificationCount: 0, loading: true,
-    serviceScore: null, pendingPublishProducts: [], scoreCases: [],
+    serviceScore: null, pendingPublishProducts: [], scoreCases: [], scoreNoticeSubscribed: false,
     scoreCaseType: 'APPEAL', scoreCaseReasonTypeIndex: 0, appealReasons,
     payoutMinimumText: '100.00', payableText: '0.00', canRequestPayout: false, payoutHint: '', payoutSubmitting: false
   },
@@ -189,6 +189,9 @@ Page({
         this.setData({ notifications, unreadNotificationCount });
         if (unreadNotificationCount) return this.request('/api/merchant/notifications/read', { method: 'POST' });
       }).catch(() => {});
+      return this.request('/api/merchant/message-subscriptions').then(({ data }) => {
+        this.setData({ scoreNoticeSubscribed: data.subscribed === true });
+      }).catch(() => {});
     }).catch(() => {
       this.setData({ loading: false });
       wx.removeStorageSync('campusGoMerchantId');
@@ -248,15 +251,29 @@ Page({
     });
   },
   subscribeScoreNotice() {
+    if (this.data.scoreNoticeSubscribed) {
+      this.request('/api/merchant/message-subscriptions', { method: 'POST', data: { accepted: false } }).then(() => {
+        this.setData({ scoreNoticeSubscribed: false });
+        wx.showToast({ title: '已关闭提醒', icon: 'success' });
+      }).catch((error) => wx.showToast({ title: error.message || '设置失败', icon: 'none' }));
+      return;
+    }
     apiRequest('/api/subscribe-templates').then(({ data = [] }) => {
       const tmplIds = data.filter((item) => item.audience !== 'USER').map((item) => item.configuredId).filter(Boolean).slice(0, 3);
+      const finish = () => this.request('/api/merchant/message-subscriptions', {
+        method: 'POST',
+        data: { accepted: true }
+      }).then(() => {
+        this.setData({ scoreNoticeSubscribed: true });
+        wx.showToast({ title: '已开启服务分提醒', icon: 'success' });
+      });
       if (!tmplIds.length) {
-        wx.showToast({ title: '请先在后台配置模板 ID', icon: 'none' });
+        finish();
         return;
       }
       wx.requestSubscribeMessage({
         tmplIds,
-        complete: () => wx.showToast({ title: '已开启服务分提醒', icon: 'success' })
+        complete: finish
       });
     }).catch((error) => wx.showToast({ title: error.message || '订阅配置读取失败', icon: 'none' }));
   },
