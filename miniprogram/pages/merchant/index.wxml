@@ -25,6 +25,9 @@
       </view>
       <view class="muted score-note">{{serviceScore.consequenceText}}</view>
       <view class="muted score-note" wx:if="{{serviceScore.weakestText}}">最需要改进：{{serviceScore.weakestText}}</view>
+      <picker wx:if="{{scoreCaseType === 'RECTIFY' && delistedProducts.length}}" range="{{delistedProducts}}" range-key="name" value="{{rectifyProductIndex}}" bindchange="setRectifyProduct">
+        <view class="appeal-picker">整改商品：{{delistedProducts[rectifyProductIndex].name}}</view>
+      </picker>
       <view class="score-actions">
         <picker wx:if="{{scoreCaseType === 'APPEAL'}}" range="{{appealReasons}}" range-key="label" value="{{scoreCaseReasonTypeIndex}}" bindchange="setAppealReason">
           <view class="appeal-picker">{{appealReasons[scoreCaseReasonTypeIndex].label}} ▾</view>
@@ -42,6 +45,17 @@
         <view class="muted" wx:if="{{item.resultText}}">{{item.resultText}} · {{item.adminNote}}</view>
         <view class="muted notice-time">{{item.timeText}}</view>
       </view>
+    </view>
+    <view class="score card" wx:if="{{delistedProducts.length}}">
+      <view class="notice-head"><view class="strong">商品自动下架</view><text class="muted">{{delistedProducts.length}} 件待整改</text></view>
+      <view class="sla-item" wx:for="{{delistedProducts}}" wx:key="id">
+        <view class="sla-main">
+          <view class="strong">{{item.name}}</view>
+          <view class="muted">{{item.autoDelistReason}} · {{item.evidenceText}}</view>
+        </view>
+        <button size="mini" class="ghost-button" data-type="RECTIFY" bindtap="setScoreCaseType">提交整改</button>
+      </view>
+      <view class="muted sla-note">整改申请验收通过后，商品会随工单自动恢复展示。</view>
     </view>
     <view class="score card" wx:if="{{pendingPublishProducts.length}}">
       <view class="notice-head"><view class="strong">待平台复核商品</view><text class="muted">{{pendingPublishProducts.length}} 件</text></view>

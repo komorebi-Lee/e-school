@@ -119,6 +119,7 @@ Page({
     merchant: null, metrics: null, products: [], orders: [], settlements: [], payoutRequests: [],
     slaAlerts: [], notifications: [], unreadNotificationCount: 0, loading: true,
     serviceScore: null, pendingPublishProducts: [], scoreCases: [], scoreNoticeSubscribed: false,
+    delistedProducts: [], rectifyProductIndex: 0,
     scoreCaseType: 'APPEAL', scoreCaseReasonTypeIndex: 0, appealReasons,
     payoutMinimumText: '100.00', payableText: '0.00', canRequestPayout: false, payoutHint: '', payoutSubmitting: false
   },
@@ -174,6 +175,13 @@ Page({
           resultText: item.type === 'APPEAL' && item.appliedAdjustment ? `核定补分 +${item.appliedAdjustment}` : ''
         })),
         pendingPublishProducts: data.pendingPublishProducts || [],
+        delistedProducts: (data.products || [])
+          .filter((item) => item.autoDelistRule === 'LOW_QUALITY' && item.active === false)
+          .map((item) => ({
+            ...item,
+            evidenceText: `低分评价 ${item.autoDelistEvidence?.lowRatingCount || 0} 条 · 均分 ${item.autoDelistEvidence?.averageRating || 0}`
+          })),
+        rectifyProductIndex: 0,
         payableText: (payableInCents / 100).toFixed(2),
         payoutMinimumText: (minimumInCents / 100).toFixed(2),
         canRequestPayout: Boolean(data.merchant?.settlementAccountReady) && !pendingRequest && payableInCents >= minimumInCents && payableInCents > 0,
@@ -221,6 +229,9 @@ Page({
   setAppealReason(event) {
     this.setData({ scoreCaseReasonTypeIndex: Number(event.detail.value) });
   },
+  setRectifyProduct(event) {
+    this.setData({ rectifyProductIndex: Number(event.detail.value) });
+  },
   openScoreCase() {
     const score = this.data.serviceScore;
     if (!score) return;
@@ -242,7 +253,12 @@ Page({
         if (reason.length < 8) return wx.showToast({ title: '说明至少 8 个字', icon: 'none' });
         const payload = isAppeal
           ? { type: 'APPEAL', reasonType: this.data.appealReasons[this.data.scoreCaseReasonTypeIndex].key, reason }
-          : { type: 'RECTIFY', reason, plan: reason };
+          : {
+            type: 'RECTIFY',
+            reason,
+            plan: reason,
+            productId: this.data.delistedProducts[this.data.rectifyProductIndex]?.id || ''
+          };
         this.request('/api/merchant/score-cases', { method: 'POST', data: payload }).then(() => {
           wx.showToast({ title: '已提交', icon: 'success' });
           setTimeout(() => this.load(), 450);
