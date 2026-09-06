@@ -8,6 +8,7 @@ const defaultConfig = {
   deliveryResponseHours: 24,
   plateResponseHours: 48,
   afterSaleResponseHours: 24,
+  afterSaleResolutionHours: 72,
   deliveryTimeSlots: ['尽快配送'],
   platformNotice: '服务范围和办理结果以学校及合作方最终确认为准。'
 };

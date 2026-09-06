@@ -29,6 +29,14 @@
 .record-meta { display: flex; justify-content: space-between; color: #78849a; font-size: 21rpx; }
 .countdown { display: flex; align-items: center; gap: 10rpx; margin-top: 14rpx; padding: 12rpx 16rpx; background: #fff5e6; border-radius: 12rpx; color: #a55a00; font-size: 21rpx; font-weight: 700; }
 .countdown-dot { width: 12rpx; height: 12rpx; border-radius: 50%; background: #f59f00; flex: none; }
+.journey { margin-top: 16rpx; padding: 16rpx; background: #f7f9ff; border-radius: 14rpx; }
+.journey-title { font-size: 23rpx; font-weight: 850; color: #17233d; margin-bottom: 12rpx; }
+.journey-step { display: flex; gap: 12rpx; padding: 8rpx 0; }
+.journey-dot { width: 14rpx; height: 14rpx; margin-top: 7rpx; border-radius: 50%; background: #d8dfec; flex: none; }
+.journey-step.done .journey-dot { background: #002fa7; box-shadow: 0 0 0 5rpx #eaf0ff; }
+.journey-name { font-size: 22rpx; font-weight: 800; color: #33435f; }
+.journey-step.done .journey-name { color: #002fa7; }
+.journey-detail { font-size: 19rpx; line-height: 1.4; margin-top: 3rpx; }
 .delivery-row { display: flex; gap: 16rpx; align-items: flex-start; margin-top: 16rpx; padding: 16rpx; background: #f7f9ff; border-radius: 14rpx; color: #33435f; font-size: 21rpx; line-height: 1.5; }
 .delivery-code { display: flex; align-items: center; gap: 18rpx; margin-top: 18rpx; padding: 18rpx; background: linear-gradient(135deg, #002fa7 0%, #204fd4 100%); border-radius: 18rpx; color: #fff; }
 .code-meta { flex: 1; min-width: 0; }

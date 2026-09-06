@@ -25,6 +25,41 @@ function uploadReviewImage(file) {
   }).then(({ data }) => data.url));
 }
 const roleNames = { USER:'我', MERCHANT:'商家', PLATFORM:'平台' };
+const ebikeJourney = {
+  PENDING_PAYMENT: [
+    { title:'订单已创建', detail:'库存已为你预留', done:true },
+    { title:'等待支付', detail:'超时后库存自动释放', done:false },
+    { title:'商家确认履约', detail:'支付成功后开始', done:false },
+    { title:'校内配送', detail:'凭交付码收车', done:false }
+  ],
+  PAID: [
+    { title:'支付成功', detail:'免费校园牌照辅助已同步', done:true },
+    { title:'等待商家确认', detail:'商家会确认配送安排', done:false },
+    { title:'校内配送', detail:'确认地址和时段', done:false },
+    { title:'交付核验', detail:'凭交付码收车', done:false }
+  ],
+  FULFILLING: [
+    { title:'支付成功', detail:'车辆已进入履约', done:true },
+    { title:'商家已接单', detail:'按约定时间配送', done:true },
+    { title:'校内配送中', detail:'保持联系方式畅通', done:false },
+    { title:'交付核验', detail:'向商家出示交付码', done:false }
+  ],
+  COMPLETED: [
+    { title:'支付成功', detail:'订单已生效', done:true },
+    { title:'商家履约', detail:'车辆已交付', done:true },
+    { title:'交付核验', detail:'交付码已核验', done:true },
+    { title:'服务评价', detail:'可分享真实使用体验', done:false }
+  ],
+  CANCELLED: [
+    { title:'订单已取消', detail:'占用库存已释放', done:true },
+    { title:'如已误操作', detail:'可重新下单', done:false }
+  ],
+  AFTER_SALE: [
+    { title:'售后已开启', detail:'商家和平台可跟进', done:true },
+    { title:'处理中', detail:'可补充问题照片和说明', done:false },
+    { title:'处理完成', detail:'结果会同步到订单', done:false }
+  ]
+};
 
 // 待支付订单会占用库存，超时后服务端自动关闭，这里把剩余时间翻译成用户能读懂的文案。
 function paymentCountdownText(expiresAt) {
@@ -113,6 +148,7 @@ function card(item) {
     deliveryText: fulfillment.address ? `${fulfillment.date || '尽快配送'} · ${fulfillment.address}` : '',
     actions,
     merchantName:item.merchantName || '',
+    journey: isEbike ? (ebikeJourney[item.status] || []) : [],
     nextStep: isEbike && item.status === 'FULFILLING' ? '向商家出示交付码完成配送' : item.collaboration?.roleActions?.MERCHANT?.length ? '商家确认履约' : item.collaboration?.roleActions?.PLATFORM?.length ? '平台介入处理' : item.status === 'COMPLETED' ? '可评价本次服务' : '等待履约更新',
     intervention:item.collaboration?.intervention?.status === 'REQUESTED',
     messages:(item.collaboration?.messages || []).slice(0,2),

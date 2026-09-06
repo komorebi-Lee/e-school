@@ -27,6 +27,13 @@
       <view class="code-value">{{item.deliveryCode}}</view>
       <button class="code-copy" data-code="{{item.deliveryCode}}" bindtap="copyDeliveryCode">复制</button>
     </view>
+    <view class="journey" wx:if="{{item.journey.length}}">
+      <view class="journey-title">订单进度</view>
+      <view class="journey-step {{step.done ? 'done' : ''}}" wx:for="{{item.journey}}" wx:for-item="step" wx:key="title">
+        <text class="journey-dot"></text>
+        <view><view class="journey-name">{{step.title}}</view><view class="muted journey-detail">{{step.detail}}</view></view>
+      </view>
+    </view>
     <view class="delivery-row" wx:if="{{item.deliveryText}}"><text class="muted">配送</text><text>{{item.deliveryText}}</text></view>
     <view class="record-meta"><text>{{item.recordNo}}</text><text>{{item.timeText}}</text></view>
     <view class="countdown" wx:if="{{item.countdownText}}"><text class="countdown-dot"></text><text>{{item.countdownText}}</text></view>

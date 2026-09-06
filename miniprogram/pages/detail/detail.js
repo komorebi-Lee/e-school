@@ -1,7 +1,8 @@
 const { request } = require('../../services/api');
 const { getScooter } = require('../../services/store');
+const { loadBusinessConfig } = require('../../services/business');
 
-function normalizeProduct(product) {
+function normalizeProduct(product, config = {}) {
   const description = product.description || '支持校内配送和校园牌照辅助。';
   const reviews = Array.isArray(product.reviews) ? product.reviews : [];
   const ratingSummary = product.ratingSummary || { average: 0, count: 0 };
@@ -9,6 +10,9 @@ function normalizeProduct(product) {
   // 可售库存 = 总库存 - 待支付订单占用，作为购买按钮与文案的唯一依据。
   const sellableStock = Number(product.availableStock !== undefined ? product.availableStock : product.stock || 0);
   const reservedStock = Number(product.reservedStock || 0);
+  const deliveryHours = Number(config.deliveryResponseHours || 24);
+  const plateHours = Number(config.plateResponseHours || 48);
+  const afterSaleHours = Number(config.afterSaleResponseHours || 24);
   return {
     ...product,
     price: Math.round((product.priceInCents || 0) / 100),
@@ -18,6 +22,11 @@ function normalizeProduct(product) {
     speed: product.speed || '25 km/h',
     policy: product.policy || '支持华中农业大学狮山校区校园牌照辅助申请。',
     service: product.service || ['校内配送', '平台购车牌照辅助', '售后专人跟进'],
+    servicePromises: [
+      { icon: '配', title: `${deliveryHours} 小时内响应`, detail: '确认校内配送安排' },
+      { icon: '牌', title: `${plateHours} 小时内跟进`, detail: '平台购车免费辅助上牌' },
+      { icon: '保', title: `${afterSaleHours} 小时内响应`, detail: '售后工单可请平台协助' }
+    ],
     color: product.color || '#eaf0ff',
     icon: product.icon || '车',
     merchantName: product.merchantName || '平台自营',
@@ -77,9 +86,9 @@ function normalizeProduct(product) {
       ratingText: item.ratingSummary?.count ? item.ratingSummary.average.toFixed(1) : '新'
     })),
     questions: [
-      { id: 'q1', question: '能送到宿舍楼下吗？', answer: '支持校内配送，可按你填写的校内地址送到楼下。' },
-      { id: 'q2', question: '校园牌照怎么办理？', answer: '平台购车订单免费同步牌照辅助，支付后即可查看办理入口。' },
-      { id: 'q3', question: '有售后保障吗？', answer: '订单支持在线协商、平台协助和售后工单，重点看车况与充电适配。' }
+      { id: 'q1', question: '能送到宿舍楼下吗？', answer: `支持校内配送，${deliveryHours} 小时内响应，可按你填写的校内地址送到楼下。` },
+      { id: 'q2', question: '校园牌照怎么办理？', answer: `平台购车订单免费同步牌照辅助，${plateHours} 小时内跟进办理。` },
+      { id: 'q3', question: '有售后保障吗？', answer: `支付后 ${afterSaleHours} 小时内响应，可在线协商、平台协助和提交售后工单。` }
     ],
     sellableStock,
     stockText: sellableStock > 0 ? (sellableStock < 5 ? `仅剩 ${sellableStock} 件` : `库存 ${sellableStock}`) : '已售罄',
@@ -88,13 +97,17 @@ function normalizeProduct(product) {
 }
 
 Page({
-  data: { scooter: null, loading: true },
+  data: { scooter: null, config: null, loading: true },
   onLoad(options) {
+    loadBusinessConfig().then((config) => {
+      this.setData({ config });
+      if (this.data.scooter) this.setData({ scooter: normalizeProduct(this.data.scooter, config) });
+    });
     request(`/api/products/${encodeURIComponent(options.id || '')}`).then(({ data }) => {
-      this.setData({ scooter: normalizeProduct(data), loading: false });
+      this.setData({ scooter: normalizeProduct(data, this.data.config || {}), loading: false });
     }).catch(() => {
       const cached = getScooter(options.id);
-      if (cached) this.setData({ scooter: normalizeProduct(cached), loading: false });
+      if (cached) this.setData({ scooter: normalizeProduct(cached, this.data.config || {}), loading: false });
       else { this.setData({ loading: false }); wx.showToast({ title: '商品加载失败', icon: 'none' }); }
     });
   },
