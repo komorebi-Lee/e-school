@@ -2,9 +2,12 @@ const { request, userId } = require('../../services/api');
 const { loadBusinessConfig } = require('../../services/business');
 
 Page({
-  data:{source:'platform',vehicleModel:'',name:'',studentNo:'',phone:'',eligibleOrders:[],selectedOrderIndex:0,serviceFee:49,status:null,submitting:false},
+  data:{source:'platform',vehicleModel:'',name:'',studentNo:'',phone:'',eligibleOrders:[],selectedOrderIndex:0,serviceFee:49,status:null,submitting:false,serviceContact:'15527111396'},
   onShow(){this.loadOrders();this.loadStatus()},
-  onLoad(){loadBusinessConfig().then(({ externalPlateFee = 49 }) => this.setData({ serviceFee: externalPlateFee })).catch(() => {});},
+  onLoad(){loadBusinessConfig().then((config) => this.setData({
+    serviceFee: Number(config.externalPlateFee ?? 49),
+    serviceContact: config.servicePhone || config.serviceWechat || '15527111396'
+  })).catch(() => {});},
   loadOrders(){
     request(`/api/orders?userId=${encodeURIComponent(userId())}`).then(({data})=>{
       const orders=(data||[]).filter(order=>order.status!=='CANCELLED'&&order.items&&order.items.length);
@@ -43,5 +46,5 @@ Page({
       })
       .catch(error=>{this.setData({submitting:false});wx.showToast({title:error.message||'提交失败',icon:'none'})});
   },
-  callService(){wx.makePhoneCall({phoneNumber:'15527111396'})}
+  callService(){wx.makePhoneCall({phoneNumber:this.data.serviceContact || '15527111396'})}
 });

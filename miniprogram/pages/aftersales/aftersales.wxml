@@ -9,8 +9,8 @@
   <view wx:elif="{{!loading}}" class="notice">未找到可售后的电瓶车订单，请返回订单页重新进入。</view>
 
   <view class="promise card" wx:if="{{order && !existing}}">
-    <view class="promise-row"><text class="promise-icon">响</text><view><view class="promise-title">24 小时内响应</view><view class="muted">工作时段内优先处理校园车辆问题</view></view></view>
-    <view class="promise-row"><text class="promise-icon">处</text><view><view class="promise-title">72 小时内给出处理结果</view><view class="muted">校内配送商品优先协调商家上门</view></view></view>
+    <view class="promise-row"><text class="promise-icon">响</text><view><view class="promise-title">{{afterSaleResponseHours}} 小时内响应</view><view class="muted">工作时段内优先处理校园车辆问题</view></view></view>
+    <view class="promise-row"><text class="promise-icon">处</text><view><view class="promise-title">{{afterSaleResolutionHours}} 小时内给出处理结果</view><view class="muted">校内配送商品优先协调商家上门</view></view></view>
   </view>
 
   <view class="existing card" wx:if="{{existing}}">

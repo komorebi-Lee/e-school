@@ -1,8 +1,11 @@
+const { loadBusinessConfig } = require('../../services/business');
+
 Page({
-    data:{plans:[],rechargePromos:[],selectedPlan:0,selectedPromo:null,activeSection:0,profileName:'',profilePhone:'',companionPhone:'',submitting:false},
+    data:{plans:[],rechargePromos:[],selectedPlan:0,selectedPromo:null,activeSection:0,profileName:'',profilePhone:'',companionPhone:'',submitting:false,phoneCardActivationHours:24},
   onLoad(){
     const profile=wx.getStorageSync('shishanUserProfile')||{};
     this.setData({profileName:profile.name||'',profilePhone:profile.phone||'',companionPhone:profile.companionPhone||''});
+    loadBusinessConfig().then(({ phoneCardActivationHours = 24 }) => this.setData({ phoneCardActivationHours: Number(phoneCardActivationHours || 24) })).catch(() => {});
     this.loadCatalog();
   },
   loadCatalog(){
@@ -47,7 +50,7 @@ Page({
     this.setData({submitting:true});
     request('/api/phone-card-orders',{method:'POST',header:{'Idempotency-Key':'tel-'+Date.now()+'-'+Math.random().toString(36).slice(2,8)},data:{customerName:saved.name,phone:saved.phone,productId:p.id}})
       .then(({data,paymentOrder})=>{
-        const finish=(benefitText)=>{this.setData({submitting:false});wx.showModal({title:'支付成功',content:`${p.name}已进入实名激活跟进${benefitText}，客服将在24小时内联系你。`,confirmText:'查看订单',cancelText:'继续浏览',success:(result)=>{if(result.confirm)wx.switchTab({url:'/pages/orders/orders'})}})};
+        const finish=(benefitText)=>{this.setData({submitting:false});wx.showModal({title:'支付成功',content:`${p.name}已进入实名激活跟进${benefitText}，客服将在${this.data.phoneCardActivationHours || 24}小时内联系你。`,confirmText:'查看订单',cancelText:'继续浏览',success:(result)=>{if(result.confirm)wx.switchTab({url:'/pages/orders/orders'})}})};
         if(!paymentOrder||!paymentOrder.id) throw new Error('支付单创建失败');
         return request(`/api/payment-orders/${encodeURIComponent(paymentOrder.id)}/confirm`,{method:'POST'}).then(()=>{
           if(!promo)return finish('');

@@ -1,10 +1,12 @@
+const { loadBusinessConfig } = require('../../services/business');
+
 const docTypes = {
   privacy: {
     title: '隐私政策',
     sections: [
       { heading: '我们收集什么', items: ['姓名和手机号：用于订单联系、校内配送和业务办理回访。', '订单信息：用于履约、售后、结算和对账。', '配送与车辆资料：用于校内配送、校园牌照辅助和资格核验。'] },
       { heading: '我们如何使用', items: ['仅用于完成你申请的校园服务，不向无关第三方出售。', '商家仅能看到履约必需的联系人、地址和商品信息。', '平台会按运营和法规要求留存交易与协同记录。'] },
-      { heading: '如何联系我们', items: ['客服电话 / 微信：15527111396。', '你可以通过客服查询、更正或申请删除与订单相关的个人信息。'] }
+      { heading: '如何联系我们', items: ['客服电话 / 微信：见页面底部联系方式。', '你可以通过客服查询、更正或申请删除与订单相关的个人信息。'] }
     ],
     effectiveAt: '2026年9月5日'
   },
@@ -20,13 +22,16 @@ const docTypes = {
 };
 
 Page({
-  data: { doc: null },
+  data: { doc: null, contact: '15527111396' },
   onLoad(options) {
     const key = options.type === 'service' ? 'service' : 'privacy';
     this.setData({ doc: docTypes[key] });
     wx.setNavigationBarTitle({ title: docTypes[key].title });
+    loadBusinessConfig().then((config) => this.setData({
+      contact: config.servicePhone || config.serviceWechat || '15527111396'
+    })).catch(() => {});
   },
   contactService() {
-    wx.makePhoneCall({ phoneNumber: '15527111396' });
+    wx.makePhoneCall({ phoneNumber: this.data.contact || '15527111396' });
   }
 });

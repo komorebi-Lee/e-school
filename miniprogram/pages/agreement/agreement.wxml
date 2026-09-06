@@ -9,7 +9,7 @@
     <view class="doc-item" wx:for="{{section.items}}" wx:key="*this" wx:for-item="text"><text class="dot"></text><text class="doc-text">{{text}}</text></view>
   </view>
   <view class="contact-card card">
-    <view><view class="contact-title">仍有疑问？</view><view class="muted">客服电话 / 微信：15527111396</view></view>
+    <view><view class="contact-title">仍有疑问？</view><view class="muted">客服电话 / 微信：{{contact}}</view></view>
     <button class="ghost-button" bindtap="contactService">联系客服</button>
   </view>
   <view class="doc-foot muted">如不同意相关条款，请勿提交订单或个人信息。</view>

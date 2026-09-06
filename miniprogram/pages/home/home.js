@@ -11,11 +11,16 @@ function normalizePhonePlan(item) {
 }
 
 Page({
-  data: { school: "华中农业大学", campus: "狮山校区", scooters: [], phonePlans: [], config: null },
+  data: { school: "华中农业大学", campus: "狮山校区", scooters: [], phonePlans: [], config: null, responseHours: 24 },
   onShow() {
     this.setData({ scooters: getScooters().slice(0, 1) });
     const { request } = require("../../services/api");
-    loadBusinessConfig().then((config) => this.setData({ config, school: config.schoolName, campus: config.campusName }));
+    loadBusinessConfig().then((config) => this.setData({
+      config,
+      school: config.schoolName,
+      campus: config.campusName,
+      responseHours: Number(config.leadResponseHours || 24)
+    }));
     request('/api/products').then(({ data }) => {
       const scooters = (data || []).filter((item) => item.category === 'E_BIKE_NEW' && item.active !== false).map((item) => ({
         ...item,

@@ -1,4 +1,5 @@
 const { request, userId } = require('../../services/api');
+const { loadBusinessConfig } = require('../../services/business');
 
 const typeNames = { E_BIKE:'电瓶车', PHONE_PLAN:'电话卡', RECHARGE:'话费权益', BROADBAND:'宽带', PLATE:'校园牌照' };
 const consultQuestions = {
@@ -7,7 +8,6 @@ const consultQuestions = {
   BROADBAND: ['资格核验预计多久通过？','什么时候可以安排安装？','请帮我查询核验进度'],
   PLATE: ['还需要补充哪些材料？','办理进度请帮忙查询','办理完成后如何领牌？']
 };
-const consultPhones = { PHONE_PLAN:'15527111396', RECHARGE:'15527111396', BROADBAND:'15527111396', PLATE:'15527111396' };
 
 function uploadReviewImage(file) {
   const extension = file.tempFilePath.split('.').pop().toLowerCase();
@@ -177,13 +177,19 @@ function buildSessionFrom(record) {
 }
 
 Page({
-  data:{ active:'ALL', records:[], filtered:[], linkage:[], loading:true, consult:null, reviewing:false },
+  data:{ active:'ALL', records:[], filtered:[], linkage:[], loading:true, consult:null, reviewing:false, serviceContact:'15527111396', responseHours:24 },
   onShow(){
     this.loadRecords();
     this.startCountdownTimer();
   },
   onHide(){ this.stopCountdownTimer(); },
   onUnload(){ this.stopCountdownTimer(); },
+  onLoad(){
+    loadBusinessConfig().then((config) => this.setData({
+      serviceContact: config.servicePhone || config.serviceWechat || '15527111396',
+      responseHours: Number(config.leadResponseHours || 24)
+    })).catch(() => {});
+  },
   startCountdownTimer(){
     if (this.countdownTimer) return;
     this.countdownTimer = setInterval(() => this.refreshCountdowns(), 30000);
@@ -431,7 +437,7 @@ Page({
       id:record.id, type:record.type, business, interest, title:record.title, recordNo:record.recordNo,
       status:record.status, statusLabel:record.statusLabel || record.status,
       questions:consultQuestions[record.type] || ['请帮我查询订单进度'],
-      phone:consultPhones[record.type] || '15527111396',
+      phone:this.data.serviceContact || '15527111396',
       sessionFrom:buildSessionFrom(record),
       summary:[`订单：${record.title}`,`编号：${record.recordNo}`,`状态：${record.statusLabel || record.status}`].join('\n'),
       sending:''
@@ -461,7 +467,7 @@ Page({
     });
   },
   callConsultPhone(){
-    wx.makePhoneCall({phoneNumber:this.data.consult?.phone || '15527111396'});
+    wx.makePhoneCall({phoneNumber:this.data.consult?.phone || this.data.serviceContact || '15527111396'});
   },
   goConsultForm(){
     const consult=this.data.consult;

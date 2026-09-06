@@ -71,7 +71,7 @@
         <button class="phone-button" bindtap="callConsultPhone">电话客服</button>
         <button class="note-button" bindtap="describeConsult" disabled="{{consult.sending}}">补充说明</button>
       </view>
-      <view class="form-fallback" bindtap="goConsultForm">问题较复杂？使用预约表单（24 小时回访）</view>
+      <view class="form-fallback" bindtap="goConsultForm">问题较复杂？使用预约表单（{{responseHours}} 小时回访）</view>
       <view class="sending muted" wx:if="{{consult.sending}}">正在提交：{{consult.sending}}</view>
     </view>
   </view>

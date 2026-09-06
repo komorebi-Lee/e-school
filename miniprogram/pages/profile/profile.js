@@ -1,5 +1,6 @@
 const { request, userId } = require("../../services/api");
 const { loginWeChat } = require("../../lib/cloud-request");
+const { loadBusinessConfig } = require("../../services/business");
 
 function maskUserId(id) {
   if (!id) return "";
@@ -20,6 +21,11 @@ Page({
     orderMessageSubscribed: false
   },
   onShow() { this.refreshLoginState(); this.loadMerchantBadge(); this.loadNotifications(); this.loadOrderMessageState(); },
+  onLoad() {
+    loadBusinessConfig().then((config) => this.setData({
+      customerService: config.servicePhone || config.serviceWechat || '15527111396'
+    })).catch(() => {});
+  },
   refreshLoginState() {
     const stored = wx.getStorageSync("campusGoUserId") || "";
     this.setData({ userId: maskUserId(stored), loginState: stored ? "ready" : "guest" });

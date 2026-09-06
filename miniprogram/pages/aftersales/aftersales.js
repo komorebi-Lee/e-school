@@ -1,4 +1,5 @@
 const { request, userId } = require('../../services/api');
+const { loadBusinessConfig } = require('../../services/business');
 
 const typeOptions = [
   { key:'REFUND', label:'申请退款', copy:'未发货、商品异常或双方协商退款', reasons:['商家未按时配送，申请退款','商品与描述不一致，申请退款','临时不需要了，和商家已沟通'] },
@@ -32,10 +33,14 @@ function uploadAfterSaleImage(file) {
 Page({
   data: {
     orderId: '', order: null, existing: null, typeOptions, selectedType: typeOptions[0], images: [],
-    detail: '', submitting: false, loading: true, dueText: ''
+    detail: '', submitting: false, loading: true, dueText: '', afterSaleResponseHours: 24, afterSaleResolutionHours: 72
   },
   onLoad(options) {
     this.setData({ orderId: options.id || '' });
+    loadBusinessConfig().then((config) => this.setData({
+      afterSaleResponseHours: Number(config.afterSaleResponseHours || 24),
+      afterSaleResolutionHours: Number(config.afterSaleResolutionHours || 72)
+    })).catch(() => {});
     this.loadContext();
   },
   loadContext() {
@@ -116,7 +121,7 @@ Page({
       data: { userId: userId(), orderId: this.data.orderId, type: this.data.selectedType.key, reason: this.data.detail.trim(), images: this.data.images }
     }).then(({ data }) => wx.showModal({
       title: '已提交',
-      content: `预计${formatDate(data.responseDueAt) || '24 小时内'}前响应。`,
+      content: `预计${formatDate(data.responseDueAt) || `${this.data.afterSaleResponseHours || 24} 小时内`}前响应。`,
       showCancel: false,
       success: () => wx.navigateBack()
     })).catch((error) => {

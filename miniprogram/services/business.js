@@ -9,6 +9,7 @@ const defaultConfig = {
   plateResponseHours: 48,
   externalPlateFeeInCents: 4900,
   leadResponseHours: 24,
+  phoneCardActivationHours: 24,
   afterSaleResponseHours: 24,
   afterSaleResolutionHours: 72,
   deliveryTimeSlots: ['尽快配送'],
