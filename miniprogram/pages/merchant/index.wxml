@@ -24,6 +24,7 @@
         </view>
       </view>
       <view class="muted score-note">{{serviceScore.consequenceText}}</view>
+      <view class="muted score-note" wx:if="{{serviceScore.complianceText}}">{{serviceScore.complianceText}}</view>
       <view class="muted score-note" wx:if="{{serviceScore.weakestText}}">最需要改进：{{serviceScore.weakestText}}</view>
       <picker wx:if="{{scoreCaseType === 'RECTIFY' && delistedProducts.length}}" range="{{delistedProducts}}" range-key="name" value="{{rectifyProductIndex}}" bindchange="setRectifyProduct">
         <view class="appeal-picker">整改商品：{{delistedProducts[rectifyProductIndex].name}}</view>

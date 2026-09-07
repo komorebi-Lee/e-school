@@ -143,6 +143,9 @@ function decorateServiceScore(score) {
     breakdown,
     stageTone: scoreStageTone[score.stage] || 'todo',
     consequenceText: scoreStageConsequences[score.stage] || '',
+    complianceText: Number(score.metrics?.compliancePenalty || 0)
+      ? `近30天低质下架 ${score.metrics.autoDelistCount30d || 0} 件，服务分扣 ${score.metrics.compliancePenalty} 分`
+      : '',
     weakestText: weakest ? `${weakest.label} ${weakest.score} 分 · ${weakest.detail}` : '',
     onTimeRateText: score.metrics && score.metrics.completedOrderCount
       ? `${Math.round((score.metrics.onTimeCount / score.metrics.completedOrderCount) * 100)}%`
