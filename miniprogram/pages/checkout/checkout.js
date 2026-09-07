@@ -1,5 +1,6 @@
 const { request, userId } = require('../../services/api');
 const { loadBusinessConfig } = require('../../services/business');
+const { payPaymentOrder } = require('../../services/payment');
 
 Page({
   data: { scooter: null, config: null, deliveryTimeSlots: [], deliveryTimeIndex: 0, name: '', phone: '', date: '', minDate: '', deliveryAddress: '', submitting: false, payToken: '', itemsFee: 0, deliveryFee: 0, totalFee: 0, agreed: false },
@@ -45,9 +46,9 @@ Page({
     request('/api/orders', { method: 'POST', header: { 'Idempotency-Key': this.data.payToken }, data: { userId: userId(), items: [{ productId: scooter.id, quantity: 1 }], fulfillment: { type: 'DELIVERY', address: deliveryAddress, date, timeSlot: this.data.deliveryTimeSlots[this.data.deliveryTimeIndex] || '', contactName: name, contactPhone: phone } } })
       .then(({ data, paymentOrder }) => {
         if (!paymentOrder || !paymentOrder.id) throw new Error('支付单创建失败');
-        return request(`/api/payment-orders/${encodeURIComponent(paymentOrder.id)}/confirm`, { method: 'POST' }).then(({ data: result }) => {
+        return payPaymentOrder(paymentOrder).then(({ data: result }) => {
           wx.showModal({
-            title: '模拟支付成功',
+            title: '支付成功',
             content: `订单 ${result.order.orderNo} 已支付。平台购车订单会同步生成免费校园牌照辅助。`,
             confirmText: '查看订单',
             showCancel: false,

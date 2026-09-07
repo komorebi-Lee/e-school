@@ -1,4 +1,5 @@
 const { loadBusinessConfig } = require('../../services/business');
+const { payPaymentOrder } = require('../../services/payment');
 
 Page({
     data:{plans:[],rechargePromos:[],selectedPlan:0,selectedPromo:null,activeSection:0,profileName:'',profilePhone:'',companionPhone:'',submitting:false,phoneCardActivationHours:24},
@@ -52,12 +53,12 @@ Page({
       .then(({data,paymentOrder})=>{
         const finish=(benefitText)=>{this.setData({submitting:false});wx.showModal({title:'支付成功',content:`${p.name}已进入实名激活跟进${benefitText}，客服将在${this.data.phoneCardActivationHours || 24}小时内联系你。`,confirmText:'查看订单',cancelText:'继续浏览',success:(result)=>{if(result.confirm)wx.switchTab({url:'/pages/orders/orders'})}})};
         if(!paymentOrder||!paymentOrder.id) throw new Error('支付单创建失败');
-        return request(`/api/payment-orders/${encodeURIComponent(paymentOrder.id)}/confirm`,{method:'POST'}).then(()=>{
+        return payPaymentOrder(paymentOrder).then(()=>{
           if(!promo)return finish('');
           return request('/api/recharge-orders',{method:'POST',header:{'Idempotency-Key':'rech-'+Date.now()+'-'+Math.random().toString(36).slice(2,8)},data:{phone:saved.phone,promoId:promo.id}})
             .then(({paymentOrder:benefitPayment})=>{
               if(!benefitPayment||!benefitPayment.id)return finish('，限时福利已同步创建');
-              return request(`/api/payment-orders/${encodeURIComponent(benefitPayment.id)}/confirm`,{method:'POST'}).then(()=>finish('，限时福利已同步创建'));
+              return payPaymentOrder(benefitPayment).then(()=>finish('，限时福利已同步创建'));
             })
             .catch(()=>finish('，限时福利下单失败，可联系客服处理'));
         });

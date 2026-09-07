@@ -1,4 +1,5 @@
 const { request, userId } = require('../../services/api');
+const { payPaymentOrderById } = require('../../services/payment');
 const { loadBusinessConfig } = require('../../services/business');
 
 const typeNames = { E_BIKE:'电瓶车', PHONE_PLAN:'电话卡', RECHARGE:'话费权益', BROADBAND:'宽带', PLATE:'校园牌照' };
@@ -345,7 +346,7 @@ Page({
   },
   runOrderPayment(paymentOrderId){
     if(!paymentOrderId) return Promise.reject(new Error('支付单不存在'));
-    return request(`/api/payment-orders/${encodeURIComponent(paymentOrderId)}/confirm`,{method:'POST'});
+    return payPaymentOrderById(paymentOrderId);
   },
   cancelOrder(e){
     const id=e.currentTarget.dataset.id;

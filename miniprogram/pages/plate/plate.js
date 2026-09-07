@@ -1,5 +1,6 @@
 const { request, userId } = require('../../services/api');
 const { loadBusinessConfig } = require('../../services/business');
+const { payPaymentOrder } = require('../../services/payment');
 
 Page({
   data:{source:'platform',vehicleModel:'',name:'',studentNo:'',phone:'',eligibleOrders:[],selectedOrderIndex:0,serviceFee:49,status:null,submitting:false,serviceContact:'15527111396'},
@@ -40,7 +41,7 @@ Page({
           wx.showModal({title:'申请已提交',content:'平台购车免费牌照辅助已创建，请按客服指引补齐材料。',showCancel:false,success:()=>{this.setData({submitting:false,vehicleModel:''});this.loadStatus()}});
           return;
         }
-        return request(`/api/payment-orders/${encodeURIComponent(result.paymentOrder.id)}/confirm`,{method:'POST'}).then(()=>{
+        return payPaymentOrder(result.paymentOrder).then(()=>{
           wx.showModal({title:'支付成功',content:`自带车服务费 ¥${this.data.serviceFee} 已支付，请按客服指引补充材料。`,showCancel:false,success:()=>{this.setData({submitting:false,vehicleModel:''});this.loadStatus()}});
         });
       })

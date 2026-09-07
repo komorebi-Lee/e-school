@@ -1,4 +1,5 @@
 const { request, userId } = require('../../services/api');
+const { payPaymentOrderById } = require('../../services/payment');
 
 Page({
   data: { promo: null, orderId: '', paymentOrderId: '', paymentStatus: 'UNPAID', submitting: false, paid: false },
@@ -66,8 +67,8 @@ Page({
     if (!this.data.orderId) return this.createOrder();
     if (!paymentId) return wx.showToast({ title: '支付单不存在', icon: 'none' });
     this.setData({ submitting: true });
-    wx.showLoading({ title: '模拟支付中', mask: true });
-    request(`/api/payment-orders/${encodeURIComponent(paymentId)}/confirm`, { method: 'POST' }).then(({ data }) => {
+    wx.showLoading({ title: '支付中', mask: true });
+    payPaymentOrderById(paymentId).then(({ data }) => {
       this.setData({ paid: true, paymentStatus: data.rechargeOrder?.status || 'PENDING_CREDIT' });
       wx.hideLoading();
       wx.showToast({ title: '支付成功', icon: 'success' });
