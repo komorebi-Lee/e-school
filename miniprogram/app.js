@@ -17,8 +17,5 @@ App({
         console.error("Cloud init failed:", error);
       }
     }
-    if (!wx.getStorageSync("campusGoOrders")) {
-      wx.setStorageSync("campusGoOrders", []);
-    }
   }
 });

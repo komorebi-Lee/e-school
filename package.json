@@ -1,0 +1,12 @@
+{
+  "name": "campus-go-miniapp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shishan Life WeChat mini program source checks",
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

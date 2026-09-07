@@ -1,5 +1,4 @@
 const { request, userId } = require('../../services/api');
-const { getScooter } = require('../../services/store');
 const { loadBusinessConfig } = require('../../services/business');
 
 Page({
@@ -16,10 +15,8 @@ Page({
     request(`/api/products/${encodeURIComponent(id)}`).then(({ data }) => {
       this.setData({ scooter: { ...data, price: Math.round(data.priceInCents / 100), subtitle: data.description, color: '#eaf0ff', icon: '车' } });
       this.updateTotals();
-    }).catch(() => {
-      const cached = getScooter(id);
-      if (cached) this.setData({ scooter: cached });
-      else wx.showToast({ title: '商品加载失败', icon: 'none' });
+    }).catch((error) => {
+      wx.showToast({ title: error.message || '商品加载失败，请稍后重试', icon: 'none' });
     });
     loadBusinessConfig().then((config) => {
       this.setData({ config, deliveryTimeSlots: config.deliveryTimeSlots });
