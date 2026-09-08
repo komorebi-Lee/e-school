@@ -447,6 +447,17 @@ test('risk tasks deep-link into focused workspace entries', () => {
   assert.ok(productJs.includes('focusLoadedItem'), 'products should support focused entry routing');
 });
 
+test('merchant notifications carry actionable business links', () => {
+  const js = readMiniappFile(path.join('pages', 'merchant', 'index.js'));
+  const wxml = readMiniappFile(path.join('pages', 'merchant', 'index.wxml'));
+  const wxss = readMiniappFile(path.join('pages', 'merchant', 'index.wxss'));
+
+  assert.ok(js.includes('openNotification'), 'notifications should expose a tap handler');
+  assert.ok(wxml.includes('data-link="{{item.link}}"'), 'notifications should carry server-generated links');
+  assert.ok(wxml.includes('查看详情'), 'actionable notifications should show a detail affordance');
+  assert.ok(wxss.includes('.notice-action'), 'actionable notifications should have visible styling');
+});
+
 test('product detail surfaces merchant rectification status prominently', () => {
   const js = readMiniappFile(path.join('pages', 'detail', 'detail.js'));
   const wxml = readMiniappFile(path.join('pages', 'detail', 'detail.wxml'));

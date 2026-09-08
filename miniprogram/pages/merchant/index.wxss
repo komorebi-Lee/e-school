@@ -6,6 +6,8 @@
 .notice-item { padding: 16rpx 0; border-bottom: 1rpx solid #edf0f5; }
 .notice-item:last-child { border-bottom: 0; }
 .notice-item .muted { margin-top: 6rpx; line-height: 1.45; }
+.notice-action { cursor: pointer; }
+.notice-action .notice-link { margin-left: 12rpx; color: #002fa7; font-weight: 750; }
 .notice-time { font-size: 20rpx; }
 .metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18rpx; margin-top: 22rpx; }
 .metric { padding: 24rpx; display: flex; flex-direction: column; gap: 8rpx; }

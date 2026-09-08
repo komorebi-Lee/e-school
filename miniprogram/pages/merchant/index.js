@@ -368,6 +368,10 @@ Page({
     const filter = type === 'AFTER_SALE' ? '&filter=AFTER_SALE' : '';
     return wx.navigateTo({ url: `/pages/merchant/orders?focusId=${focusId}${filter}` });
   },
+  openNotification(event) {
+    const link = event.currentTarget.dataset.link;
+    if (link) wx.navigateTo({ url: link });
+  },
   setRenewalLicenseNo(event) {
     this.setData({ renewalLicenseNo: event.detail.value });
   },

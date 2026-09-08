@@ -179,10 +179,10 @@
     </view>
     <view class="notification card" wx:if="{{notifications.length}}">
       <view class="notice-head"><view class="strong">商家提醒</view><text class="muted">未读 {{unreadNotificationCount}}</text></view>
-      <view class="notice-item" wx:for="{{notifications}}" wx:key="id">
+      <view class="notice-item {{item.link ? 'notice-action' : ''}}" wx:for="{{notifications}}" wx:key="id" bindtap="openNotification" data-link="{{item.link}}">
         <view class="strong">{{item.title}}</view>
         <view class="muted">{{item.content}}</view>
-        <view class="muted notice-time">{{item.timeText}}</view>
+        <view class="muted notice-time">{{item.timeText}}<text wx:if="{{item.link}}" class="notice-link">查看详情</text></view>
       </view>
     </view>
     <view class="metric-grid">
