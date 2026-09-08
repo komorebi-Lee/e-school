@@ -15,9 +15,9 @@ Page({
         stars: '★★★★★'.slice(0, Math.max(0, Math.min(5, Number(review.rating) || 0))),
         replied: Boolean(review.reply)
       }));
-      this.setData({ reviews, loading: false });
+      this.setData({ reviews, pendingReviewCount: reviews.filter((review) => !review.replied).length, loading: false });
     }).catch(() => {
-      this.setData({ loading: false });
+      this.setData({ pendingReviewCount: 0, loading: false });
       wx.showToast({ title: '请重新进入商家工作台', icon: 'none' });
     });
   },

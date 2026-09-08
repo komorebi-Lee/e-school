@@ -14,6 +14,19 @@ page {
 .primary-button::after { border: 0; }
 .ghost-button { background: #eaf0ff; color: #002fa7; border-radius: 18rpx; font-weight: 700; }
 .ghost-button::after { border: 0; }
+.map-feature { position: relative; display: flex; align-items: center; gap: 18rpx; margin-top: 22rpx; padding: 24rpx; border: 2rpx solid rgba(47, 122, 62, .16); border-radius: 32rpx; background: linear-gradient(135deg, #eaf7ea 0%, #f7fbf5 58%, #f2f8ff 100%); overflow: hidden; box-shadow: 0 14rpx 34rpx rgba(0, 47, 167, .08); }
+.map-feature-copy { flex: 1; min-width: 0; }
+.map-feature-tag { display: inline-flex; padding: 7rpx 14rpx; border-radius: 999rpx; background: #d9f0d8; color: #2f7a3e; font-size: 18rpx; font-weight: 900; }
+.map-feature-title { margin-top: 12rpx; color: #172033; font-size: 36rpx; font-weight: 900; letter-spacing: -1rpx; }
+.map-feature-desc { margin-top: 8rpx; color: #536078; font-size: 20rpx; line-height: 1.55; }
+.map-feature-action { display: inline-flex; margin-top: 16rpx; padding: 9rpx 16rpx; border-radius: 999rpx; background: #2f7a3e; color: #fff; font-size: 20rpx; font-weight: 800; }
+.map-feature-preview { position: relative; width: 214rpx; height: 196rpx; flex-shrink: 0; border-radius: 22rpx; background: #f5faf1; overflow: hidden; box-shadow: inset 0 0 0 3rpx rgba(255, 255, 255, .8); }
+.preview-road { position: absolute; top: 44rpx; left: -20rpx; width: 270rpx; height: 16rpx; background: #fff; transform: rotate(-14deg); box-shadow: 0 0 0 2rpx rgba(47, 122, 62, .08); }
+.preview-lake { position: absolute; right: -22rpx; bottom: -22rpx; width: 102rpx; height: 82rpx; border-radius: 46% 54% 58% 42%; background: #d6ecf7; }
+.preview-pin { position: absolute; width: 44rpx; height: 44rpx; display: flex; align-items: center; justify-content: center; border-radius: 16rpx; background: #2f7a3e; color: #fff; font-size: 18rpx; font-weight: 900; box-shadow: 0 8rpx 16rpx rgba(23, 32, 51, .12); }
+.pin-one { left: 26rpx; top: 22rpx; }
+.pin-two { right: 34rpx; top: 74rpx; background: #d97706; }
+.pin-three { left: 52rpx; bottom: 20rpx; background: #2563eb; }
 .field { margin-bottom: 24rpx; }
 .field-label { display: block; color: #536078; font-size: 24rpx; margin-bottom: 12rpx; }
 .input { background: #f5f7fb; border: 2rpx solid #e8ecf4; border-radius: 18rpx; padding: 22rpx; }

@@ -37,6 +37,7 @@ Page({
     }).catch(() => {});
   },
   goCard() { wx.navigateTo({ url: "/pages/card/card" }); },
+  goMap() { wx.navigateTo({ url: "/pages/map/map" }); },
   goPlate() { wx.navigateTo({ url: "/pages/plate/plate" }); },
   goScooters() { wx.navigateTo({ url: "/pages/scooters/scooters" }); },
   goDetail(e) { wx.navigateTo({ url: `/pages/detail/detail?id=${e.currentTarget.dataset.id}` }); }

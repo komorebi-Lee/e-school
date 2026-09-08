@@ -1,0 +1,126 @@
+<view class="page map-page">
+  <view class="hero-card">
+    <view class="hero-copy">
+      <view class="hero-tag">新生认路</view>
+      <view class="hero-title">农大去哪儿</view>
+      <view class="hero-sub">{{school}} · {{campus}}</view>
+    </view>
+    <view class="hero-mark">Q</view>
+  </view>
+
+  <view class="search-bar">
+    <view class="search-icon">搜</view>
+    <input class="search-input" value="{{keyword}}" placeholder="搜索建筑、食堂、专业楼" placeholder-class="search-placeholder" bindinput="onSearchInput" confirm-type="search" />
+    <view class="search-action" bindtap="getLocation">定位</view>
+  </view>
+
+  <scroll-view class="chips" scroll-x show-scrollbar="{{false}}">
+    <view class="chips-inner">
+      <view wx:for="{{categories}}" wx:key="id" class="chip {{category === item.id ? 'active' : ''}}" data-category="{{item.id}}" bindtap="setCategory">{{item.label}}</view>
+    </view>
+  </scroll-view>
+
+  <view class="map-card">
+    <view class="stage {{mode === '3d' ? 'stage-3d' : ''}}">
+      <view class="paper">
+        <view class="lake"></view>
+        <view class="road road-main"></view>
+        <view class="road road-cross"></view>
+        <view class="road road-loop"></view>
+        <view class="green-block"></view>
+
+        <view wx:for="{{visibleZones}}" wx:key="id" class="zone zone-{{item.id}}" style="left: {{item.x}}%; top: {{item.y}}%; width: {{item.w}}%; height: {{item.h}}%;">
+          <view class="zone-label">{{item.title}}</view>
+        </view>
+
+        <view wx:for="{{visibleSpots}}" wx:key="id" class="marker category-{{item.category}} {{activeSpot && activeSpot.id === item.id ? 'selected' : ''}}" style="left: {{item.x}}%; top: {{item.y}}%;" data-id="{{item.id}}" bindtap="selectSpot">
+          <view class="marker-icon {{routeStart && routeStart.id === item.id ? 'start-marker' : ''}}">{{item.icon}}</view>
+          <view wx:if="{{activeSpot && activeSpot.id === item.id}}" class="marker-name">{{item.title}}</view>
+        </view>
+      </view>
+      <view class="compass">北 ↑</view>
+      <view class="mode-switch">
+        <view class="mode-item {{mode === '2d' ? 'active' : ''}}" data-mode="2d" bindtap="setMode">2D</view>
+        <view class="mode-item {{mode === '3d' ? 'active' : ''}}" data-mode="3d" bindtap="setMode">3D</view>
+      </view>
+    </view>
+    <view class="route-card" wx:if="{{routeStart || routeSummary}}">
+      <view class="route-copy">
+        <view class="route-label">{{routeSummary ? '步行路线' : '路线起点'}}</view>
+        <view class="route-title">{{routeStart.title || '未选择'}}{{routeSummary ? ' → ' + routeSummary.end : ''}}</view>
+        <view class="route-sub" wx:if="{{routeSummary}}">{{routeSummary.distanceText}} · {{routeSummary.durationText}} · 经过 {{routeSummary.landmarks[0]}}</view>
+        <view class="route-sub" wx:else>再点击一个点位生成路线</view>
+      </view>
+      <view class="route-reset" bindtap="clearRoute">重置</view>
+    </view>
+    <view class="legend">
+      <view class="legend-item"><view class="dot green"></view>教学</view>
+      <view class="legend-item"><view class="dot orange"></view>生活</view>
+      <view class="legend-item"><view class="dot blue"></view>服务</view>
+      <view class="legend-item"><view class="dot gray"></view>出入口</view>
+    </view>
+  </view>
+
+  <view class="section-head">
+    <view class="section-title">点位清单</view>
+    <view class="section-count">{{visibleSpots.length}} 个</view>
+  </view>
+  <scroll-view class="spot-strip" scroll-x show-scrollbar="{{false}}">
+    <view class="spot-inner">
+      <view wx:for="{{visibleSpots}}" wx:key="id" class="spot-chip {{activeSpot && activeSpot.id === item.id ? 'active' : ''}}" data-id="{{item.id}}" bindtap="selectSpot">
+        <view class="spot-icon">{{item.icon}}</view>
+        <view class="spot-copy">
+          <view class="spot-name">{{item.title}}</view>
+          <view class="spot-use">{{item.use}}</view>
+        </view>
+      </view>
+    </view>
+  </scroll-view>
+
+  <view class="section-head">
+    <view class="section-title">新生工具箱</view>
+  </view>
+  <view class="tool-grid">
+    <view class="tool-card" data-url="/pages/card/card" bindtap="goToolbox"><view class="tool-icon">卡</view><view class="tool-name">电话卡</view></view>
+    <view class="tool-card" data-url="/pages/scooters/scooters" bindtap="goToolbox"><view class="tool-icon">车</view><view class="tool-name">电动车</view></view>
+    <view class="tool-card" data-url="/pages/plate/plate" bindtap="goToolbox"><view class="tool-icon">牌</view><view class="tool-name">牌照</view></view>
+  </view>
+  <view class="source-note">{{sourceNote}}</view>
+</view>
+
+<view class="detail-sheet" wx:if="{{activeSpot}}" catchtap="closeDetail">
+  <view class="detail-card" catchtap="keepDetail">
+    <view class="grab"></view>
+    <view class="detail-head">
+      <view class="detail-icon">{{activeSpot.icon}}</view>
+      <view class="detail-meta">
+        <view class="detail-title">{{activeSpot.title}}</view>
+        <view class="detail-use">{{activeSpot.use}}</view>
+      </view>
+      <view class="close" bindtap="closeDetail">收起</view>
+    </view>
+    <view class="detail-tip">{{activeSpot.tip}}</view>
+    <view class="asset-card">
+      <view class="q-preview">
+        <view class="q-ground"></view>
+        <view class="q-building">
+          <view class="q-roof"></view>
+          <view class="q-window"></view>
+          <view class="q-door"></view>
+        </view>
+      <image class="spot-image" src="{{imageMode === 'q' ? activeSpot.qImage : activeSpot.realImage}}" mode="aspectFill" />
+      </view>
+    <view class="asset-copy">
+      <view class="asset-label">{{imageMode === 'q' ? 'Q 版建筑' : '校园实拍'}}</view>
+      <view class="asset-name">{{activeSpot.title}}</view>
+      <view class="asset-plan">{{activeSpot.use}}</view>
+    </view>
+    <view class="image-toggle" bindtap="toggleImageMode">{{imageMode === 'q' ? '看实拍' : '看 Q 版'}}</view>
+    </view>
+    <view class="detail-actions">
+      <button class="ghost-button" bindtap="startRoute">{{routeStart ? '生成路线' : '设为起点'}}</button>
+      <button class="ghost-button" bindtap="openOfficialMap">官方地图</button>
+      <button class="primary-button" bindtap="closeDetail">继续看图</button>
+    </view>
+  </view>
+</view>

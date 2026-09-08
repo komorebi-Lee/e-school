@@ -82,3 +82,84 @@ test('payment surfaces use production-ready payment wording', () => {
     assert.equal(source.includes('模拟支付'), false, `${relativePath} should not label production payment as simulated`);
   }
 });
+
+test('miniapp registers each page route once', () => {
+  const appConfig = JSON.parse(readMiniappFile('app.json'));
+  const pageRoutes = appConfig.pages;
+
+  assert.equal(pageRoutes.length, new Set(pageRoutes).size);
+  for (const route of pageRoutes) {
+    for (const extension of ['.js', '.json', '.wxml', '.wxss']) {
+      assert.ok(fs.existsSync(path.join(miniappDirectory, `${route}${extension}`)), `${route}${extension} should exist`);
+    }
+  }
+});
+
+test('campus map data covers professional buildings and daily services', () => {
+  const mapData = require('../miniprogram/data/campus-map');
+  const names = mapData.spots.map((spot) => spot.title);
+
+  for (const name of [
+    '人文社科楼',
+    '工学院',
+    '动科楼',
+    '水产学院',
+    '景园楼',
+    '食品学院',
+    '教超',
+    '二十四节气柱',
+    '健身房',
+    '运动场'
+  ]) {
+    assert.ok(names.includes(name), `${name} should be searchable on the campus map`);
+  }
+
+  for (const spot of mapData.spots) {
+    assert.match(spot.source, /hzau|华中农业大学/i);
+    assert.equal(typeof spot.x, 'number');
+    assert.equal(typeof spot.y, 'number');
+    assert.ok(spot.qImage);
+    assert.ok(spot.realImage);
+  }
+});
+
+test('campus map search matches aliases and category filters', () => {
+  const { searchSpots, filterSpots } = require('../miniprogram/data/campus-map');
+
+  assert.deepEqual(searchSpots('动科').map((spot) => spot.title), ['动科楼']);
+  assert.deepEqual(searchSpots('二十四节气').map((spot) => spot.title), ['二十四节气柱']);
+  assert.ok(filterSpots('professional').every((spot) => spot.category === 'professional'));
+  assert.ok(filterSpots('commerce').some((spot) => spot.title === '教超'));
+});
+
+test('campus map route summary provides walking distance and time', () => {
+  const { getRouteSummary, getSpotById } = require('../miniprogram/data/campus-map');
+  const southGate = getSpotById('south-gate');
+  const library = getSpotById('library');
+  const summary = getRouteSummary(southGate, library);
+
+  assert.equal(summary.start, '南校门');
+  assert.equal(summary.end, '图书馆');
+  assert.ok(summary.distanceMeters > 0);
+  assert.equal(summary.distanceText, `${summary.distanceMeters} 米`);
+  assert.match(summary.durationText, /分钟/);
+  assert.ok(summary.landmarks.length > 0);
+});
+
+test('map page exposes search, route, image toggle, and official map entry points', () => {
+  const wxml = readMiniappFile(path.join('pages', 'map', 'map.wxml'));
+  const js = readMiniappFile(path.join('pages', 'map', 'map.js'));
+
+  for (const marker of [
+    'bindinput="onSearchInput"',
+    'bindtap="startRoute"',
+    'bindtap="toggleImageMode"',
+    'bindtap="openOfficialMap"',
+    '搜索建筑、食堂、专业楼'
+  ]) {
+    assert.ok(wxml.includes(marker), `${marker} should be available in the map UI`);
+  }
+  for (const marker of ['onSearchInput', 'startRoute', 'toggleImageMode', 'getLocation']) {
+    assert.ok(js.includes(marker), `${marker} should be implemented in the map page`);
+  }
+});

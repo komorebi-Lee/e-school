@@ -68,7 +68,7 @@
 .timeline-role { color: #002fa7; font-size: 20rpx; font-weight: 800; margin-right: 10rpx; }
 .timeline-note { color: #33435f; font-size: 22rpx; line-height: 1.5; }
 .timeline-time { font-size: 19rpx; margin-top: 5rpx; }
-.consult-mask { position: fixed; inset: 0; z-index: 999; background: rgba(15, 24, 44, .52); display: flex; align-items: flex-end; }
+.consult-mask { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 999; background: rgba(15, 24, 44, .52); display: flex; align-items: flex-end; }
 .consult-sheet { width: 100%; box-sizing: border-box; min-height: 62vh; max-height: 86vh; overflow: auto; background: linear-gradient(180deg, #f6f8ff 0%, #fff 34%); border-radius: 30rpx 30rpx 0 0; padding: 14rpx 28rpx calc(24rpx + env(safe-area-inset-bottom)); }
 .sheet-grip { width: 72rpx; height: 7rpx; margin: 6rpx auto 22rpx; border-radius: 999rpx; background: #d8dfec; }
 .sheet-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20rpx; }

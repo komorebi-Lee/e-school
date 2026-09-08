@@ -1,6 +1,7 @@
 {
   "pages": [
     "pages/home/home",
+    "pages/map/map",
     "pages/card/card",
     "pages/plate/plate",
     "pages/scooters/scooters",
@@ -19,6 +20,14 @@
     "pages/agreement/agreement",
     "pages/recharge/detail"
   ],
+  "requiredPrivateInfos": [
+    "getLocation"
+  ],
+  "permission": {
+    "scope.userLocation": {
+      "desc": "用于在校园地图中辅助你确认当前位置附近的建筑和路线。"
+    }
+  },
   "window": {
     "navigationBarTitleText": "狮山智生活",
     "navigationBarBackgroundColor": "#002FA7",
