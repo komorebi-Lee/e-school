@@ -15,7 +15,7 @@ function decodeParam(value, fallback = '') {
 }
 
 Page({
-  data: { type: '电动车', interest: '', name: '', phone: '', time: '', note: '', submitting: false, responseHours: 24, contact: '15527111396' },
+  data: { type: '电动车', interest: '', sourceType: '', sourceId: '', sourceNo: '', name: '', phone: '', time: '', note: '', submitting: false, responseHours: 24, contact: '15527111396' },
   onLoad(options) {
     loadBusinessConfig().then((config) => {
       this.setData({
@@ -25,7 +25,10 @@ Page({
     }).catch(() => {});
     this.setData({
       type: decodeParam(options.type, '电动车'),
-      interest: decodeParam(options.interest)
+      interest: decodeParam(options.interest),
+      sourceType: decodeParam(options.sourceType),
+      sourceId: decodeParam(options.sourceId),
+      sourceNo: decodeParam(options.sourceNo)
     });
   },
   setName(e) { this.setData({ name: e.detail.value }); },
@@ -43,6 +46,7 @@ Page({
       data: {
         userId: userId(), name: name.trim(), phone: phone.trim(),
         businessType: this.data.type, interest: this.data.interest || '',
+        sourceType: this.data.sourceType, sourceId: this.data.sourceId,
         expectedTime: this.data.time, deliveryNeed: this.data.type === 'E_BIKE' ? 'delivery' : '', note: this.data.note
       }
     }).then(() => {

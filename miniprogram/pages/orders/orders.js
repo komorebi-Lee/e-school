@@ -534,7 +534,7 @@ Page({
   },
   goConsultForm(){
     const consult=this.data.consult;
-    wx.navigateTo({url:`/pages/consult/consult?type=${encodeURIComponent(consult.business)}&interest=${encodeURIComponent(consult.interest)}`});
+    wx.navigateTo({url:`/pages/consult/consult?type=${encodeURIComponent(consult.business)}&interest=${encodeURIComponent(consult.interest)}&sourceType=${encodeURIComponent(consult.type)}&sourceId=${encodeURIComponent(consult.id)}&sourceNo=${encodeURIComponent(consult.recordNo)}`});
   },
   onContact(){ wx.showToast({title:'已进入客服会话'}); }
 });

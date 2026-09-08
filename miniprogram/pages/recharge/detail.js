@@ -80,7 +80,7 @@ Page({
   consult() {
         const { promo, orderId } = this.data;
     wx.navigateTo({
-      url: `/pages/consult/consult?type=${encodeURIComponent('话费到账确认')}&interest=${encodeURIComponent(`充${promo.pay}送${promo.receive}（${orderId}）`)}`
+      url: `/pages/consult/consult?type=${encodeURIComponent('话费到账确认')}&interest=${encodeURIComponent(`充${promo.pay}送${promo.receive}（${orderId}）`)}&sourceType=${encodeURIComponent('RECHARGE')}&sourceId=${encodeURIComponent(orderId)}`
     });
   }
 });

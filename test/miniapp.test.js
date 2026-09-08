@@ -482,6 +482,21 @@ test('user notices and service linkage land on focused records', () => {
   assert.ok(orderWxml.includes('data-focus-id="{{item.focusId}}"'), 'linkage cards should carry the focus id');
 });
 
+test('appointment form keeps the originating service record', () => {
+  const consultJs = readMiniappFile(path.join('pages', 'consult', 'consult.js'));
+  const consultWxml = readMiniappFile(path.join('pages', 'consult', 'consult.wxml'));
+  const ordersJs = readMiniappFile(path.join('pages', 'orders', 'orders.js'));
+  const rechargeJs = readMiniappFile(path.join('pages', 'recharge', 'detail.js'));
+
+  assert.ok(consultJs.includes('sourceType: this.data.sourceType'), 'appointments should submit their source type');
+  assert.ok(consultJs.includes('sourceId: this.data.sourceId'), 'appointments should submit their source record');
+  assert.ok(consultWxml.includes('wx:if="{{sourceNo || sourceId}}"'), 'appointments should show the linked record');
+  assert.ok(ordersJs.includes('sourceType=${encodeURIComponent(consult.type)}'), 'order fallbacks should carry record type');
+  assert.ok(ordersJs.includes('sourceId=${encodeURIComponent(consult.id)}'), 'order fallbacks should carry the record id');
+  assert.ok(rechargeJs.includes("sourceType=${encodeURIComponent('RECHARGE')}"), 'recharge consults should carry source type');
+  assert.ok(rechargeJs.includes('sourceId=${encodeURIComponent(orderId)}'), 'recharge consults should carry the order id');
+});
+
 test('product detail surfaces merchant rectification status prominently', () => {
   const js = readMiniappFile(path.join('pages', 'detail', 'detail.js'));
   const wxml = readMiniappFile(path.join('pages', 'detail', 'detail.wxml'));
