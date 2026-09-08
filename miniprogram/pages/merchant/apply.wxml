@@ -48,6 +48,12 @@
         <text class="field-label">营业执照编号</text>
         <input class="input" value="{{licenseNo}}" data-field="licenseNo" bindinput="setField" placeholder="统一社会信用代码或执照编号" />
       </view>
+      <view class="field">
+        <text class="field-label">资质有效期</text>
+        <picker mode="date" value="{{licenseExpireDate}}" bindchange="setLicenseExpireDate">
+          <view class="input">{{licenseExpireDate || '请选择营业执照有效期'}} ▾</view>
+        </picker>
+      </view>
       <view class="upload card">
         <view class="upload-head"><text class="field-label">资质照片</text><button size="mini" class="ghost-button" bindtap="chooseLicense">上传</button></view>
         <view class="muted">{{licenseFile ? '新资质照片已上传。' : '请上传清晰完整的资质照片。'}}</view>
@@ -103,6 +109,12 @@
       <view wx:if="{{merchantTypes[merchantTypeIndex].value !== 'PERSONAL'}}" class="field">
         <text class="field-label">营业执照编号</text>
         <input class="input" value="{{licenseNo}}" data-field="licenseNo" bindinput="setField" placeholder="统一社会信用代码或执照编号" />
+      </view>
+      <view wx:if="{{merchantTypes[merchantTypeIndex].value !== 'PERSONAL'}}" class="field">
+        <text class="field-label">资质有效期</text>
+        <picker mode="date" value="{{licenseExpireDate}}" bindchange="setLicenseExpireDate">
+          <view class="input">{{licenseExpireDate || '请选择营业执照有效期'}} ▾</view>
+        </picker>
       </view>
       <view class="field"><text class="field-label">经营类目</text>
         <picker range="{{categories}}" range-key="label" value="{{categoryIndex}}" bindchange="setCategory">

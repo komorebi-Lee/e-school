@@ -125,6 +125,8 @@ const scoreStageConsequences = {
 };
 const scoreCaseStatusLabels = { SUBMITTED: '待平台审核', REVIEWING: '处理中', COMPLETED: '已通过', REJECTED: '未通过' };
 const scoreCaseStatusTones = { SUBMITTED: 'todo', REVIEWING: 'blue', COMPLETED: 'done', REJECTED: 'warn' };
+const qualificationStatusLabels = { PENDING_REVIEW: '待平台审核', APPROVED: '复审通过', REJECTED: '复审未通过' };
+const qualificationStatusTones = { PENDING_REVIEW: 'todo', APPROVED: 'done', REJECTED: 'warn' };
 const appealReasons = [
   { key: 'REMOVED_NEGATIVE_REVIEW', label: '差评记录有误' },
   { key: 'DELAYED_DELIVERY', label: '履约有合理原因' },
@@ -160,6 +162,8 @@ Page({
     slaAlerts: [], notifications: [], unreadNotificationCount: 0, loading: true,
     serviceScore: null, pendingPublishProducts: [], scoreCases: [], scoreNoticeSubscribed: false,
     scoreEvidence: [], uploadingScoreEvidence: false,
+    qualificationRenewals: [], renewalLicenseNo: '', renewalLicenseExpireDate: '', renewalNote: '',
+    renewalEvidence: [], uploadingRenewalEvidence: false, renewalSubmitting: false,
     delistedProducts: [], rectifyProductIndex: 0,
     scoreCaseType: 'APPEAL', scoreCaseReasonTypeIndex: 0, appealReasons,
     payoutMinimumText: '100.00', payableText: '0.00', canRequestPayout: false, payoutHint: '', payoutSubmitting: false,
@@ -211,6 +215,13 @@ Page({
         payoutRequests: (data.payoutRequests || []).slice(0, 3).map(decoratePayoutRequest),
         slaAlerts: (data.slaAlerts || []).slice(0, 4).map(decorateSlaAlert),
         serviceScore: decorateServiceScore(data.serviceScore),
+        qualificationRenewals: (data.qualificationRenewals || []).slice(0, 5).map((item) => ({
+          ...item,
+          statusLabel: qualificationStatusLabels[item.status] || item.status,
+          statusTone: qualificationStatusTones[item.status] || 'todo',
+          timeText: String(item.updatedAt || item.createdAt).slice(5, 16).replace('T', ' '),
+          reviewText: item.reviewNote || (item.status === 'PENDING_REVIEW' ? '平台核对通过后自动更新店铺资质' : '')
+        })),
         scoreCases: (data.scoreCases || []).slice(0, 5).map((item) => ({
           ...item,
           statusLabel: scoreCaseStatusLabels[item.status] || item.status,
@@ -274,6 +285,87 @@ Page({
   },
   goReviews() {
     wx.navigateTo({ url: '/pages/merchant/reviews' });
+  },
+  setRenewalLicenseNo(event) {
+    this.setData({ renewalLicenseNo: event.detail.value });
+  },
+  setRenewalNote(event) {
+    this.setData({ renewalNote: event.detail.value });
+  },
+  setRenewalLicenseExpireDate(event) {
+    this.setData({ renewalLicenseExpireDate: event.detail.value });
+  },
+  chooseQualificationImage() {
+    if (this.data.uploadingRenewalEvidence) return;
+    wx.chooseMedia({
+      count: 1,
+      mediaType: ['image'],
+      sizeType: ['compressed'],
+      success: ({ tempFiles = [] }) => {
+        const file = tempFiles[0];
+        if (!file) return;
+        if ((file.size || 0) > 5 * 1024 * 1024) {
+          wx.showToast({ title: '执照图片不能超过 5MB', icon: 'none' });
+          return;
+        }
+        this.setData({ uploadingRenewalEvidence: true });
+        wx.getFileSystemManager().readFile({
+          filePath: file.tempFilePath,
+          encoding: 'base64',
+          success: ({ data }) => {
+            const extension = String(file.tempFilePath || '').split('.').pop().toLowerCase();
+            const mimeType = extension === 'png' ? 'image/png' : extension === 'webp' ? 'image/webp' : 'image/jpeg';
+            this.request('/api/uploads', { method: 'POST', data: { dataBase64: data, mimeType } })
+              .then(({ data: upload }) => {
+                this.setData({ renewalEvidence: [upload.url] });
+                wx.showToast({ title: '执照已上传', icon: 'success' });
+              })
+              .catch((error) => wx.showToast({ title: error.message || '上传失败', icon: 'none' }))
+              .finally(() => this.setData({ uploadingRenewalEvidence: false }));
+          },
+          fail: () => {
+            this.setData({ uploadingRenewalEvidence: false });
+            wx.showToast({ title: '读取照片失败', icon: 'none' });
+          }
+        });
+      }
+    });
+  },
+  previewQualificationImage() {
+    const url = this.data.renewalEvidence[0];
+    if (!url) return;
+    wx.previewImage({ current: url, urls: [url] });
+  },
+  submitQualificationRenewal() {
+    if (this.data.renewalSubmitting) return;
+    if (!/^[0-9A-Z]{15,18}$/.test(this.data.renewalLicenseNo)) {
+      wx.showToast({ title: '请填写正确执照编号', icon: 'none' });
+      return;
+    }
+    if (!this.data.renewalEvidence.length) {
+      wx.showToast({ title: '请上传新执照照片', icon: 'none' });
+      return;
+    }
+    if (!this.data.renewalLicenseExpireDate) {
+      wx.showToast({ title: '请选择新执照有效期', icon: 'none' });
+      return;
+    }
+    this.setData({ renewalSubmitting: true });
+    this.request('/api/merchant/qualification-renewals', {
+      method: 'POST',
+      data: {
+        licenseNo: this.data.renewalLicenseNo,
+        licenseUrl: this.data.renewalEvidence[0],
+        licenseExpireDate: this.data.renewalLicenseExpireDate,
+        note: this.data.renewalNote || '新营业执照已上传'
+      }
+    }).then(() => {
+      wx.showToast({ title: '复审申请已提交', icon: 'success' });
+      this.setData({ renewalLicenseExpireDate: '', renewalNote: '', renewalEvidence: [] });
+      setTimeout(() => this.load(), 450);
+    }).catch((error) => {
+      wx.showModal({ title: '暂不能提交', content: error.message || '请稍后重试', showCancel: false });
+    }).finally(() => this.setData({ renewalSubmitting: false }));
   },
   setStatementMonth(event) {
     this.setData({ statementMonth: event.detail.value });

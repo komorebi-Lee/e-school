@@ -175,3 +175,17 @@ test('merchant apply supports rejected evidence resubmission', () => {
     assert.ok(wxml.includes(marker), `${marker} should be available in merchant apply UI`);
   }
 });
+
+test('merchant surfaces collect qualification expiry for renewals', () => {
+  const applyJs = readMiniappFile(path.join('pages', 'merchant', 'apply.js'));
+  const applyWxml = readMiniappFile(path.join('pages', 'merchant', 'apply.wxml'));
+  const indexJs = readMiniappFile(path.join('pages', 'merchant', 'index.js'));
+  const indexWxml = readMiniappFile(path.join('pages', 'merchant', 'index.wxml'));
+
+  assert.ok(applyJs.includes('licenseExpireDate'), 'apply submission should send expiry date');
+  assert.ok(applyWxml.includes('mode="date"'), 'apply form should provide a date picker');
+  assert.ok(indexJs.includes('submitQualificationRenewal'), 'merchant home should submit renewals');
+  assert.ok(indexJs.includes('/api/merchant/qualification-renewals'), 'merchant home should call renewal API');
+  assert.ok(indexWxml.includes('资质有效期'), 'merchant home should show current expiry');
+  assert.ok(indexWxml.includes('bindtap="submitQualificationRenewal"'), 'merchant home should provide renewal action');
+});

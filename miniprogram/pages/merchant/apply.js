@@ -29,6 +29,7 @@ Page({
     ownerName: '',
     phone: '',
     licenseNo: '',
+    licenseExpireDate: '',
     serviceArea: '',
     description: '',
     settlementAccountName: '',
@@ -58,6 +59,7 @@ Page({
             application: rejected,
             canForm: false,
             licenseNo: rejected.licenseNo || '',
+            licenseExpireDate: rejected.licenseExpireDate || '',
             settlementAccountName: rejected.settlementAccountName || '',
             settlementBank: rejected.settlementBank || '',
             settlementAccount: rejected.settlementAccount || '',
@@ -114,6 +116,10 @@ Page({
 
   setCategory(event) {
     this.setData({ categoryIndex: Number(event.detail.value) });
+  },
+
+  setLicenseExpireDate(event) {
+    this.setData({ licenseExpireDate: event.detail.value });
   },
 
   chooseLicense() {
@@ -179,6 +185,9 @@ Page({
       if (!this.data.licenseFile) {
         return wx.showToast({ title: '请上传营业执照照片', icon: 'none' });
       }
+      if (!this.data.licenseExpireDate) {
+        return wx.showToast({ title: '请选择营业执照有效期', icon: 'none' });
+      }
     }
     if (!this.data.agreeAgreement || !this.data.agreePrivacy) {
       return wx.showToast({ title: '请先同意协议和隐私指引', icon: 'none' });
@@ -196,6 +205,7 @@ Page({
         phone: this.data.phone,
         licenseNo: this.data.licenseNo,
         licenseUrl: merchantType.value === 'PERSONAL' ? '' : (this.data.licenseFile?.url || ''),
+        licenseExpireDate: merchantType.value === 'PERSONAL' ? '' : this.data.licenseExpireDate,
         category: category.value,
         serviceArea: this.data.serviceArea,
         description: this.data.description,
@@ -229,6 +239,9 @@ Page({
     if (!this.data.licenseFile?.url) {
       return wx.showToast({ title: '请上传资质照片', icon: 'none' });
     }
+    if (!this.data.licenseExpireDate) {
+      return wx.showToast({ title: '请选择资质有效期', icon: 'none' });
+    }
     if (!this.data.settlementAccountName || !this.data.settlementBank || !/^\d{9,32}$/.test(this.data.settlementAccount.replace(/\s+/g, ''))) {
       return wx.showToast({ title: '请补全收款账户', icon: 'none' });
     }
@@ -239,6 +252,7 @@ Page({
       data: {
         licenseNo: application.merchantType === 'PERSONAL' ? '' : this.data.licenseNo,
         licenseUrl: this.data.licenseFile.url,
+        licenseExpireDate: this.data.licenseExpireDate,
         settlementAccountName: this.data.settlementAccountName,
         settlementBank: this.data.settlementBank,
         settlementAccount: this.data.settlementAccount,

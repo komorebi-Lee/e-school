@@ -5,6 +5,48 @@
       <view><view class="merchant-name">{{merchant.name}}</view><view class="muted">{{merchant.ownerNameMasked}} · {{merchant.phoneMasked}}</view></view>
       <view class="status">已入驻</view>
     </view>
+    <view class="score card">
+      <view class="score-head">
+        <view>
+          <view class="strong">资质管理</view>
+          <view class="muted">资质有效期 {{merchant.licenseExpireDate || '未登记'}} · 到期前 30 天平台会巡检提醒</view>
+        </view>
+      </view>
+      <view class="evidence-block">
+        <view class="evidence-head">
+          <view class="muted">提交新执照复审</view>
+          <button size="mini" class="ghost-button" disabled="{{uploadingRenewalEvidence}}" bindtap="chooseQualificationImage">{{uploadingRenewalEvidence ? '上传中' : '上传执照'}}</button>
+        </view>
+        <view class="field">
+          <text class="field-label">营业执照编号</text>
+          <input class="input" value="{{renewalLicenseNo}}" bindinput="setRenewalLicenseNo" placeholder="统一社会信用代码或执照编号" />
+        </view>
+        <view class="field">
+          <text class="field-label">新执照有效期</text>
+          <picker mode="date" value="{{renewalLicenseExpireDate}}" bindchange="setRenewalLicenseExpireDate">
+            <view class="input">{{renewalLicenseExpireDate || '请选择有效期'}} ▾</view>
+          </picker>
+        </view>
+        <view class="field">
+          <text class="field-label">补充说明</text>
+          <textarea class="input textarea" value="{{renewalNote}}" bindinput="setRenewalNote" maxlength="300" placeholder="说明换证原因或经营变化"></textarea>
+        </view>
+        <view class="evidence-grid" wx:if="{{renewalEvidence.length}}">
+          <view class="evidence-item">
+            <image src="{{renewalEvidence[0]}}" mode="aspectFill" bindtap="previewQualificationImage" />
+          </view>
+        </view>
+        <button class="primary-button" loading="{{renewalSubmitting}}" bindtap="submitQualificationRenewal">提交资质复审</button>
+      </view>
+      <view class="score-case" wx:for="{{qualificationRenewals}}" wx:key="id">
+        <view class="score-case-head">
+          <view class="strong">复审申请 · {{item.licenseExpireDate}}</view>
+          <text class="status-text tone-{{item.statusTone}}">{{item.statusLabel}}</text>
+        </view>
+        <view class="muted">{{item.reviewText}}</view>
+        <view class="muted notice-time">{{item.timeText}}</view>
+      </view>
+    </view>
     <view class="score card" wx:if="{{serviceScore}}">
       <view class="score-head">
         <view>
