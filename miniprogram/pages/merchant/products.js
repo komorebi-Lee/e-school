@@ -62,6 +62,8 @@ Page({
           categoryLabel: categoryLabels[product.category] || product.category,
           salesCount: Number(product.salesCount || 0),
           salesText: Number(product.salesCount || 0) > 0 ? `已售 ${Number(product.salesCount || 0)}` : '暂无销量',
+          favoriteCount: Number(product.favoriteCount || 0),
+          favoriteDemandText: product.favoriteDemandText || '暂无收藏需求',
           restockHint: product.restockHint || '',
           priceText: (Number(product.effectivePriceInCents ?? product.priceInCents || 0) / 100).toFixed(2),
           originalPriceText: product.promotion ? (Number(product.promotion.originalPriceInCents || 0) / 100).toFixed(2) : '',

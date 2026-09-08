@@ -295,6 +295,20 @@ test('merchant products surface sales and restock guidance', () => {
   }
 });
 
+test('merchant and admin demand panels expose favorite interest', () => {
+  const merchantJs = readMiniappFile(path.join('pages', 'merchant', 'products.js'));
+  const merchantWxml = readMiniappFile(path.join('pages', 'merchant', 'products.wxml'));
+  const merchantIndexWxml = readMiniappFile(path.join('pages', 'merchant', 'index.wxml'));
+  const adminJs = fs.readFileSync(path.join(__dirname, '..', 'server', 'public', 'admin.js'), 'utf8');
+
+  assert.ok(merchantJs.includes('favoriteCount'), 'merchant products should read favorite demand');
+  assert.ok(merchantJs.includes('favoriteDemandText'), 'merchant products should show favorite demand');
+  assert.ok(merchantWxml.includes('favoriteDemandText'), 'merchant products should surface favorite demand');
+  assert.ok(merchantIndexWxml.includes('favoriteDemandText'), 'merchant home should show low-stock favorite demand');
+  assert.ok(adminJs.includes('favoriteDemandProducts'), 'admin dashboard should render favorite demand');
+  assert.ok(adminJs.includes('favoriteDemandText'), 'admin dashboard should show favorite demand text');
+});
+
 test('merchant products support self-service sale campaigns', () => {
   const js = readMiniappFile(path.join('pages', 'merchant', 'products.js'));
   const wxml = readMiniappFile(path.join('pages', 'merchant', 'products.wxml'));
