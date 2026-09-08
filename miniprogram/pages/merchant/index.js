@@ -159,7 +159,7 @@ Page({
   data: {
     merchant: null, metrics: null, products: [], orders: [], settlements: [], payoutRequests: [],
     lowStockProducts: [], lowStockThreshold: 10,
-    slaAlerts: [], notifications: [], unreadNotificationCount: 0, loading: true,
+    slaAlerts: [], promotionSummary: [], notifications: [], unreadNotificationCount: 0, loading: true,
     serviceScore: null, pendingPublishProducts: [], scoreCases: [], scoreNoticeSubscribed: false,
     scoreEvidence: [], uploadingScoreEvidence: false,
     qualificationRenewals: [], renewalLicenseNo: '', renewalLicenseExpireDate: '', renewalNote: '',
@@ -208,6 +208,11 @@ Page({
         merchant: data.merchant,
         metrics: data.metrics,
         products: data.products,
+        promotionSummary: (data.promotionSummary || []).slice(0, 4).map((item) => ({
+          ...item,
+          campaignAmountText: (Number(item.campaignAmountInCents || 0) / 100).toFixed(2),
+          campaignDiscountText: (Number(item.campaignDiscountInCents || 0) / 100).toFixed(2)
+        })),
         lowStockProducts: data.lowStockProducts || [],
         lowStockThreshold: data.lowStockThreshold || 10,
         orders,

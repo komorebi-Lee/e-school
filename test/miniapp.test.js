@@ -234,8 +234,22 @@ test('merchant products support self-service sale campaigns', () => {
   assert.ok(js.includes('saleStartsAt'), 'merchant products should submit sale start time');
   assert.ok(js.includes('effectivePriceInCents'), 'merchant products should preserve server effective pricing');
   for (const marker of ['item.priceText', 'item.originalPriceText', 'item.promotionText', 'form.salePrice']) {
-    assert.ok(wxml.includes(marker), `${marker} should be available in merchant sale UI`);
+  assert.ok(wxml.includes(marker), `${marker} should be available in merchant sale UI`);
   }
+});
+
+test('promotion operations expose campaign metrics', () => {
+  const merchantJs = readMiniappFile(path.join('pages', 'merchant', 'index.js'));
+  const merchantWxml = readMiniappFile(path.join('pages', 'merchant', 'index.wxml'));
+  const adminJs = fs.readFileSync(path.join(__dirname, '..', 'server', 'public', 'admin.js'), 'utf8');
+
+  assert.ok(merchantJs.includes('promotionSummary'), 'merchant workspace should load promotion metrics');
+  for (const marker of ['promotionSummary.length', 'item.campaignStatusLabel', 'item.campaignAmountText', 'item.campaignDiscountText']) {
+    assert.ok(merchantWxml.includes(marker), `${marker} should be visible in merchant promotion panel`);
+  }
+  assert.ok(adminJs.includes('campaignStatusLabel'), 'admin products should show campaign status');
+  assert.ok(adminJs.includes('campaignPaidOrderCount'), 'admin products should show paid campaign orders');
+  assert.ok(adminJs.includes('campaignAmountInCents'), 'admin products should show campaign revenue');
 });
 
 test('limited recharge promos run as an availability-controlled campaign', () => {
