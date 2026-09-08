@@ -9,7 +9,7 @@ const categories = [
 
 const categoryLabels = { E_BIKE_NEW:'电动车整车', DIGITAL:'数码配件', FOOD:'食品生鲜', SERVICE:'生活服务' };
 
-const emptyForm = { name: '', categoryIndex: 0, price: '', stock: '', description: '', imageUrl: '', active: true };
+const emptyForm = { name: '', categoryIndex: 0, price: '', stock: '', description: '', imageUrl: '', active: true, salePrice: '', saleStartDate: '', saleStartTime: '00:00', saleEndDate: '', saleEndTime: '23:59' };
 const stockMovementTypeLabels = {
   INITIAL: '初始化入库',
   ADJUST_IN: '补货入库',
@@ -63,6 +63,9 @@ Page({
           salesCount: Number(product.salesCount || 0),
           salesText: Number(product.salesCount || 0) > 0 ? `已售 ${Number(product.salesCount || 0)}` : '暂无销量',
           restockHint: product.restockHint || '',
+          priceText: (Number(product.effectivePriceInCents ?? product.priceInCents || 0) / 100).toFixed(2),
+          originalPriceText: product.promotion ? (Number(product.promotion.originalPriceInCents || 0) / 100).toFixed(2) : '',
+          promotionText: product.promotion ? product.promotion.statusText : '',
           sellableStock,
           reservedStock,
           stockText: sellableStock === 0 ? '已售罄' : sellableStock <= lowStockThreshold ? `可售仅剩 ${sellableStock}` : `可售 ${sellableStock}`,
@@ -208,6 +211,11 @@ Page({
         name: item.name,
         categoryIndex: Math.max(0, this.data.categories.findIndex((category) => category.value === item.category)),
         price: String(item.priceInCents / 100),
+        salePrice: item.salePriceInCents ? String(item.salePriceInCents / 100) : '',
+        saleStartDate: String(item.saleStartsAt || '').slice(0, 10),
+        saleStartTime: String(item.saleStartsAt || '').slice(11, 16) || '00:00',
+        saleEndDate: String(item.saleEndsAt || '').slice(0, 10),
+        saleEndTime: String(item.saleEndsAt || '').slice(11, 16) || '23:59',
         stock: String(item.stock),
         description: item.description,
         imageUrl: item.imageUrl || '',
@@ -219,7 +227,7 @@ Page({
     this.setData({ editId: '', form: emptyForm });
   },
   submit() {
-    const { name, categoryIndex, price, stock, description, imageUrl, active } = this.data.form;
+    const { name, categoryIndex, price, stock, description, imageUrl, active, salePrice, saleStartDate, saleStartTime, saleEndDate, saleEndTime } = this.data.form;
     const category = this.data.categories[categoryIndex];
     if (!name || !category || !price || stock === '') return wx.showToast({ title: '请完整填写商品信息', icon: 'none' });
     const payload = {
@@ -231,6 +239,12 @@ Page({
       stock: Number(stock),
       active
     };
+    if (salePrice) {
+      if (!saleStartDate || !saleEndDate) return wx.showToast({ title: '请选择特价起止日期', icon: 'none' });
+      payload.salePriceInCents = Math.round(Number(salePrice) * 100);
+      payload.saleStartsAt = new Date(`${saleStartDate}T${saleStartTime || '00:00'}:00`).toISOString();
+      payload.saleEndsAt = new Date(`${saleEndDate}T${saleEndTime || '23:59'}:00`).toISOString();
+    }
     const path = this.data.editId ? `/api/merchant/products/${this.data.editId}` : '/api/merchant/products';
     this.request(path, { method: 'POST', data: payload }).then(() => {
       wx.showToast({ title: this.data.editId ? '商品已保存' : '商品已上架' });

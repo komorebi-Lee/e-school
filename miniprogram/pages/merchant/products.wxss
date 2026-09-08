@@ -29,6 +29,9 @@
 .category-row .sales { color: #667289; font-weight: 700; }
 .risk-note { margin: 12rpx 0; padding: 12rpx 16rpx; background: #ffe9e6; color: #b42318; border-radius: 12rpx; font-size: 21rpx; line-height: 1.45; }
 .restock-note { margin: -4rpx 0 12rpx; padding: 12rpx 16rpx; background: #fff4d6; color: #8a4b00; border-radius: 12rpx; font-size: 21rpx; font-weight: 800; }
+.sale-note { margin: -2rpx 0 12rpx; padding: 10rpx 16rpx; background: #eaf0ff; color: #002fa7; border-radius: 12rpx; font-size: 21rpx; font-weight: 800; display: inline-block; }
+.price-line { display: flex; align-items: baseline; gap: 12rpx; }
+.price-line .original { color: #a2aabc; font-size: 21rpx; text-decoration: line-through; }
 .category { color: #002fa7; background: #eaf0ff; padding: 7rpx 13rpx; border-radius: 999rpx; font-weight: 700; }
 .stock { color: #157552; font-weight: 700; }
 .stock-low { color: #b42318; font-weight: 700; }

@@ -226,6 +226,18 @@ test('merchant products surface sales and restock guidance', () => {
   }
 });
 
+test('merchant products support self-service sale campaigns', () => {
+  const js = readMiniappFile(path.join('pages', 'merchant', 'products.js'));
+  const wxml = readMiniappFile(path.join('pages', 'merchant', 'products.wxml'));
+
+  assert.ok(js.includes('salePriceInCents'), 'merchant products should submit sale prices');
+  assert.ok(js.includes('saleStartsAt'), 'merchant products should submit sale start time');
+  assert.ok(js.includes('effectivePriceInCents'), 'merchant products should preserve server effective pricing');
+  for (const marker of ['item.priceText', 'item.originalPriceText', 'item.promotionText', 'form.salePrice']) {
+    assert.ok(wxml.includes(marker), `${marker} should be available in merchant sale UI`);
+  }
+});
+
 test('limited recharge promos run as an availability-controlled campaign', () => {
   const cardJs = readMiniappFile(path.join('pages', 'card', 'card.js'));
   const cardWxml = readMiniappFile(path.join('pages', 'card', 'card.wxml'));
