@@ -35,3 +35,12 @@
 .bottom { display: flex; justify-content: space-between; margin: 18rpx 0; }
 .actions { display: flex; justify-content: flex-end; gap: 14rpx; }
 .actions button { margin: 0; }
+.ledger-title { margin-top: 36rpx; }
+.ledger-filter { padding-bottom: 24rpx; }
+.movement { padding: 25rpx; margin-bottom: 18rpx; }
+.movement-main { display: flex; flex-direction: column; gap: 10rpx; }
+.movement-tone { margin-left: 14rpx; font-size: 21rpx; font-weight: 800; }
+.movement-tone.done { color: #157552; }
+.movement-tone.warn { color: #b42318; }
+.movement-tone.blue { color: #002fa7; }
+.movement-time { font-size: 21rpx; }

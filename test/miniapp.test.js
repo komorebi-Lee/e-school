@@ -201,3 +201,15 @@ test('orders page surfaces after-sale progress and merchant result', () => {
   assert.ok(wxml.includes('处理结果'), 'orders page should show the merchant resolution note');
   assert.ok(wxml.includes('item.afterSale.resolutionNote'), 'orders page should bind the merchant resolution note');
 });
+
+test('merchant products expose an inventory movement ledger', () => {
+  const js = readMiniappFile(path.join('pages', 'merchant', 'products.js'));
+  const wxml = readMiniappFile(path.join('pages', 'merchant', 'products.wxml'));
+
+  assert.ok(js.includes('/api/merchant/stock-movements'), 'merchant products should load the stock movement API');
+  assert.ok(js.includes('decorateStockMovements'), 'merchant products should decorate stock movement records');
+  assert.ok(js.includes('setStockMovementFilter'), 'merchant products should filter stock movements');
+  for (const marker of ['库存流水', 'stockMovementFilter', 'bindtap="setStockMovementFilter"', 'item.stockText']) {
+    assert.ok(wxml.includes(marker), `${marker} should be available in merchant products UI`);
+  }
+});

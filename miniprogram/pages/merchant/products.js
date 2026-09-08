@@ -10,6 +10,26 @@ const categories = [
 const categoryLabels = { E_BIKE_NEW:'电动车整车', DIGITAL:'数码配件', FOOD:'食品生鲜', SERVICE:'生活服务' };
 
 const emptyForm = { name: '', categoryIndex: 0, price: '', stock: '', description: '', imageUrl: '', active: true };
+const stockMovementTypeLabels = {
+  INITIAL: '初始化入库',
+  ADJUST_IN: '补货入库',
+  ADJUST_OUT: '库存调整',
+  RESERVE: '下单预占',
+  RELEASE: '取消释放',
+  CONSUME: '支付扣减',
+  RESTORE: '售后回补'
+};
+const stockMovementTones = {
+  INITIAL: 'blue', ADJUST_IN: 'done', ADJUST_OUT: 'warn',
+  RESERVE: 'blue', RELEASE: 'warn', CONSUME: 'blue', RESTORE: 'done'
+};
+const stockMovementFilters = [
+  { key: 'ALL', label: '全部' },
+  { key: 'STOCK_IN', label: '入库' },
+  { key: 'STOCK_OUT', label: '调整' },
+  { key: 'ORDER', label: '订单' },
+  { key: 'RESTORE', label: '售后' }
+];
 
 Page({
   data: {
@@ -19,7 +39,8 @@ Page({
       { key:'LOW', label:'低库存' },
       { key:'OFF', label:'已下架' }
     ],
-    form: emptyForm, editId: '', loading: true
+    form: emptyForm, editId: '', loading: true,
+    stockMovements: [], stockMovementFilters, stockMovementFilter: 'ALL'
   },
   onShow() {
     this.load();
@@ -55,10 +76,47 @@ Page({
         lowStockThreshold: Number(data.lowStockThreshold ?? 10),
         loading: false
       });
+      return this.loadStockMovements();
     }).catch(() => {
       this.setData({ loading: false });
       wx.showToast({ title: '请重新进入商家工作台', icon: 'none' });
     });
+  },
+  loadStockMovements() {
+    const movementType = this.data.stockMovementFilter;
+    return this.request('/api/merchant/stock-movements?limit=50')
+      .then(({ data }) => {
+        this.setData({ stockMovements: this.decorateStockMovements(data || []) });
+        return data;
+      })
+      .catch(() => this.setData({ stockMovements: [] }));
+  },
+  setStockMovementFilter(event) {
+    const filter = event.currentTarget.dataset.key || 'ALL';
+    if (filter === this.data.stockMovementFilter) return;
+    this.setData({ stockMovementFilter: filter });
+    this.loadStockMovements();
+  },
+  decorateStockMovements(items) {
+    const group = this.data.stockMovementFilter;
+    const merchantName = this.data.merchant?.name || '商家';
+    return (items || [])
+      .filter((item) => {
+        if (group === 'STOCK_IN') return ['INITIAL', 'ADJUST_IN'].includes(item.movementType);
+        if (group === 'STOCK_OUT') return item.movementType === 'ADJUST_OUT';
+        if (group === 'ORDER') return ['RESERVE', 'RELEASE', 'CONSUME'].includes(item.movementType);
+        if (group === 'RESTORE') return item.movementType === 'RESTORE';
+        return true;
+      })
+      .map((item) => ({
+        ...item,
+        typeLabel: stockMovementTypeLabels[item.movementType] || item.movementType,
+        typeTone: stockMovementTones[item.movementType] || 'blue',
+        stockText: `${Number(item.stockBefore || 0)} → ${Number(item.stockAfter || 0)}`,
+        reservedText: `${Number(item.reservedBefore || 0)} → ${Number(item.reservedAfter || 0)}`,
+        operatorText: item.operator === 'ORDER_FLOW' ? '订单流程' : item.operator === 'ADMIN' ? '平台' : merchantName,
+        timeText: String(item.createdAt || '').slice(5, 16).replace('T', ' ')
+      }));
   },
   setSearch(event) {
     const query = event.detail.value.trim();

@@ -36,6 +36,23 @@
     </view>
   </view>
   <view class="section-title">商品列表</view>
+  <view class="section-title ledger-title">库存流水</view>
+  <view class="operations card ledger-filter">
+    <view class="filter-row">
+      <view wx:for="{{stockMovementFilters}}" wx:key="key" class="filter-tab {{stockMovementFilter === item.key ? 'active' : ''}}" data-key="{{item.key}}" bindtap="setStockMovementFilter">{{item.label}}</view>
+    </view>
+  </view>
+  <view wx:if="{{!stockMovements.length}}" class="empty card"><view class="muted">暂无库存流水</view></view>
+  <block wx:else>
+    <view class="movement card" wx:for="{{stockMovements}}" wx:key="id">
+      <view class="movement-main">
+        <view class="strong">{{item.productName}}<text class="movement-tone {{item.typeTone}}">{{item.typeLabel}}</text></view>
+        <view class="muted">数量 {{item.quantity}} · 可售库存 {{item.stockText}} · 待支付占用 {{item.reservedText}}</view>
+        <view class="muted" wx:if="{{item.referenceNo}}">关联单号 {{item.referenceNo}}</view>
+        <view class="muted movement-time">{{item.operatorText}} · {{item.timeText}}</view>
+      </view>
+    </view>
+  </block>
   <view wx:if="{{loading}}" class="empty card"><view class="muted">正在加载…</view></view>
   <view wx:elif="{{!filtered.length}}" class="empty card"><view class="muted">没有匹配商品</view></view>
   <block wx:else>
