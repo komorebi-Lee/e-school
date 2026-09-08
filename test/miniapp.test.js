@@ -480,6 +480,7 @@ test('user notices and service linkage land on focused records', () => {
   assert.ok(orderJs.includes('focusId:plate.id'), 'plate linkage should preserve the target record');
   assert.ok(orderJs.includes('this.focusId=focusId'), 'linkage actions should highlight the focused record');
   assert.ok(orderWxml.includes('data-focus-id="{{item.focusId}}"'), 'linkage cards should carry the focus id');
+  assert.ok(orderJs.includes('timeline:(item.collaboration?.handoffs || [])'), 'order timeline should surface service collaboration updates');
 });
 
 test('appointment form keeps the originating service record', () => {
