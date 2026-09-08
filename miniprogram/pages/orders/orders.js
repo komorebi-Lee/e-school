@@ -300,9 +300,10 @@ Page({
     const phonePlans=records.filter(item=>item.type==='PHONE_PLAN');
     const broadband=records.find(item=>item.type==='BROADBAND');
     if(phonePlans.some(item=>item.status==='ACTIVATED')&&!broadband) links.push({icon:'网',title:'双人宽带资格待申请',copy:'已激活电话卡后，可提交两人宽带核验。',view:'card'});
-    if(records.some(item=>item.type==='RECHARGE'&&item.status==='CREDITED')&&phonePlans.some(item=>item.status==='PENDING_REALNAME')) links.push({icon:'卡',title:'话费已到账，可推进激活',copy:'客服确认后，把关联电话卡改为已激活。',view:'orders',filter:'RECHARGE'});
+    const creditedRecharge=records.find(item=>item.type==='RECHARGE'&&item.status==='CREDITED');
+    if(creditedRecharge&&phonePlans.some(item=>item.status==='PENDING_REALNAME')) links.push({icon:'卡',title:'话费已到账，可推进激活',copy:'客服确认后，把关联电话卡改为已激活。',view:'orders',filter:'RECHARGE',focusId:creditedRecharge.id});
     const plate=records.find(item=>item.type==='PLATE'&&item.status==='MATERIAL_PENDING');
-    if(plate) links.push({icon:'牌',title:'校园牌照待补材料',copy:'平台购车订单已自动关联免费上牌服务。',view:'orders',filter:'PLATE'});
+    if(plate) links.push({icon:'牌',title:'校园牌照待补材料',copy:'平台购车订单已自动关联免费上牌服务。',view:'orders',filter:'PLATE',focusId:plate.id});
     return links.slice(0,2);
   },
   setFilter(e){
@@ -329,8 +330,14 @@ Page({
   goLinkage(e){
     const view=e.currentTarget.dataset.view;
     const filter=e.currentTarget.dataset.filter;
+    const focusId=e.currentTarget.dataset.focusId;
     if(view==='card')return wx.navigateTo({url:'/pages/card/card'});
-    if(filter){this.setData({active:filter,filtered:this.filterRecords(this.data.records,filter)});return}
+    if(filter){
+      this.focusId=focusId;
+      this.setData({active:filter,filtered:this.filterRecords(this.data.records,filter),focusId});
+      wx.nextTick(()=>this.focusLoadedRecord(this.data.records));
+      return;
+    }
   },
   editOrder(e){wx.navigateTo({url:`/pages/edit-order/edit-order?id=${e.currentTarget.dataset.id}`})},
   afterSales(e){wx.navigateTo({url:`/pages/aftersales/aftersales?id=${e.currentTarget.dataset.id}`})},

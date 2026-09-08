@@ -64,7 +64,7 @@ Page({
         ...item,
         timeText: String(item.createdAt || "").slice(5, 16).replace("T", " "),
         unread: !item.read,
-        link: item.metadata && item.metadata.productId ? `/pages/detail/detail?id=${encodeURIComponent(item.metadata.productId)}` : ""
+        link: item.link || ""
       }));
       this.setData({ notifications: items, unreadNotificationCount: (data || []).filter((item) => !item.read).length });
     }).catch(() => this.setData({ notifications: [], unreadNotificationCount: 0 }));

@@ -469,6 +469,19 @@ test('subscribe messages and user orders deep-link to focused records', () => {
   assert.ok(orderCss.includes('.focus-item'), 'focused order should have visible styling');
 });
 
+test('user notices and service linkage land on focused records', () => {
+  const profileJs = readMiniappFile(path.join('pages', 'profile', 'profile.js'));
+  const orderJs = readMiniappFile(path.join('pages', 'orders', 'orders.js'));
+  const orderWxml = readMiniappFile(path.join('pages', 'orders', 'orders.wxml'));
+
+  assert.ok(profileJs.includes('link: item.link'), 'profile notices should use server business links');
+  assert.ok(!profileJs.includes('metadata.productId ? `/pages/detail/detail'), 'profile notices should not hand-roll partial links');
+  assert.ok(orderJs.includes('focusId:creditedRecharge.id'), 'recharge linkage should preserve the target record');
+  assert.ok(orderJs.includes('focusId:plate.id'), 'plate linkage should preserve the target record');
+  assert.ok(orderJs.includes('this.focusId=focusId'), 'linkage actions should highlight the focused record');
+  assert.ok(orderWxml.includes('data-focus-id="{{item.focusId}}"'), 'linkage cards should carry the focus id');
+});
+
 test('product detail surfaces merchant rectification status prominently', () => {
   const js = readMiniappFile(path.join('pages', 'detail', 'detail.js'));
   const wxml = readMiniappFile(path.join('pages', 'detail', 'detail.wxml'));
