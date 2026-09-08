@@ -60,6 +60,9 @@ Page({
         return {
           ...product,
           categoryLabel: categoryLabels[product.category] || product.category,
+          salesCount: Number(product.salesCount || 0),
+          salesText: Number(product.salesCount || 0) > 0 ? `已售 ${Number(product.salesCount || 0)}` : '暂无销量',
+          restockHint: product.restockHint || '',
           sellableStock,
           reservedStock,
           stockText: sellableStock === 0 ? '已售罄' : sellableStock <= lowStockThreshold ? `可售仅剩 ${sellableStock}` : `可售 ${sellableStock}`,

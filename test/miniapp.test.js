@@ -213,3 +213,15 @@ test('merchant products expose an inventory movement ledger', () => {
     assert.ok(wxml.includes(marker), `${marker} should be available in merchant products UI`);
   }
 });
+
+test('merchant products surface sales and restock guidance', () => {
+  const js = readMiniappFile(path.join('pages', 'merchant', 'products.js'));
+  const wxml = readMiniappFile(path.join('pages', 'merchant', 'products.wxml'));
+
+  assert.ok(js.includes('salesCount'), 'merchant products should preserve product sales counts');
+  assert.ok(js.includes('salesText'), 'merchant products should format sales guidance');
+  assert.ok(js.includes('restockHint'), 'merchant products should preserve restock hints');
+  for (const marker of ['item.salesText', 'item.restockHint']) {
+    assert.ok(wxml.includes(marker), `${marker} should be available in merchant products UI`);
+  }
+});
