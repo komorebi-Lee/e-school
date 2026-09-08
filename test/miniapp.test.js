@@ -225,3 +225,22 @@ test('merchant products surface sales and restock guidance', () => {
     assert.ok(wxml.includes(marker), `${marker} should be available in merchant products UI`);
   }
 });
+
+test('limited recharge promos run as an availability-controlled campaign', () => {
+  const cardJs = readMiniappFile(path.join('pages', 'card', 'card.js'));
+  const cardWxml = readMiniappFile(path.join('pages', 'card', 'card.wxml'));
+  const adminJs = fs.readFileSync(path.join(__dirname, '..', 'server', 'public', 'admin.js'), 'utf8');
+  const adminHtml = fs.readFileSync(path.join(__dirname, '..', 'server', 'public', 'admin.html'), 'utf8');
+
+  assert.ok(cardJs.includes('promoStatus'), 'card page should preserve campaign status from the server');
+  assert.ok(cardJs.includes('isBuyable'), 'card page should prevent unavailable promo submission');
+  for (const marker of ['item.statusLabel', 'item.availabilityText', 'item.isBuyable']) {
+    assert.ok(cardWxml.includes(marker), `${marker} should be shown in the recharge campaign UI`);
+  }
+
+  assert.ok(adminJs.includes('p.linkedOrderCount'), 'admin promos should show campaign order metrics');
+  assert.ok(adminJs.includes('startsAt'), 'admin promo save should send campaign start time');
+  assert.ok(adminJs.includes('endsAt'), 'admin promo save should send campaign end time');
+  assert.ok(adminHtml.includes('promoStartsAt'), 'admin promo form should configure start time');
+  assert.ok(adminHtml.includes('promoEndsAt'), 'admin promo form should configure end time');
+});

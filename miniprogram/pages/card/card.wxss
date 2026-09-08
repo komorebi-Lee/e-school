@@ -9,5 +9,7 @@
 .recharge-note { margin: 16rpx 4rpx 0; font-size: 21rpx; line-height: 1.55; }
 .recharge-card { border: 3rpx solid transparent; }
 .recharge-card.selected { border-color: #002fa7; background: #f7f9ff; }
+.recharge-card.disabled { opacity: .62; background: #f3f4f6; }
+.recharge-card.disabled .recharge-state { color: #667289; }
 .recharge-value { margin-bottom: 12rpx; }
 .recharge-state { color: #002fa7; font-size: 20rpx; font-weight: 800; }

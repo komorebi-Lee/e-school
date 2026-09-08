@@ -2,7 +2,7 @@ const { loadBusinessConfig } = require('../../services/business');
 const { payPaymentOrder } = require('../../services/payment');
 
 Page({
-    data:{plans:[],rechargePromos:[],selectedPlan:0,selectedPromo:null,activeSection:0,profileName:'',profilePhone:'',companionPhone:'',submitting:false,phoneCardActivationHours:24},
+    data:{plans:[],rechargePromos:[],selectedPlan:0,selectedPromo:null,promoIsBuyable:true,activeSection:0,profileName:'',profilePhone:'',companionPhone:'',submitting:false,phoneCardActivationHours:24},
   onLoad(){
     const profile=wx.getStorageSync('shishanUserProfile')||{};
     this.setData({profileName:profile.name||'',profilePhone:profile.phone||'',companionPhone:profile.companionPhone||''});
@@ -23,14 +23,31 @@ Page({
       if(plans.length)this.setData({plans,selectedPlan:0});
     }).catch(()=>{});
     request('/api/recharge-promos').then(({data})=>{
-      const rechargePromos=(data||[]).map(item=>({id:item.id,pay:item.pay,receive:item.receive,badge:item.badge||'限时优惠'}));
-      if(rechargePromos.length)this.setData({rechargePromos});
+      const rechargePromos=(data||[]).map(item=>{
+        const isBuyable=item.isBuyable !== false;
+        const statusLabel=item.statusLabel || (isBuyable ? '进行中' : '不可下单');
+        return {
+          id:item.id,
+          pay:item.pay,
+          receive:item.receive,
+          badge:item.badge||'限时优惠',
+          status:item.promoStatus || item.status || 'ACTIVE',
+          statusLabel,
+          isBuyable,
+          availabilityText:isBuyable ? '开放下单' : '当前不可下单'
+        };
+      });
+      const selectedPromo=this.data.selectedPromo;
+      const promoIsBuyable=selectedPromo===null || rechargePromos[selectedPromo]?.isBuyable !== false;
+      if(rechargePromos.length)this.setData({rechargePromos,promoIsBuyable});
     }).catch(()=>{});
   },
   choosePlan(e){this.setData({selectedPlan:Number(e.currentTarget.dataset.index)})},
   choosePromo(e){
     const index=Number(e.currentTarget.dataset.index);
-    this.setData({selectedPromo:this.data.selectedPromo===index?null:index});
+    const selectedPromo=this.data.selectedPromo===index?null:index;
+    const promoIsBuyable=selectedPromo===null || this.data.rechargePromos[selectedPromo]?.isBuyable !== false;
+    this.setData({selectedPromo,promoIsBuyable});
   },
   onReady(){this.measureSections()},
   measureSections(){const query=wx.createSelectorQuery();query.selectAll('.business-section').boundingClientRect();query.selectViewport().scrollOffset();query.exec(res=>{const scrollTop=(res[1]&&res[1].scrollTop)||0;this.sectionTops=(res[0]||[]).map(item=>item.top+scrollTop)})},
@@ -47,6 +64,7 @@ Page({
     if(!this.profileValid())return wx.showModal({title:'补充办理信息',content:'请先填写办理人姓名和手机号',showCancel:false});
     if(this.data.submitting)return;
     const promo=this.data.selectedPromo===null?null:this.data.rechargePromos[this.data.selectedPromo];
+    if(promo && promo.isBuyable === false) return wx.showToast({title:promo.availabilityText || '当前不可下单',icon:'none'});
     const saved=this.currentProfile();
     this.setData({submitting:true});
     request('/api/phone-card-orders',{method:'POST',header:{'Idempotency-Key':'tel-'+Date.now()+'-'+Math.random().toString(36).slice(2,8)},data:{customerName:saved.name,phone:saved.phone,productId:p.id}})
