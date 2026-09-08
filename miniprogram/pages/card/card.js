@@ -15,7 +15,9 @@ Page({
       const plans=(data||[]).filter(item=>item.active!==false).map(item=>({
         id:item.id,
         name:item.name,
-        monthlyFee:Math.round((item.priceInCents||0)/100),
+        monthlyFee:Math.round((item.effectivePriceInCents ?? (item.priceInCents||0))/100),
+        originalFee:Math.round((item.promotion?.originalPriceInCents||0)/100),
+        promoText:item.promotion?.statusText||'',
         data:item.description||'套餐详情以运营商确认为准',
         voice:item.voice||'通话资费见套餐说明',
         badge:item.stock>0?'可办理':'已售罄'

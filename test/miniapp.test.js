@@ -354,6 +354,9 @@ test('limited recharge promos run as an availability-controlled campaign', () =>
 
   assert.ok(cardJs.includes('promoStatus'), 'card page should preserve campaign status from the server');
   assert.ok(cardJs.includes('isBuyable'), 'card page should prevent unavailable promo submission');
+  assert.ok(cardJs.includes('effectivePriceInCents'), 'card page should use server phone-plan pricing');
+  assert.ok(cardWxml.includes('plan-original'), 'card page should show crossed-out phone-plan prices');
+  assert.ok(cardWxml.includes('plan-promo'), 'card page should surface phone-plan promotions');
   for (const marker of ['item.statusLabel', 'item.availabilityText', 'item.isBuyable']) {
     assert.ok(cardWxml.includes(marker), `${marker} should be shown in the recharge campaign UI`);
   }

@@ -33,8 +33,9 @@
       bindtap="choosePlan"
       ><view class="plan-top"
         ><view><view class="plan-name">{{item.name}}</view><view class="plan-badge">{{item.badge}}</view></view
-        ><view><text class="plan-price">¥{{item.monthlyFee}}</text><text class="muted">/月</text></view></view
-      ><view class="plan-benefits"><text>{{item.data}}</text><text>{{item.voice}}</text></view></view
+        ><view class="plan-price-group"><text wx:if="{{item.originalFee}}" class="plan-original">¥{{item.originalFee}}</text><text class="plan-price">¥{{item.monthlyFee}}</text><text class="muted">/月</text></view></view
+      ><view class="plan-benefits"><text>{{item.data}}</text><text>{{item.voice}}</text></view
+      ><view wx:if="{{item.promoText}}" class="plan-promo">{{item.promoText}}</view></view
     ></view
   ><view id="rechargeSection" class="section-title promo-heading business-section"
     ><text>2 · 加限时话费福利</text><text class="limited">可选</text></view
