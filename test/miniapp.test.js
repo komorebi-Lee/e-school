@@ -419,8 +419,10 @@ test('merchant workspace visualizes service score trend', () => {
 
   assert.ok(js.includes('decorateScoreTrend'), 'merchant page should decorate score trend');
   assert.ok(js.includes('scoreTrend: decorateScoreTrend(data.scoreTrend)'), 'overview should map server trend');
+  assert.ok(js.includes('整改后'), 'trend decoration should state the score gain after rectification');
   assert.ok(wxml.includes('14 天服务分趋势'), 'workspace should show the trend title');
   assert.ok(wxml.includes('trend-chart'), 'workspace should render trend bars');
+  assert.ok(wxml.includes('trend-effect'), 'workspace should connect the trend with rectification outcome');
   assert.ok(wxss.includes('.trend-chart'), 'trend bars should have visible styling');
 });
 

@@ -181,11 +181,21 @@ function decorateScoreTrend(trend) {
     label: String(item.date || '').slice(5)
   }));
   const change = Number(trend?.change || 0);
+  const effect = trend?.effect;
   return {
     points: decorated,
     change,
     changeText: `较 14 天前 ${change > 0 ? '+' : ''}${change} 分`,
-    changeTone: change > 0 ? 'done' : change < 0 ? 'warn' : 'muted'
+    changeTone: change > 0 ? 'done' : change < 0 ? 'warn' : 'muted',
+    effect: effect ? {
+      gain: Number(effect.gain || 0),
+      effectText: [
+        effect.caseNo,
+        effect.approvedDate,
+        `${effect.scoreBefore} 分 → ${effect.scoreAfter} 分`,
+        `整改后${Number(effect.gain || 0) >= 0 ? '+' : ''}${Number(effect.gain || 0)} 分`
+      ].filter(Boolean).join(' · ')
+    } : null
   };
 }
 

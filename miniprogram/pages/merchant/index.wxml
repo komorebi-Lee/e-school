@@ -79,6 +79,10 @@
           <text>{{scoreTrend.points[0].label}}</text>
           <text>{{scoreTrend.points[scoreTrend.points.length - 1].label}}</text>
         </view>
+        <view class="trend-effect" wx:if="{{scoreTrend.effect}}">
+          <view class="trend-effect-label">整改效果</view>
+          <view class="muted">{{scoreTrend.effect.effectText}}</view>
+        </view>
       </view>
       <view class="muted score-note">{{serviceScore.consequenceText}}</view>
       <view class="muted score-note" wx:if="{{serviceScore.complianceText}}">{{serviceScore.complianceText}}</view>

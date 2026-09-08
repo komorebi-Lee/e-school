@@ -69,6 +69,9 @@
 .trend-bar.tone-warn { background: #c0392b; }
 .trend-tip { position: absolute; top: -34rpx; left: 50%; transform: translateX(-50%); font-size: 18rpx; color: #4a5568; font-weight: 750; white-space: nowrap; }
 .trend-scale { display: flex; justify-content: space-between; margin-top: 10rpx; font-size: 19rpx; color: #718096; }
+.trend-effect { margin-top: 14rpx; padding-top: 12rpx; border-top: 1rpx solid #e3e9f5; }
+.trend-effect-label { font-size: 22rpx; font-weight: 750; color: #33435f; }
+.trend-effect .muted { margin-top: 6rpx; font-size: 21rpx; line-height: 1.45; }
 .score-detail { font-size: 20rpx; margin-top: 6rpx; line-height: 1.45; }
 .score-note { font-size: 20rpx; margin-top: 12rpx; line-height: 1.5; }
 .score-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14rpx; margin-top: 24rpx; }
