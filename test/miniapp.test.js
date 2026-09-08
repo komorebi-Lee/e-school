@@ -513,6 +513,16 @@ test('admin lead follow-ups keep accountable operators', () => {
   assert.ok(admin.includes("esc(lead.assignee || '待认领')"), 'lead drawer should show the accountable owner');
 });
 
+test('overdue leads keep owner accountability', () => {
+  const app = readServerFile(path.join('src', 'app.js'));
+  const admin = readServerFile(path.join('public', 'admin.js'));
+
+  assert.ok(app.includes('ownerId: record.assigneeId ||'), 'lead patrol targets should carry the assigned operator');
+  assert.ok(app.includes("addNotification(data, owner.id, 'SLA'"), 'assigned operators should receive SLA notices');
+  assert.ok(app.includes('item.acknowledgedBy = actor.displayName'), 'SLA acknowledgements should record the operator');
+  assert.ok(admin.includes('alert.ownerName || alert.acknowledgedBy'), 'patrol rows should expose the accountable owner');
+});
+
 test('product detail surfaces merchant rectification status prominently', () => {
   const js = readMiniappFile(path.join('pages', 'detail', 'detail.js'));
   const wxml = readMiniappFile(path.join('pages', 'detail', 'detail.wxml'));
