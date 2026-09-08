@@ -41,6 +41,7 @@
 .storefront { margin-top: 14rpx; padding: 24rpx; }
 .storefront-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18rpx; }
 .storefront-name { font-size: 27rpx; font-weight: 900; color: #17233d; }
+.store-entry { margin-left: 12rpx; padding: 4rpx 14rpx; border-radius: 999rpx; background: #002fa7; color: #fff; font-size: 19rpx; font-weight: 800; }
 .storefront-score { text-align: right; }
 .storefront-score-value { color: #002fa7; font-size: 30rpx; font-weight: 900; line-height: 1.1; }
 .storefront-score.good .storefront-score-value { color: #1f8f4e; }

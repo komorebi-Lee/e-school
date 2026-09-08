@@ -19,6 +19,7 @@
     "pages/merchant/reviews",
     "pages/agreement/agreement",
     "pages/recharge/detail"
+    ,"pages/store/store"
   ],
   "requiredPrivateInfos": [
     "getLocation"

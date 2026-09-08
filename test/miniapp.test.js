@@ -71,6 +71,18 @@ test('sold-out products can register restock alerts', () => {
   assert.ok(markup.includes('restockSubscribed'), 'detail should show the restock alert state');
 });
 
+test('merchant storefront is reachable from product detail', () => {
+  const appConfig = JSON.parse(readMiniappFile('app.json'));
+  assert.ok(appConfig.pages.includes('pages/store/store'), 'merchant storefront should be a registered page');
+
+  const source = readMiniappFile(path.join('pages', 'store', 'store.js'));
+  assert.ok(source.includes('/storefront'), 'storefront should load the merchant storefront API');
+  assert.ok(source.includes('goProduct'), 'storefront should link to product detail');
+
+  const markup = readMiniappFile(path.join('pages', 'detail', 'detail.wxml'));
+  assert.ok(markup.includes('goStore'), 'product detail should provide a storefront entry');
+});
+
 test('miniapp uses a shared payment action for mock and wechat jsapi payments', () => {
   const paymentService = readMiniappFile(path.join('services', 'payment.js'));
   assert.ok(paymentService.includes('wx.requestPayment'));

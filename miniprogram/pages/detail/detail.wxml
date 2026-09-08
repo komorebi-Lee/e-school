@@ -4,9 +4,9 @@
   <block wx:else>
   <view class="visual" style="background: {{scooter.color}}"><view class="pill badge">{{scooter.badge}}</view><image wx:if="{{scooter.imageUrl}}" class="product-image" src="{{scooter.imageUrl}}" mode="aspectFit" /><text wx:else>{{scooter.icon}}</text></view>
   <view class="main card"><view class="name">{{scooter.name}}</view><view class="muted">{{scooter.subtitle}}</view><view class="price-line"><text class="price">¥{{scooter.promotionPrice || scooter.price}}</text><text wx:if="{{scooter.originalPrice}}" class="original">¥{{scooter.originalPrice}}</text><text wx:if="{{scooter.promotionStatusText}}" class="promo">{{scooter.promotionStatusText}}</text></view><view class="seller-line"><text class="seller">{{scooter.merchantName}}</text><text class="muted">{{scooter.stockText}}</text></view><view class="muted small" wx:if="{{scooter.stockHint}}">{{scooter.stockHint}}</view></view>
-  <view class="storefront card" wx:if="{{scooter.storeProfile}}">
+  <view class="storefront card" wx:if="{{scooter.storeProfile}}" bindtap="goStore">
     <view class="storefront-head">
-      <view class="storefront-name">{{scooter.storeProfile.name}}</view>
+      <view class="storefront-name">{{scooter.storeProfile.name}}<text class="store-entry">进店</text></view>
       <view class="storefront-score {{scooter.storeProfile.scoreToneClass}}">
         <view class="storefront-score-value">{{scooter.storeProfile.scoreText}}</view>
         <view class="muted small">{{scooter.storeProfile.scoreLabel}}</view>

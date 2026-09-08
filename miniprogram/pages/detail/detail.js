@@ -181,5 +181,10 @@ Page({
     const id = e.currentTarget.dataset.id;
     if (!id) return;
     wx.redirectTo({ url: `/pages/detail/detail?id=${encodeURIComponent(id)}` });
+  },
+  goStore() {
+    const merchantId = this.data.scooter?.storeProfile?.merchantId;
+    if (!merchantId) return wx.showToast({ title: '该商品暂无店铺主页', icon: 'none' });
+    wx.navigateTo({ url: `/pages/store/store?id=${encodeURIComponent(merchantId)}` });
   }
 });

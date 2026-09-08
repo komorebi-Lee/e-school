@@ -1,0 +1,47 @@
+<view class="page store-page">
+  <view wx:if="{{loading}}" class="empty card"><view class="muted">正在加载店铺信息</view></view>
+  <view wx:elif="{{!store}}" class="empty card"><view class="muted">店铺不存在或未通过平台核准</view></view>
+  <block wx:else>
+    <view class="storefront card">
+      <view class="storefront-head">
+        <view class="storefront-brand">{{store.name}}</view>
+        <view class="storefront-score {{store.scoreToneClass}}">
+          <text class="score-value">{{store.scoreText}}</text>
+          <text class="muted small">{{store.gradeText}}</text>
+        </view>
+      </view>
+      <view class="muted storefront-desc">{{store.description}}</view>
+      <view class="store-chips">
+        <view class="chip">{{store.serviceArea}}</view>
+        <view class="chip">{{store.responseText}}</view>
+        <view class="chip">{{store.scoreNote}}</view>
+      </view>
+      <view class="store-stats">{{store.statsText}}</view>
+    </view>
+
+    <view class="section-title">在售商品</view>
+    <view class="products">
+      <view class="product card" wx:for="{{products}}" wx:key="id" data-id="{{item.id}}" bindtap="goProduct">
+        <view class="visual" style="background: {{item.color}}">
+          <image wx:if="{{item.imageUrl}}" src="{{item.imageUrl}}" mode="aspectFill" />
+          <text wx:else>{{item.icon}}</text>
+        </view>
+        <view class="product-info">
+          <view class="product-name">{{item.name}}</view>
+          <view class="muted product-desc">{{item.description}}</view>
+          <view class="product-meta">
+            <text>{{item.stockText}}</text>
+            <text>{{item.salesText}}</text>
+            <text>{{item.ratingText}}</text>
+          </view>
+          <view class="price-line">
+            <text class="price">¥{{item.price}}</text>
+            <text wx:if="{{item.originalPrice}}" class="original">¥{{item.originalPrice}}</text>
+            <text wx:if="{{item.promoText}}" class="promo">{{item.promoText}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+    <view wx:if="{{!products.length}}" class="empty card"><view class="muted">这家店暂无在售商品</view></view>
+  </block>
+</view>
