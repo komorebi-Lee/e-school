@@ -4,6 +4,7 @@ const path = require('node:path');
 const test = require('node:test');
 
 const miniappDirectory = path.join(__dirname, '..', 'miniprogram');
+const serverDirectory = path.join(__dirname, '..', 'server');
 
 function readMiniappFile(relativePath) {
   return fs.readFileSync(path.join(miniappDirectory, relativePath), 'utf8');
@@ -13,6 +14,10 @@ function listMiniappFiles() {
   return fs.readdirSync(miniappDirectory, { recursive: true })
     .filter((item) => String(item).endsWith('.js'))
     .map((item) => path.join(miniappDirectory, String(item)));
+}
+
+function readServerFile(relativePath) {
+  return fs.readFileSync(path.join(serverDirectory, relativePath), 'utf8');
 }
 
 test('miniapp JavaScript parses without syntax errors', () => {
@@ -496,6 +501,16 @@ test('appointment form keeps the originating service record', () => {
   assert.ok(ordersJs.includes('sourceId=${encodeURIComponent(consult.id)}'), 'order fallbacks should carry the record id');
   assert.ok(rechargeJs.includes("sourceType=${encodeURIComponent('RECHARGE')}"), 'recharge consults should carry source type');
   assert.ok(rechargeJs.includes('sourceId=${encodeURIComponent(orderId)}'), 'recharge consults should carry the order id');
+});
+
+test('admin lead follow-ups keep accountable operators', () => {
+  const app = readServerFile(path.join('src', 'app.js'));
+  const admin = readServerFile(path.join('public', 'admin.js'));
+
+  assert.ok(app.includes("const actor = requireAdmin(request, 'ORDER_MANAGE')"), 'lead follow-ups should require an admin session');
+  assert.ok(app.includes('if (!item.assignee) item.assignee = operator'), 'first follow-up should claim the lead');
+  assert.ok(admin.includes("esc(x.assignee || '待认领')"), 'lead table should show the accountable owner');
+  assert.ok(admin.includes("esc(lead.assignee || '待认领')"), 'lead drawer should show the accountable owner');
 });
 
 test('product detail surfaces merchant rectification status prominently', () => {
