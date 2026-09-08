@@ -116,6 +116,22 @@ function decorateSlaAlert(item) {
   };
 }
 
+// 整改工单有自己的复核时限，直接把剩余时间写在卡片上，商家不用自己换算。
+function rectifyCountdown(dueAt, status) {
+  if (!['SUBMITTED', 'REVIEWING'].includes(status) || !dueAt) return null;
+  const dueMs = new Date(dueAt).getTime();
+  if (!Number.isFinite(dueMs)) return null;
+  const diffMinutes = Math.round((dueMs - Date.now()) / 60000);
+  if (diffMinutes <= 0) {
+    const overdue = Math.abs(diffMinutes);
+    return { text: overdue >= 60 ? `已超时 ${Math.floor(overdue / 60)} 小时` : `已超时 ${overdue} 分钟`, tone: 'warn' };
+  }
+  return {
+    text: diffMinutes >= 60 ? `剩余 ${Math.floor(diffMinutes / 60)} 小时` : `剩余 ${diffMinutes} 分钟`,
+    tone: diffMinutes <= 60 ? 'warn' : 'blue'
+  };
+}
+
 // 服务分要让商家看懂三件事：现在多少分、平台对我做了什么、哪一项拖了后腿。
 const scoreStageTone = { NORMAL: 'done', LIMITED: 'todo', RESTRICTED: 'warn' };
 const scoreStageConsequences = {
@@ -227,27 +243,37 @@ Page({
           timeText: String(item.updatedAt || item.createdAt).slice(5, 16).replace('T', ' '),
           reviewText: item.reviewNote || (item.status === 'PENDING_REVIEW' ? '平台核对通过后自动更新店铺资质' : '')
         })),
-        scoreCases: (data.scoreCases || []).slice(0, 5).map((item) => ({
-          ...item,
-          statusLabel: scoreCaseStatusLabels[item.status] || item.status,
-          statusTone: scoreCaseStatusTones[item.status] || 'todo',
-          timeText: String(item.updatedAt || item.createdAt).slice(5, 16).replace('T', ' '),
-          resultText: item.type === 'APPEAL' && item.appliedAdjustment ? `核定补分 +${item.appliedAdjustment}` : ''
-        })),
+        scoreCases: (data.scoreCases || []).slice(0, 5).map((item) => {
+          const countdown = rectifyCountdown(item.dueAt, item.status);
+          return {
+            ...item,
+            statusLabel: scoreCaseStatusLabels[item.status] || item.status,
+            statusTone: scoreCaseStatusTones[item.status] || 'todo',
+            timeText: String(item.updatedAt || item.createdAt).slice(5, 16).replace('T', ' '),
+            resultText: item.type === 'APPEAL' && item.appliedAdjustment ? `核定补分 +${item.appliedAdjustment}` : '',
+            countdownText: countdown?.text || '',
+            countdownTone: countdown?.tone || 'todo'
+          };
+        }),
         pendingPublishProducts: data.pendingPublishProducts || [],
         delistedProducts: (data.products || [])
           .filter((item) => item.autoDelistRule === 'LOW_QUALITY' && item.active === false)
-          .map((item) => ({
-            ...item,
-            evidenceText: `低分评价 ${item.autoDelistEvidence?.lowRatingCount || 0} 条 · 均分 ${item.autoDelistEvidence?.averageRating || 0}`,
-            statusText: item.complianceCase?.statusLabel || (item.autoDelistStatus === 'REVIEW_PENDING' ? '整改待平台复核' : item.autoDelistStatus === 'REVIEW_REJECTED' ? '整改未通过' : '待提交整改'),
-            nextActionText: item.complianceCase?.status === 'SUBMITTED' || item.complianceCase?.status === 'REVIEWING'
-              ? '平台审核中，无需重复提交'
-              : item.autoDelistStatus === 'REVIEW_REJECTED' || item.complianceCase?.status === 'REJECTED'
-                ? '请补充整改凭证和措施后重新提交'
-                : '提交整改工单，平台 48 小时内复核',
-            canResubmit: item.autoDelistStatus === 'REVIEW_REJECTED' || item.complianceCase?.status === 'REJECTED'
-          })),
+          .map((item) => {
+            const countdown = rectifyCountdown(item.complianceCase?.dueAt, item.complianceCase?.status);
+            return {
+              ...item,
+              evidenceText: `低分评价 ${item.autoDelistEvidence?.lowRatingCount || 0} 条 · 均分 ${item.autoDelistEvidence?.averageRating || 0}`,
+              statusText: item.complianceCase?.statusLabel || (item.autoDelistStatus === 'REVIEW_PENDING' ? '整改待平台复核' : item.autoDelistStatus === 'REVIEW_REJECTED' ? '整改未通过' : '待提交整改'),
+              nextActionText: item.complianceCase?.status === 'SUBMITTED' || item.complianceCase?.status === 'REVIEWING'
+                ? '平台审核中，无需重复提交'
+                : item.autoDelistStatus === 'REVIEW_REJECTED' || item.complianceCase?.status === 'REJECTED'
+                  ? '请补充整改凭证和措施后重新提交'
+                  : '提交整改工单，平台 48 小时内复核',
+              canResubmit: item.autoDelistStatus === 'REVIEW_REJECTED' || item.complianceCase?.status === 'REJECTED',
+              countdownText: countdown?.text || '',
+              countdownTone: countdown?.tone || 'todo'
+            };
+          }),
         rectifyProductIndex: 0,
         payableText: (payableInCents / 100).toFixed(2),
         payoutMinimumText: (minimumInCents / 100).toFixed(2),

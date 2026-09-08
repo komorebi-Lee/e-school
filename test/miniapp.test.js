@@ -401,3 +401,13 @@ test('product sale campaigns show server-controlled promo pricing', () => {
   assert.ok(adminHtml.includes('productSalePrice'), 'admin product form should include sale price');
   assert.ok(adminHtml.includes('productSaleStartsAt'), 'admin product form should include sale start time');
 });
+
+test('merchant workspace surfaces rectification review deadlines', () => {
+  const js = readMiniappFile(path.join('pages', 'merchant', 'index.js'));
+  const wxml = readMiniappFile(path.join('pages', 'merchant', 'index.wxml'));
+
+  assert.ok(js.includes('rectifyCountdown'), 'merchant page should decorate rectification deadlines');
+  assert.ok(js.includes('complianceCase?.dueAt'), 'delisted products should use the case due time');
+  assert.ok(wxml.includes('复核时限'), 'score cases should show the review deadline');
+  assert.ok(wxml.includes('item.countdownText'), 'delisted products should show remaining time');
+});
