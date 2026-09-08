@@ -412,6 +412,18 @@ test('merchant workspace surfaces rectification review deadlines', () => {
   assert.ok(wxml.includes('item.countdownText'), 'delisted products should show remaining time');
 });
 
+test('merchant workspace visualizes service score trend', () => {
+  const js = readMiniappFile(path.join('pages', 'merchant', 'index.js'));
+  const wxml = readMiniappFile(path.join('pages', 'merchant', 'index.wxml'));
+  const wxss = readMiniappFile(path.join('pages', 'merchant', 'index.wxss'));
+
+  assert.ok(js.includes('decorateScoreTrend'), 'merchant page should decorate score trend');
+  assert.ok(js.includes('scoreTrend: decorateScoreTrend(data.scoreTrend)'), 'overview should map server trend');
+  assert.ok(wxml.includes('14 天服务分趋势'), 'workspace should show the trend title');
+  assert.ok(wxml.includes('trend-chart'), 'workspace should render trend bars');
+  assert.ok(wxss.includes('.trend-chart'), 'trend bars should have visible styling');
+});
+
 test('product detail surfaces merchant rectification status prominently', () => {
   const js = readMiniappFile(path.join('pages', 'detail', 'detail.js'));
   const wxml = readMiniappFile(path.join('pages', 'detail', 'detail.wxml'));

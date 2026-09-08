@@ -171,12 +171,30 @@ function decorateServiceScore(score) {
   };
 }
 
+function decorateScoreTrend(trend) {
+  const points = (trend?.points || []).filter((item) => Number.isInteger(item.score));
+  if (!points.length) return null;
+  const decorated = points.map((item) => ({
+    ...item,
+    stageTone: scoreStageTone[item.stage] || 'todo',
+    heightPercent: Math.max(8, Math.min(100, item.score)),
+    label: String(item.date || '').slice(5)
+  }));
+  const change = Number(trend?.change || 0);
+  return {
+    points: decorated,
+    change,
+    changeText: `较 14 天前 ${change > 0 ? '+' : ''}${change} 分`,
+    changeTone: change > 0 ? 'done' : change < 0 ? 'warn' : 'muted'
+  };
+}
+
 Page({
   data: {
     merchant: null, metrics: null, products: [], orders: [], settlements: [], payoutRequests: [],
     lowStockProducts: [], lowStockThreshold: 10,
     slaAlerts: [], promotionSummary: [], notifications: [], unreadNotificationCount: 0, loading: true,
-    serviceScore: null, pendingPublishProducts: [], scoreCases: [], scoreNoticeSubscribed: false,
+    serviceScore: null, scoreTrend: null, pendingPublishProducts: [], scoreCases: [], scoreNoticeSubscribed: false,
     scoreEvidence: [], uploadingScoreEvidence: false,
     qualificationRenewals: [], renewalLicenseNo: '', renewalLicenseExpireDate: '', renewalNote: '',
     renewalEvidence: [], uploadingRenewalEvidence: false, renewalSubmitting: false,
@@ -236,6 +254,7 @@ Page({
         payoutRequests: (data.payoutRequests || []).slice(0, 3).map(decoratePayoutRequest),
         slaAlerts: (data.slaAlerts || []).slice(0, 4).map(decorateSlaAlert),
         serviceScore: decorateServiceScore(data.serviceScore),
+        scoreTrend: decorateScoreTrend(data.scoreTrend),
         qualificationRenewals: (data.qualificationRenewals || []).slice(0, 5).map((item) => ({
           ...item,
           statusLabel: qualificationStatusLabels[item.status] || item.status,

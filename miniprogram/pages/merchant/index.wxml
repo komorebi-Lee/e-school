@@ -65,6 +65,21 @@
           <view class="muted score-detail">{{item.detail}}</view>
         </view>
       </view>
+      <view class="trend-block" wx:if="{{scoreTrend}}">
+        <view class="trend-head">
+          <view class="strong trend-title">14 天服务分趋势</view>
+          <text class="status-text tone-{{scoreTrend.changeTone}}">{{scoreTrend.changeText}}</text>
+        </view>
+        <view class="trend-chart">
+          <view class="trend-bar tone-{{item.stageTone}}" wx:for="{{scoreTrend.points}}" wx:key="date" style="height:{{item.heightPercent}}%">
+            <view class="trend-tip">{{item.score}}</view>
+          </view>
+        </view>
+        <view class="trend-scale">
+          <text>{{scoreTrend.points[0].label}}</text>
+          <text>{{scoreTrend.points[scoreTrend.points.length - 1].label}}</text>
+        </view>
+      </view>
       <view class="muted score-note">{{serviceScore.consequenceText}}</view>
       <view class="muted score-note" wx:if="{{serviceScore.complianceText}}">{{serviceScore.complianceText}}</view>
       <view class="muted score-note" wx:if="{{serviceScore.weakestText}}">最需要改进：{{serviceScore.weakestText}}</view>
