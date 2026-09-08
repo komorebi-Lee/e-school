@@ -1,5 +1,5 @@
-<view wx:if="{{scooter}}" class="page">
-  <view class="summary card"><view class="mark" style="background: {{scooter.color}}">{{scooter.icon}}</view><view><view class="name">{{scooter.name}}</view><view class="muted">{{scooter.subtitle}}</view><view class="price">¥{{scooter.price}}</view></view></view>
+  <view wx:if="{{scooter}}" class="page">
+  <view class="summary card"><view class="mark" style="background: {{scooter.color}}">{{scooter.icon}}</view><view><view class="name">{{scooter.name}}</view><view class="muted">{{scooter.subtitle}}</view><view class="price-line"><text class="price">¥{{scooter.price}}</text><text wx:if="{{scooter.originalPrice}}" class="original">¥{{scooter.originalPrice}}</text></view></view></view>
   <view class="section-title">校内配送信息</view><view class="form card">
     <view class="field"><text class="field-label">联系人</text><input class="input" placeholder="请输入姓名" bindinput="setName" /></view>
     <view class="field"><text class="field-label">手机号</text><input class="input" type="number" maxlength="11" placeholder="用于确认库存" bindinput="setPhone" /></view>

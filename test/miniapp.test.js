@@ -244,3 +244,25 @@ test('limited recharge promos run as an availability-controlled campaign', () =>
   assert.ok(adminHtml.includes('promoStartsAt'), 'admin promo form should configure start time');
   assert.ok(adminHtml.includes('promoEndsAt'), 'admin promo form should configure end time');
 });
+
+test('product sale campaigns show server-controlled promo pricing', () => {
+  const detailJs = readMiniappFile(path.join('pages', 'detail', 'detail.js'));
+  const detailWxml = readMiniappFile(path.join('pages', 'detail', 'detail.wxml'));
+  const checkoutJs = readMiniappFile(path.join('pages', 'checkout', 'checkout.js'));
+  const checkoutWxml = readMiniappFile(path.join('pages', 'checkout', 'checkout.wxml'));
+  const adminJs = fs.readFileSync(path.join(__dirname, '..', 'server', 'public', 'admin.js'), 'utf8');
+  const adminHtml = fs.readFileSync(path.join(__dirname, '..', 'server', 'public', 'admin.html'), 'utf8');
+
+  assert.ok(detailJs.includes('effectivePriceInCents'), 'detail should use server effective pricing');
+  assert.ok(detailJs.includes('promotionPrice'), 'detail should format promotion pricing');
+  for (const marker of ['scooter.promotionPrice', 'scooter.originalPrice', 'scooter.promotionStatusText']) {
+    assert.ok(detailWxml.includes(marker), `${marker} should be visible on product detail`);
+  }
+  assert.ok(checkoutJs.includes('effectivePriceInCents'), 'checkout should preserve server effective pricing');
+  assert.ok(checkoutWxml.includes('originalPrice'), 'checkout should show the crossed-out original price');
+
+  assert.ok(adminJs.includes('salePriceInCents'), 'admin should configure sale prices');
+  assert.ok(adminJs.includes('saleStartsAt'), 'admin should configure sale start time');
+  assert.ok(adminHtml.includes('productSalePrice'), 'admin product form should include sale price');
+  assert.ok(adminHtml.includes('productSaleStartsAt'), 'admin product form should include sale start time');
+});

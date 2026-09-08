@@ -14,7 +14,7 @@ Page({
     const id = options.id || '';
     this.setData({ payToken: `ebike-${id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` });
     request(`/api/products/${encodeURIComponent(id)}`).then(({ data }) => {
-      this.setData({ scooter: { ...data, price: Math.round(data.priceInCents / 100), subtitle: data.description, color: '#eaf0ff', icon: '车' } });
+      this.setData({ scooter: { ...data, price: Math.round((data.effectivePriceInCents ?? data.priceInCents) / 100), originalPrice: Math.round((data.promotion?.originalPriceInCents || 0) / 100), subtitle: data.description, color: '#eaf0ff', icon: '车' } });
       this.updateTotals();
     }).catch((error) => {
       wx.showToast({ title: error.message || '商品加载失败，请稍后重试', icon: 'none' });

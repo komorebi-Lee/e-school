@@ -15,7 +15,10 @@ function normalizeProduct(product, config = {}, reviewFilter = 'ALL') {
   const afterSaleHours = Number(config.afterSaleResponseHours || 24);
   return {
     ...product,
-    price: Math.round((product.priceInCents || 0) / 100),
+    price: Math.round((product.effectivePriceInCents ?? (product.priceInCents || 0)) / 100),
+    promotionPrice: Math.round((product.promotion?.salePriceInCents || 0) / 100),
+    originalPrice: Math.round((product.promotion?.originalPriceInCents || 0) / 100),
+    promotionStatusText: product.promotion?.statusText || '',
     subtitle: description,
     badge: product.badge || '校园专享',
     range: product.range || (product.id === 'prod_ebike_rent_001' ? '70 km' : '45 km'),
@@ -106,7 +109,7 @@ function normalizeProduct(product, config = {}, reviewFilter = 'ALL') {
       id: item.id,
       name: item.name,
       subtitle: item.description,
-      price: Math.round((item.priceInCents || 0) / 100),
+      price: Math.round((item.effectivePriceInCents ?? (item.priceInCents || 0)) / 100),
       merchantName: item.merchantName || '平台自营',
       imageUrl: item.imageUrl || '',
       color: item.color || '#eaf0ff',
