@@ -143,6 +143,9 @@ function card(item) {
   const isEbike = item.type === 'E_BIKE';
   const type = item.type;
   const actions = [];
+  if (item.merchantId && type === 'E_BIKE') {
+    actions.push({ key:'store', text:'进店', merchantId:item.merchantId });
+  }
   if (item.status === 'PENDING_PAYMENT' && ['E_BIKE','PHONE_PLAN','RECHARGE','PLATE'].includes(type)) {
     actions.push({ key:'pay', text:'去支付' });
     actions.push({ key:'cancel', text:'取消订单' });
@@ -268,6 +271,7 @@ Page({
         deliveryCode:order.deliveryCode || '',
         items:order.items || [],
         reviewedProductIds:reviewedProductIds.filter(key=>key.startsWith(`${order.id}:`)).map(key=>key.split(':')[1]),
+        merchantId:order.merchantId || (order.items||[])[0]?.merchantId || '',
         relatedIds:order.plateApplicationId?{plateApplicationId:order.plateApplicationId}:{},
         merchantName:order.merchantName,
         collaboration:order.collaboration,
@@ -301,6 +305,11 @@ Page({
     const productId=e.currentTarget.dataset.productId;
     if(!productId)return;
     wx.navigateTo({url:`/pages/detail/detail?id=${encodeURIComponent(productId)}`});
+  },
+  goStore(e){
+    const merchantId=e.currentTarget.dataset.merchantId;
+    if(!merchantId)return wx.showToast({title:'这笔订单暂无店铺主页',icon:'none'});
+    wx.navigateTo({url:`/pages/store/store?id=${encodeURIComponent(merchantId)}`});
   },
   copyDeliveryCode(e){
     const code=e.currentTarget.dataset.code;

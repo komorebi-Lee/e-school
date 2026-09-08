@@ -89,6 +89,14 @@ test('merchant storefront is reachable from product detail', () => {
   assert.ok(markup.includes('goStore'), 'product detail should provide a storefront entry');
 });
 
+test('orders link back to the merchant storefront', () => {
+  const js = readMiniappFile(path.join('pages', 'orders', 'orders.js'));
+  const wxml = readMiniappFile(path.join('pages', 'orders', 'orders.wxml'));
+  assert.ok(js.includes('goStore'), 'orders page should navigate to merchant storefront');
+  assert.ok(js.includes('merchantId'), 'orders page should preserve merchant identity');
+  assert.ok(wxml.includes('goStore'), 'orders page should expose a storefront action');
+});
+
 test('miniapp uses a shared payment action for mock and wechat jsapi payments', () => {
   const paymentService = readMiniappFile(path.join('services', 'payment.js'));
   assert.ok(paymentService.includes('wx.requestPayment'));
