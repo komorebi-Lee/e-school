@@ -1,5 +1,9 @@
 <view class="page favorites-page">
   <view class="loading muted" wx:if="{{loading}}">正在同步收藏…</view>
+  <view wx:elif="{{saleCount}}" class="sale-banner card">
+    <view class="sale-copy"><text class="sale-title">收藏好价进行中</text><text class="muted">{{saleCount}} 件商品正在限时降价</text></view>
+    <text class="sale-action">去抢购</text>
+  </view>
   <view wx:elif="{{!favorites.length}}" class="empty card">
     <view class="empty-icon">藏</view>
     <view class="empty-title">还没有收藏车型</view>
@@ -15,7 +19,11 @@
         <view class="name">{{item.name}}</view>
         <view class="muted subtitle">{{item.description}}</view>
         <view class="meta"><text>{{item.merchantName}}</text><text>{{item.stockText}}</text><text>{{item.salesText}}</text></view>
-        <view class="bottom"><text class="rating">{{item.ratingText}}</text><text class="price">¥{{item.price}}</text></view>
+        <view class="bottom">
+          <text class="rating">{{item.ratingText}}</text>
+          <view class="price-group"><text wx:if="{{item.originalPrice}}" class="original-price">¥{{item.originalPrice}}</text><text class="price">¥{{item.price}}</text></view>
+        </view>
+        <view wx:if="{{item.promoText}}" class="promo-row"><text class="promo-badge">{{item.promoText}}</text></view>
       </view>
     </view>
   </block>

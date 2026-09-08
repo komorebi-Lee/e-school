@@ -1,4 +1,9 @@
 .favorites-page { padding-top: 24rpx; }
+.sale-banner { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20rpx; padding: 24rpx 28rpx; background: linear-gradient(120deg, #002fa7, #1a54c4); color: #fff; }
+.sale-copy { display: flex; flex-direction: column; gap: 6rpx; }
+.sale-title { font-size: 28rpx; font-weight: 900; }
+.sale-banner .muted { color: rgba(255, 255, 255, .78); font-size: 21rpx; }
+.sale-action { padding: 10rpx 20rpx; border-radius: 999rpx; background: #fff; color: #002fa7; font-size: 22rpx; font-weight: 900; }
 .loading { padding: 40rpx; text-align: center; }
 .empty { margin-top: 30rpx; padding: 70rpx 30rpx; text-align: center; }
 .empty-icon { width: 100rpx; height: 100rpx; margin: 0 auto 22rpx; display: flex; align-items: center; justify-content: center; border-radius: 34rpx; background: #eaf0ff; color: #002fa7; font-size: 44rpx; font-weight: 900; }
@@ -13,4 +18,8 @@
 .meta { display: flex; flex-wrap: wrap; gap: 14rpx; margin-top: 12rpx; color: #78849a; font-size: 20rpx; }
 .bottom { display: flex; justify-content: space-between; align-items: center; margin-top: 14rpx; }
 .rating { color: #ff8a00; font-weight: 900; }
+.price-group { display: flex; align-items: baseline; gap: 10rpx; }
+.original-price { color: #98a4b7; font-size: 22rpx; text-decoration: line-through; }
 .price { color: #002fa7; font-size: 30rpx; font-weight: 900; }
+.promo-row { margin-top: 10rpx; }
+.promo-badge { display: inline-flex; padding: 6rpx 12rpx; border-radius: 999rpx; background: #fff1b8; color: #a05a00; font-size: 20rpx; font-weight: 800; }

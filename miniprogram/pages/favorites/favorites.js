@@ -22,11 +22,12 @@ function decorateFavorite(product) {
 }
 
 Page({
-  data: { favorites: [], loading: true },
+  data: { favorites: [], loading: true, saleCount: 0 },
   onShow() { this.loadFavorites(); },
   loadFavorites() {
     request('/api/my/favorites').then(({ data }) => {
-      this.setData({ favorites: (data || []).map(decorateFavorite), loading: false });
+      const favorites = (data || []).map(decorateFavorite);
+      this.setData({ favorites, saleCount: favorites.filter((item) => item.promoText).length, loading: false });
     }).catch((error) => {
       this.setData({ favorites: [], loading: false });
       wx.showToast({ title: error.message || '收藏加载失败', icon: 'none' });

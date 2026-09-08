@@ -63,7 +63,8 @@ Page({
       const items = (data || []).slice(0, 3).map((item) => ({
         ...item,
         timeText: String(item.createdAt || "").slice(5, 16).replace("T", " "),
-        unread: !item.read
+        unread: !item.read,
+        link: item.metadata && item.metadata.productId ? `/pages/detail/detail?id=${encodeURIComponent(item.metadata.productId)}` : ""
       }));
       this.setData({ notifications: items, unreadNotificationCount: (data || []).filter((item) => !item.read).length });
     }).catch(() => this.setData({ notifications: [], unreadNotificationCount: 0 }));
@@ -71,6 +72,11 @@ Page({
   markNotificationsRead() {
     if (!this.data.unreadNotificationCount) return;
     request("/api/my/notifications/read", { method: "POST" }).then(() => this.loadNotifications()).catch(() => {});
+  },
+  openNotification(event) {
+    const link = event.currentTarget.dataset.link;
+    if (!link) return;
+    wx.navigateTo({ url: link, fail: () => {} });
   },
   loadOrderMessageState() {
     request("/api/order-message-subscriptions").then(({ data }) => {

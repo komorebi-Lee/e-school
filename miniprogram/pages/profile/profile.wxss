@@ -9,12 +9,15 @@
 .notification-title { font-size: 30rpx; font-weight: 900; }
 .notification-card .muted { font-size: 22rpx; margin-top: 6rpx; }
 .notification-item { display: flex; justify-content: space-between; gap: 20rpx; padding: 20rpx 0; border-bottom: 1rpx solid #edf0f5; }
+.notification-item.actionable { cursor: pointer; }
 .notification-item:last-child { border-bottom: 0; }
 .notification-item.unread { border-left: 6rpx solid #002fa7; padding-left: 18rpx; }
 .notification-main { display: flex; flex-direction: column; gap: 6rpx; color: #1b2537; }
 .notification-main strong { font-size: 26rpx; }
 .notification-main text { font-size: 22rpx; color: #536078; line-height: 1.5; }
 .notification-time { color: #8895a8; font-size: 21rpx; white-space: nowrap; }
+.notification-side { display: flex; flex-direction: column; align-items: flex-end; justify-content: center; gap: 8rpx; }
+.notification-action { color: #002fa7; font-size: 22rpx; font-weight: 800; }
 .notification-empty { padding: 24rpx 0 8rpx; color: #8895a8; font-size: 24rpx; }
 .message-toggle { height: 68rpx; line-height: 66rpx; margin: 18rpx 0 0; border-radius: 999rpx; background: #eaf0ff; color: #002fa7; font-size: 23rpx; font-weight: 800; }
 .message-toggle::after { border: 0; }

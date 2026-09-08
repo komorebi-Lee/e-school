@@ -23,9 +23,12 @@
       </view>
       <button wx:if="{{unreadNotificationCount}}" size="mini" class="ghost-button" bindtap="markNotificationsRead">全部已读</button>
     </view>
-    <view wx:for="{{notifications}}" wx:key="id" class="notification-item {{item.unread ? 'unread' : ''}}">
+    <view wx:for="{{notifications}}" wx:key="id" class="notification-item {{item.unread ? 'unread' : ''}} {{item.link ? 'actionable' : ''}}" data-link="{{item.link}}" bindtap="openNotification">
       <view class="notification-main"><strong>{{item.title}}</strong><text>{{item.content}}</text></view>
-      <text class="notification-time">{{item.timeText}}</text>
+      <view class="notification-side">
+        <text wx:if="{{item.link}}" class="notification-action">查看</text>
+        <text class="notification-time">{{item.timeText}}</text>
+      </view>
     </view>
     <view wx:if="{{!notifications.length}}" class="notification-empty">暂无业务提醒</view>
     <button class="message-toggle" bindtap="toggleOrderMessages">{{orderMessageSubscribed ? '关闭订单微信提醒' : '开启订单微信提醒'}}</button>

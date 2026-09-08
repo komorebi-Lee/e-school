@@ -112,11 +112,15 @@ test('users can favorite products and revisit favorites', () => {
   assert.ok(favoritesSource.includes('goDetail'), 'favorites page should navigate to product detail');
   const favoritesMarkup = readMiniappFile(path.join('pages', 'favorites', 'favorites.wxml'));
   assert.ok(favoritesMarkup.includes('goDetail'), 'favorites page should expose product navigation');
+  assert.ok(favoritesMarkup.includes('promo-badge'), 'favorites should surface active promotions');
+  assert.ok(favoritesMarkup.includes('original-price'), 'favorites should compare original and sale prices');
 
   const profileSource = readMiniappFile(path.join('pages', 'profile', 'profile.js'));
   assert.ok(profileSource.includes('/pages/favorites/favorites'), 'profile should link to favorites');
+  assert.ok(profileSource.includes('openNotification'), 'profile should support notification navigation');
   const profileMarkup = readMiniappFile(path.join('pages', 'profile', 'profile.wxml'));
   assert.ok(profileMarkup.includes('goFavorites'), 'profile should expose a favorites entry');
+  assert.ok(profileMarkup.includes('openNotification'), 'profile should expose tappable notifications');
 });
 
 test('miniapp uses a shared payment action for mock and wechat jsapi payments', () => {
