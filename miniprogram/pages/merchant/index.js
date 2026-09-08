@@ -182,6 +182,7 @@ function decorateScoreTrend(trend) {
   }));
   const change = Number(trend?.change || 0);
   const effect = trend?.effect;
+  const risk = trend?.risk;
   return {
     points: decorated,
     change,
@@ -195,6 +196,10 @@ function decorateScoreTrend(trend) {
         `${effect.scoreBefore} 分 → ${effect.scoreAfter} 分`,
         `整改后${Number(effect.gain || 0) >= 0 ? '+' : ''}${Number(effect.gain || 0)} 分`
       ].filter(Boolean).join(' · ')
+    } : null,
+    risk: risk ? {
+      riskPoints: Number(risk.riskPoints || 0),
+      riskText: `售后超时 ${Number(risk.overdueAfterSales || 0)} 单 · 未关闭 ${Number(risk.openAfterSales || 0)} 单 · 及时处理可回升 ${Number(risk.riskPoints || 0)} 分`
     } : null
   };
 }

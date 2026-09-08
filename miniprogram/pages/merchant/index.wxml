@@ -83,6 +83,10 @@
           <view class="trend-effect-label">整改效果</view>
           <view class="muted">{{scoreTrend.effect.effectText}}</view>
         </view>
+        <view class="trend-risk" wx:if="{{scoreTrend.risk}}">
+          <view class="trend-risk-label">扣分风险</view>
+          <view class="muted">{{scoreTrend.risk.riskText}}</view>
+        </view>
       </view>
       <view class="muted score-note">{{serviceScore.consequenceText}}</view>
       <view class="muted score-note" wx:if="{{serviceScore.complianceText}}">{{serviceScore.complianceText}}</view>

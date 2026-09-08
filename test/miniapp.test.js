@@ -423,6 +423,8 @@ test('merchant workspace visualizes service score trend', () => {
   assert.ok(wxml.includes('14 天服务分趋势'), 'workspace should show the trend title');
   assert.ok(wxml.includes('trend-chart'), 'workspace should render trend bars');
   assert.ok(wxml.includes('trend-effect'), 'workspace should connect the trend with rectification outcome');
+  assert.ok(js.includes('及时处理可回升'), 'trend decoration should expose recoverable score risk');
+  assert.ok(wxml.includes('trend-risk'), 'workspace should warn about current service score risk');
   assert.ok(wxss.includes('.trend-chart'), 'trend bars should have visible styling');
 });
 

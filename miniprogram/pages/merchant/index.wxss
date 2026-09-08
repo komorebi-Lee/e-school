@@ -72,6 +72,9 @@
 .trend-effect { margin-top: 14rpx; padding-top: 12rpx; border-top: 1rpx solid #e3e9f5; }
 .trend-effect-label { font-size: 22rpx; font-weight: 750; color: #33435f; }
 .trend-effect .muted { margin-top: 6rpx; font-size: 21rpx; line-height: 1.45; }
+.trend-risk { margin-top: 14rpx; padding: 12rpx 14rpx; border-radius: 14rpx; background: #fff4f2; border: 1rpx solid #f3c9c4; }
+.trend-risk-label { font-size: 22rpx; font-weight: 750; color: #c0392b; }
+.trend-risk .muted { margin-top: 6rpx; font-size: 21rpx; line-height: 1.45; color: #7f2c22; }
 .score-detail { font-size: 20rpx; margin-top: 6rpx; line-height: 1.45; }
 .score-note { font-size: 20rpx; margin-top: 12rpx; line-height: 1.5; }
 .score-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14rpx; margin-top: 24rpx; }
