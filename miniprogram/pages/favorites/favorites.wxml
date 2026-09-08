@@ -1,0 +1,22 @@
+<view class="page favorites-page">
+  <view class="loading muted" wx:if="{{loading}}">正在同步收藏…</view>
+  <view wx:elif="{{!favorites.length}}" class="empty card">
+    <view class="empty-icon">藏</view>
+    <view class="empty-title">还没有收藏车型</view>
+    <view class="muted">在商品详情点收藏，方便比价和到货后回看。</view>
+  </view>
+  <block wx:else>
+    <view class="product card" wx:for="{{favorites}}" wx:key="id" data-id="{{item.id}}" bindtap="goDetail">
+      <view class="visual" style="background: {{item.color}}">
+        <image wx:if="{{item.imageUrl}}" src="{{item.imageUrl}}" mode="aspectFill" />
+        <text wx:else>{{item.icon}}</text>
+      </view>
+      <view class="body">
+        <view class="name">{{item.name}}</view>
+        <view class="muted subtitle">{{item.description}}</view>
+        <view class="meta"><text>{{item.merchantName}}</text><text>{{item.stockText}}</text><text>{{item.salesText}}</text></view>
+        <view class="bottom"><text class="rating">{{item.ratingText}}</text><text class="price">¥{{item.price}}</text></view>
+      </view>
+    </view>
+  </block>
+</view>

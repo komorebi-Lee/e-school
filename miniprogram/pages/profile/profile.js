@@ -102,6 +102,7 @@ Page({
   },
   verify() { this.setData({ verified: true }); wx.showToast({ title: "演示认证成功" }); },
   goOrders() { wx.switchTab({ url: "/pages/orders/orders" }); },
+  goFavorites() { wx.navigateTo({ url: "/pages/favorites/favorites" }); },
   goCard() { wx.navigateTo({ url: "/pages/card/card" }); },
   goMerchant() {
     if (this.data.latestApprovedAt) {

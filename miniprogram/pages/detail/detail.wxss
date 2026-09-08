@@ -53,3 +53,5 @@
 .storefront-foot { margin-top: 14rpx; line-height: 1.5; }
 .bottom-actions { display: flex; gap: 14rpx; align-items: center; }
 .restock-button { margin: 0; padding: 0 22rpx; height: 78rpx; line-height: 78rpx; border-radius: 999rpx; background: #eaf0ff; color: #002fa7; font-size: 23rpx; font-weight: 800; }
+.favorite-button { margin: 0; padding: 0 24rpx; height: 78rpx; line-height: 78rpx; border-radius: 999rpx; background: #f2f5fa; color: #536078; font-size: 23rpx; font-weight: 800; }
+.favorite-button.active { background: #fff7e6; color: #d97706; }

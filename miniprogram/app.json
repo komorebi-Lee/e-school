@@ -20,6 +20,7 @@
     "pages/agreement/agreement",
     "pages/recharge/detail"
     ,"pages/store/store"
+    ,"pages/favorites/favorites"
   ],
   "requiredPrivateInfos": [
     "getLocation"

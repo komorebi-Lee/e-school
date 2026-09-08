@@ -97,6 +97,28 @@ test('orders link back to the merchant storefront', () => {
   assert.ok(wxml.includes('goStore'), 'orders page should expose a storefront action');
 });
 
+test('users can favorite products and revisit favorites', () => {
+  const appConfig = JSON.parse(readMiniappFile('app.json'));
+  assert.ok(appConfig.pages.includes('pages/favorites/favorites'), 'favorites should be a registered page');
+
+  const detailSource = readMiniappFile(path.join('pages', 'detail', 'detail.js'));
+  assert.ok(detailSource.includes('/favorite'), 'detail should load and update favorite state');
+  assert.ok(detailSource.includes('toggleFavorite'), 'detail should support favorite toggling');
+  const detailMarkup = readMiniappFile(path.join('pages', 'detail', 'detail.wxml'));
+  assert.ok(detailMarkup.includes('toggleFavorite'), 'detail should provide a favorite action');
+
+  const favoritesSource = readMiniappFile(path.join('pages', 'favorites', 'favorites.js'));
+  assert.ok(favoritesSource.includes('/api/my/favorites'), 'favorites page should load server favorites');
+  assert.ok(favoritesSource.includes('goDetail'), 'favorites page should navigate to product detail');
+  const favoritesMarkup = readMiniappFile(path.join('pages', 'favorites', 'favorites.wxml'));
+  assert.ok(favoritesMarkup.includes('goDetail'), 'favorites page should expose product navigation');
+
+  const profileSource = readMiniappFile(path.join('pages', 'profile', 'profile.js'));
+  assert.ok(profileSource.includes('/pages/favorites/favorites'), 'profile should link to favorites');
+  const profileMarkup = readMiniappFile(path.join('pages', 'profile', 'profile.wxml'));
+  assert.ok(profileMarkup.includes('goFavorites'), 'profile should expose a favorites entry');
+});
+
 test('miniapp uses a shared payment action for mock and wechat jsapi payments', () => {
   const paymentService = readMiniappFile(path.join('services', 'payment.js'));
   assert.ok(paymentService.includes('wx.requestPayment'));
