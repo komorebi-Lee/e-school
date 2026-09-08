@@ -458,6 +458,17 @@ test('merchant notifications carry actionable business links', () => {
   assert.ok(wxss.includes('.notice-action'), 'actionable notifications should have visible styling');
 });
 
+test('subscribe messages and user orders deep-link to focused records', () => {
+  const orderJs = readMiniappFile(path.join('pages', 'orders', 'orders.js'));
+  const orderWxml = readMiniappFile(path.join('pages', 'orders', 'orders.wxml'));
+  const orderCss = readMiniappFile(path.join('pages', 'orders', 'orders.wxss'));
+
+  assert.ok(orderJs.includes('focusLoadedRecord'), 'user orders should support focused record routing');
+  assert.ok(orderWxml.includes('user-record-{{item.id}}'), 'focused order should be scroll-targetable');
+  assert.ok(orderWxml.includes("item.id === focusId ? 'focus-item' : ''"), 'focused order should highlight');
+  assert.ok(orderCss.includes('.focus-item'), 'focused order should have visible styling');
+});
+
 test('product detail surfaces merchant rectification status prominently', () => {
   const js = readMiniappFile(path.join('pages', 'detail', 'detail.js'));
   const wxml = readMiniappFile(path.join('pages', 'detail', 'detail.wxml'));

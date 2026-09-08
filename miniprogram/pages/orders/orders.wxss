@@ -99,3 +99,4 @@
 .note-button { min-width: 220rpx; background: #fff; border: 1rpx solid #d8dfec; color: #33435f; }
 .form-fallback { margin-top: 24rpx; padding-top: 20rpx; border-top: 1rpx solid #edf0f5; text-align: center; color: #0f5fd8; font-size: 22rpx; font-weight: 650; }
 .sending { margin-top: 14rpx; text-align: center; font-size: 21rpx; }
+.focus-item { border-color: #002fa7 !important; box-shadow: 0 0 0 4rpx rgba(0, 47, 167, .12) !important; }

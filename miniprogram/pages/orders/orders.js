@@ -217,14 +217,15 @@ function buildSessionFrom(record) {
 }
 
 Page({
-  data:{ active:'ALL', records:[], filtered:[], linkage:[], loading:true, consult:null, reviewing:false, serviceContact:'15527111396', responseHours:24 },
+  data:{ active:'ALL', records:[], filtered:[], linkage:[], loading:true, consult:null, reviewing:false, serviceContact:'15527111396', responseHours:24, focusId:'' },
   onShow(){
     this.loadRecords();
     this.startCountdownTimer();
   },
   onHide(){ this.stopCountdownTimer(); },
   onUnload(){ this.stopCountdownTimer(); },
-  onLoad(){
+  onLoad(options = {}){
+    if (options.focusId) this.focusId = options.focusId;
     loadBusinessConfig().then((config) => this.setData({
       serviceContact: config.servicePhone || config.serviceWechat || '15527111396',
       responseHours: Number(config.leadResponseHours || 24)
@@ -279,12 +280,21 @@ Page({
       }));
       const records=[...ebikes,...(orderData.serviceRecords||[])].map(card).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
       this.setData({records,filtered:this.filterRecords(records,this.data.active),linkage:this.buildLinkage(orderData,records),loading:false});
+      this.focusLoadedRecord(records);
     }).catch(error=>{
       this.setData({records:[],filtered:[],linkage:[],loading:false});
       wx.showToast({title:error.message||'订单加载失败',icon:'none'});
     });
   },
   filterRecords(records,active){return active==='ALL'?records:records.filter(item=>item.type===active)},
+  focusLoadedRecord(records){
+    const focusId=this.focusId;
+    if(!focusId||!(records||[]).some(record=>record.id===focusId)) return;
+    this.setData({focusId});
+    wx.nextTick(()=>{
+      wx.pageScrollTo({selector:`#user-record-${focusId}`,offsetTop:80,duration:300});
+    });
+  },
   buildLinkage(data,records){
     const links=[];
     const phonePlans=records.filter(item=>item.type==='PHONE_PLAN');

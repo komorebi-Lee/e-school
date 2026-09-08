@@ -19,7 +19,7 @@
   </scroll-view>
   <view class="loading muted" wx:if="{{loading}}">正在同步服务记录…</view>
   <view wx:if="{{!loading && filtered.length === 0}}" class="empty card"><view class="empty-icon">单</view><view class="empty-title">还没有服务记录</view><view class="muted">购车后可自动办理校园牌照，买卡后可申请宽带。</view><view class="empty-actions"><button class="ghost-button" bindtap="goCard">买电话卡</button><button class="primary-button" bindtap="goShop">买电瓶车</button></view></view>
-  <view class="record card" wx:for="{{filtered}}" wx:key="id">
+  <view id="user-record-{{item.id}}" class="record card {{item.id === focusId ? 'focus-item' : ''}}" wx:for="{{filtered}}" wx:key="id">
     <view class="record-head"><view class="record-type"><text class="record-icon">{{item.icon}}</text>{{item.typeLabel}}</view><text class="status tone-{{item.tone}}">{{item.statusLabel}}</text></view>
     <view class="record-title">{{item.title}}</view>
     <view class="status-note" wx:if="{{item.statusNote}}">{{item.statusNote}}</view>
