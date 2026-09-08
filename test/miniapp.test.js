@@ -411,3 +411,15 @@ test('merchant workspace surfaces rectification review deadlines', () => {
   assert.ok(wxml.includes('复核时限'), 'score cases should show the review deadline');
   assert.ok(wxml.includes('item.countdownText'), 'delisted products should show remaining time');
 });
+
+test('product detail surfaces merchant rectification status prominently', () => {
+  const js = readMiniappFile(path.join('pages', 'detail', 'detail.js'));
+  const wxml = readMiniappFile(path.join('pages', 'detail', 'detail.wxml'));
+  const wxss = readMiniappFile(path.join('pages', 'detail', 'detail.wxss'));
+
+  assert.ok(js.includes('merchantRectify'), 'detail should decorate merchant rectification status');
+  assert.ok(js.includes('店铺整改中'), 'rectification banner should use plain business wording');
+  assert.ok(wxml.includes('rectify-badge'), 'seller line should show a rectification badge');
+  assert.ok(wxml.includes('rectify-banner'), 'detail should show a unified rectification banner');
+  assert.ok(wxss.includes('.rectify-banner'), 'rectification banner should have visible styling');
+});

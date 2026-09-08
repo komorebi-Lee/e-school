@@ -34,6 +34,19 @@ function normalizeProduct(product, config = {}, reviewFilter = 'ALL') {
     icon: product.icon || '车',
     merchantName: product.merchantName || '平台自营',
     storeProfile: product.storeProfile || null,
+    // 限流/暂停上新是平台处置，不能只藏在服务分卡片里，要让学生一眼看到。
+    merchantRectify: (() => {
+      const score = product.merchantServiceScore;
+      if (!score || score.stage === 'NORMAL') return null;
+      return {
+        badgeText: score.stage === 'RESTRICTED' ? '整改中' : '限流中',
+        title: score.stage === 'RESTRICTED' ? '店铺整改中 · 已暂停上新' : '店铺整改中 · 曝光已限流',
+        detail: score.stage === 'RESTRICTED'
+          ? '平台已暂停该店上新，商品曝光大幅降低，下单前建议先咨询客服确认库存与交付。'
+          : '平台已限流该店曝光，新增商品需平台复核，下单前建议先咨询客服确认库存与交付。',
+        toneClass: score.stage === 'RESTRICTED' ? 'risk' : 'watch'
+      };
+    })(),
     // 店铺服务分是平台已核验的履约结果，学生下单前应该看得到。
     merchantScoreCard: (() => {
       const score = product.merchantServiceScore;
