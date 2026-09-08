@@ -208,7 +208,7 @@ Page({
   data: {
     merchant: null, metrics: null, products: [], orders: [], settlements: [], payoutRequests: [],
     lowStockProducts: [], lowStockThreshold: 10,
-    slaAlerts: [], promotionSummary: [], notifications: [], unreadNotificationCount: 0, loading: true,
+    slaAlerts: [], riskTasks: [], promotionSummary: [], notifications: [], unreadNotificationCount: 0, loading: true,
     serviceScore: null, scoreTrend: null, pendingPublishProducts: [], scoreCases: [], scoreNoticeSubscribed: false,
     scoreEvidence: [], uploadingScoreEvidence: false,
     qualificationRenewals: [], renewalLicenseNo: '', renewalLicenseExpireDate: '', renewalNote: '',
@@ -270,6 +270,10 @@ Page({
         slaAlerts: (data.slaAlerts || []).slice(0, 4).map(decorateSlaAlert),
         serviceScore: decorateServiceScore(data.serviceScore),
         scoreTrend: decorateScoreTrend(data.scoreTrend),
+        riskTasks: (data.riskTasks || []).slice(0, 8).map((item) => ({
+          ...item,
+          dueText: item.dueAt ? String(item.dueAt).slice(5, 16).replace('T', ' ') : ''
+        })),
         qualificationRenewals: (data.qualificationRenewals || []).slice(0, 5).map((item) => ({
           ...item,
           statusLabel: qualificationStatusLabels[item.status] || item.status,
@@ -350,6 +354,12 @@ Page({
   },
   goReviews() {
     wx.navigateTo({ url: '/pages/merchant/reviews' });
+  },
+  goRiskTask(event) {
+    const type = event.currentTarget.dataset.type;
+    if (type === 'NEGATIVE_REVIEW') return this.goReviews();
+    if (type === 'LOW_STOCK') return this.goProducts();
+    return this.goOrders();
   },
   setRenewalLicenseNo(event) {
     this.setData({ renewalLicenseNo: event.detail.value });
