@@ -38,6 +38,8 @@ Page({
     agreeAgreement: false,
     agreePrivacy: false,
     application: null,
+    resubmitNote: '',
+    resubmitSubmitting: false,
     canForm: true,
     submitting: false
   },
@@ -50,6 +52,20 @@ Page({
     request(`/api/merchants?userId=${encodeURIComponent(userId())}`).then(({ data }) => {
       const active = data.find((item) => item.status !== 'REJECTED');
       if (!active || active.status === 'REJECTED') {
+        const rejected = data.find((item) => item.status === 'REJECTED');
+        if (rejected) {
+          this.setData({
+            application: rejected,
+            canForm: false,
+            licenseNo: rejected.licenseNo || '',
+            settlementAccountName: rejected.settlementAccountName || '',
+            settlementBank: rejected.settlementBank || '',
+            settlementAccount: rejected.settlementAccount || '',
+            licenseFile: null,
+            resubmitNote: ''
+          });
+          return;
+        }
         this.setData({ application: null, canForm: true });
         return;
       }
@@ -63,6 +79,10 @@ Page({
 
   setField(event) {
     this.setData({ [event.currentTarget.dataset.field]: event.detail.value });
+  },
+
+  setResubmitNote(event) {
+    this.setData({ resubmitNote: event.detail.value });
   },
 
   verifyIdentity() {
@@ -197,5 +217,38 @@ Page({
     }).catch((error) => {
       wx.showToast({ title: error.message || '提交失败，请稍后重试', icon: 'none' });
     }).finally(() => this.setData({ submitting: false }));
+  }
+
+  ,
+  resubmitEvidence() {
+    const application = this.data.application;
+    if (!application || application.status !== 'REJECTED') return;
+    if (application.merchantType !== 'PERSONAL' && !/^[0-9A-Z]{15,18}$/.test(this.data.licenseNo)) {
+      return wx.showToast({ title: '请填写正确执照编号', icon: 'none' });
+    }
+    if (!this.data.licenseFile?.url) {
+      return wx.showToast({ title: '请上传资质照片', icon: 'none' });
+    }
+    if (!this.data.settlementAccountName || !this.data.settlementBank || !/^\d{9,32}$/.test(this.data.settlementAccount.replace(/\s+/g, ''))) {
+      return wx.showToast({ title: '请补全收款账户', icon: 'none' });
+    }
+    if (this.data.resubmitSubmitting) return;
+    this.setData({ resubmitSubmitting: true });
+    request(`/api/merchants/${application.id}/resubmit`, {
+      method: 'POST',
+      data: {
+        licenseNo: application.merchantType === 'PERSONAL' ? '' : this.data.licenseNo,
+        licenseUrl: this.data.licenseFile.url,
+        settlementAccountName: this.data.settlementAccountName,
+        settlementBank: this.data.settlementBank,
+        settlementAccount: this.data.settlementAccount,
+        note: this.data.resubmitNote || '已补充平台要求材料'
+      }
+    }).then(() => wx.showModal({
+      title: '复审申请已提交',
+      content: '平台会继续核对补充材料，通过后即可进入工作台。',
+      showCancel: false,
+      success: () => this.loadApplication()
+    })).catch((error) => wx.showToast({ title: error.message || '提交失败', icon: 'none' })).finally(() => this.setData({ resubmitSubmitting: false }));
   }
 });

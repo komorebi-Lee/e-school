@@ -163,3 +163,15 @@ test('map page exposes search, route, image toggle, and official map entry point
     assert.ok(js.includes(marker), `${marker} should be implemented in the map page`);
   }
 });
+
+test('merchant apply supports rejected evidence resubmission', () => {
+  const js = readMiniappFile(path.join('pages', 'merchant', 'apply.js'));
+  const wxml = readMiniappFile(path.join('pages', 'merchant', 'apply.wxml'));
+
+  for (const marker of ['resubmitEvidence', '/resubmit`', 'REJECTED']) {
+    assert.ok(js.includes(marker), `${marker} should be implemented in merchant apply page`);
+  }
+  for (const marker of ['补充资质材料', 'bindtap="resubmitEvidence"', '驳回原因']) {
+    assert.ok(wxml.includes(marker), `${marker} should be available in merchant apply UI`);
+  }
+});

@@ -9,7 +9,7 @@
     </view>
   </view>
 
-  <block wx:if="{{application}}">
+  <block wx:if="{{application && application.status !== 'REJECTED'}}">
     <view class="status card">
       <view class="status-head">
         <view>
@@ -27,6 +27,42 @@
         驳回原因：{{application.reviewNote || '资质材料不符合要求，请修改后重新提交'}}
       </view>
       <view wx:else class="review-note muted">平台正在核对资质材料、店铺信息与经营类目。</view>
+    </view>
+  </block>
+
+  <block wx:if="{{application && application.status === 'REJECTED'}}">
+    <view class="status card">
+      <view class="status-head">
+        <view>
+          <view class="strong">{{application.name}}</view>
+          <view class="muted">{{application.applicationNo || application.id}}</view>
+        </view>
+        <text class="badge REJECTED">未通过</text>
+      </view>
+      <view class="review-note">驳回原因：{{application.reviewNote || '资质材料不符合要求，请修改后重新提交'}}</view>
+    </view>
+
+    <view class="form card">
+      <view class="section-title">补充资质材料</view>
+      <view wx:if="{{application.merchantType !== 'PERSONAL'}}" class="field">
+        <text class="field-label">营业执照编号</text>
+        <input class="input" value="{{licenseNo}}" data-field="licenseNo" bindinput="setField" placeholder="统一社会信用代码或执照编号" />
+      </view>
+      <view class="upload card">
+        <view class="upload-head"><text class="field-label">资质照片</text><button size="mini" class="ghost-button" bindtap="chooseLicense">上传</button></view>
+        <view class="muted">{{licenseFile ? '新资质照片已上传。' : '请上传清晰完整的资质照片。'}}</view>
+      </view>
+      <view class="upload card">
+        <view class="upload-head"><text class="field-label">结算收款账户</text></view>
+        <view class="field"><text class="field-label">收款人姓名</text><input class="input" value="{{settlementAccountName}}" data-field="settlementAccountName" bindinput="setField" /></view>
+        <view class="field"><text class="field-label">开户银行</text><input class="input" value="{{settlementBank}}" data-field="settlementBank" bindinput="setField" /></view>
+        <view class="field"><text class="field-label">银行卡号 / 对公账号</text><input class="input" type="number" value="{{settlementAccount}}" data-field="settlementAccount" bindinput="setField" maxlength="32" /></view>
+      </view>
+      <view class="field">
+        <text class="field-label">补充说明</text>
+        <textarea class="input textarea" value="{{resubmitNote}}" bindinput="setResubmitNote" maxlength="300" placeholder="说明本次补充了哪些材料"></textarea>
+      </view>
+      <button class="primary-button" loading="{{resubmitSubmitting}}" bindtap="resubmitEvidence">提交复审申请</button>
     </view>
   </block>
 
