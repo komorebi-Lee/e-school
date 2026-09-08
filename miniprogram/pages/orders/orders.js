@@ -62,6 +62,24 @@ const ebikeJourney = {
   ]
 };
 
+const afterSaleJourney = {
+  SUBMITTED: [
+    { title:'售后已受理', detail:'商家和平台都能看到这单', done:true },
+    { title:'等待处理', detail:'注意响应时限，可补充照片', done:false },
+    { title:'处理完成', detail:'商家结论会同步到订单', done:false }
+  ],
+  REVIEWING: [
+    { title:'售后已受理', detail:'商家已接收工单', done:true },
+    { title:'处理中', detail:'可继续补充问题说明', done:true },
+    { title:'处理完成', detail:'商家结论会同步到订单', done:false }
+  ],
+  CLOSED: [
+    { title:'售后已受理', detail:'处理流程已启动', done:true },
+    { title:'处理中', detail:'商家完成跟进', done:true },
+    { title:'处理完成', detail:'可查看处理结果', done:true }
+  ]
+};
+
 // 待支付订单会占用库存，超时后服务端自动关闭，这里把剩余时间翻译成用户能读懂的文案。
 function paymentCountdownText(expiresAt) {
   if (!expiresAt) return '';
@@ -103,6 +121,24 @@ function uploadPlateMaterial(file) {
   }).then(({ data }) => data.url));
 }
 
+function formatDueText(value, prefix) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return `${prefix} ${date.toLocaleDateString()} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
+
+function decorateAfterSale(record) {
+  const tone = record.status === 'CLOSED' ? 'done' : record.status === 'REVIEWING' ? 'run' : 'todo';
+  return {
+    ...record,
+    tone,
+    responseDueText: formatDueText(record.responseDueAt, '响应截止'),
+    resolutionDueText: formatDueText(record.resolutionDueAt, '处理截止'),
+    statusLabel: record.statusLabel || { SUBMITTED:'待处理', REVIEWING:'处理中', CLOSED:'已完成' }[record.status] || record.status
+  };
+}
+
 function card(item) {
   const isEbike = item.type === 'E_BIKE';
   const type = item.type;
@@ -128,7 +164,7 @@ function card(item) {
     if (!['COMPLETED','CANCELLED','AFTER_SALE'].includes(item.status)) actions.push({ key:'edit', text:'修改配送' });
   if (item.status !== 'CANCELLED') actions.push({ key:'collab', text:'联系商家', action:'NOTE' });
     if (!['COMPLETED','CANCELLED','AFTER_SALE'].includes(item.status)) actions.push({ key:'appeal', text:'平台协助', action:'APPEAL' });
-    if (!['CANCELLED'].includes(item.status)) actions.push({ key:'aftersale', text:'申请售后' });
+    if (!['CANCELLED'].includes(item.status)) actions.push({ key:'aftersale', text:item.status === 'AFTER_SALE' ? '售后详情' : '申请售后' });
   }
   if (type === 'PHONE_PLAN') {
     if (item.status === 'PENDING_REALNAME') actions.push({ key:'consult', text:'实名咨询', business:'电话卡实名激活' });
@@ -160,7 +196,7 @@ function card(item) {
     deliveryText: fulfillment.address ? `${fulfillment.date || '尽快配送'} · ${fulfillment.address}` : '',
     actions,
     merchantName:item.merchantName || '',
-    journey: isEbike ? (ebikeJourney[item.status] || []) : [],
+    journey: isEbike ? ((item.afterSales?.length && item.afterSales[0].status !== 'CLOSED' ? afterSaleJourney[item.afterSales[0].status] : ebikeJourney[item.status]) || []) : [],
     nextStep: isEbike && item.status === 'FULFILLING' ? '向商家出示交付码完成配送' : item.collaboration?.roleActions?.MERCHANT?.length ? '商家确认履约' : item.collaboration?.roleActions?.PLATFORM?.length ? '平台介入处理' : item.status === 'COMPLETED' ? '可评价本次服务' : '等待履约更新',
     intervention:item.collaboration?.intervention?.status === 'REQUESTED',
     messages:(item.collaboration?.messages || []).slice(0,2),

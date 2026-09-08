@@ -26,6 +26,15 @@
 .tone-warn { color: #b42318; background: #ffe9e6; }
 .tone-closed { color: #667289; background: #eef1f5; }
 .record-title { font-size: 31rpx; font-weight: 900; margin: 20rpx 0 10rpx; }
+.after-sale-panel { margin-top: 18rpx; padding: 20rpx; border: 1rpx solid #e3e9f5; border-radius: 18rpx; background: #fff; }
+.after-sale-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18rpx; }
+.after-sale-title { font-size: 26rpx; font-weight: 900; color: #17233d; }
+.after-sale-reason { margin-top: 7rpx; line-height: 1.45; }
+.after-sale-meta { display: inline-flex; margin: 16rpx 10rpx 0 0; padding: 8rpx 14rpx; border-radius: 12rpx; background: #f7f9ff; color: #33435f; font-size: 20rpx; }
+.after-sale-result { display: flex; gap: 14rpx; margin-top: 16rpx; padding: 16rpx; border-radius: 14rpx; background: #f0faf5; color: #157552; font-size: 21rpx; line-height: 1.5; }
+.after-sale-result text:first-child { flex: 0 0 auto; font-weight: 900; }
+.after-sale-images { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10rpx; margin-top: 16rpx; }
+.after-sale-images image { width: 100%; height: 160rpx; border-radius: 12rpx; }
 .status-note { margin: -4rpx 0 10rpx; padding: 10rpx 14rpx; border-radius: 12rpx; background: #f2f4f8; color: #667289; font-size: 20rpx; }
 .record-meta { display: flex; justify-content: space-between; color: #78849a; font-size: 21rpx; }
 .countdown { display: flex; align-items: center; gap: 10rpx; margin-top: 14rpx; padding: 12rpx 16rpx; background: #fff5e6; border-radius: 12rpx; color: #a55a00; font-size: 21rpx; font-weight: 700; }

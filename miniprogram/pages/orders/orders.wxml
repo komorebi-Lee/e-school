@@ -23,6 +23,23 @@
     <view class="record-head"><view class="record-type"><text class="record-icon">{{item.icon}}</text>{{item.typeLabel}}</view><text class="status tone-{{item.tone}}">{{item.statusLabel}}</text></view>
     <view class="record-title">{{item.title}}</view>
     <view class="status-note" wx:if="{{item.statusNote}}">{{item.statusNote}}</view>
+    <view class="after-sale-panel" wx:if="{{item.afterSale}}">
+      <view class="after-sale-head">
+        <view>
+          <view class="after-sale-title">售后进度 · {{item.afterSale.typeLabel}}</view>
+          <view class="muted after-sale-reason">{{item.afterSale.reason}}</view>
+        </view>
+        <text class="status tone-{{item.afterSale.tone}}">{{item.afterSale.statusLabel}}</text>
+      </view>
+      <view class="after-sale-meta" wx:if="{{item.afterSale.responseDueText}}">{{item.afterSale.responseDueText}}</view>
+      <view class="after-sale-meta" wx:if="{{item.afterSale.resolutionDueText}}">{{item.afterSale.resolutionDueText}}</view>
+      <view class="after-sale-result" wx:if="{{item.afterSale.resolutionNote}}">
+        <text>处理结果</text><text>{{item.afterSale.resolutionNote}}</text>
+      </view>
+      <view class="after-sale-images" wx:if="{{item.afterSale.images.length}}">
+        <image wx:for="{{item.afterSale.images}}" wx:key="*this" src="{{item}}" mode="aspectFill" />
+      </view>
+    </view>
     <view class="delivery-code" wx:if="{{item.deliveryCode}}">
       <view class="code-meta"><text class="code-label">{{item.status === 'COMPLETED' ? '已核验交付码' : '交付码'}}</text><text class="code-hint">{{item.status === 'FULFILLING' ? '配送时向商家出示' : '已核验，可留存备查'}}</text></view>
       <view class="code-value">{{item.deliveryCode}}</view>
