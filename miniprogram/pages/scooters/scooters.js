@@ -4,9 +4,12 @@ const { getScooters } = require('../../services/store');
 function normalizeProduct(item) {
   // 可售库存已扣除待支付订单占用，避免展示“有货”却下不了单。
   const sellableStock = Number(item.availableStock !== undefined ? item.availableStock : item.stock || 0);
+  const promotion = item.promotion || null;
   return {
     ...item,
-    price: Math.round((item.priceInCents || 0) / 100),
+    price: Math.round(Number(item.effectivePriceInCents ?? (item.priceInCents || 0)) / 100),
+    originalPrice: promotion?.originalPriceInCents ? Math.round(Number(promotion.originalPriceInCents) / 100) : 0,
+    promoText: promotion?.statusText || '',
     subtitle: item.description || '支持校内配送和校园牌照辅助。',
     range: item.range || (item.id === 'prod_ebike_rent_001' ? '70 km' : '45 km'),
     speed: item.speed || '25 km/h',

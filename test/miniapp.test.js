@@ -15,6 +15,13 @@ function listMiniappFiles() {
     .map((item) => path.join(miniappDirectory, String(item)));
 }
 
+test('miniapp JavaScript parses without syntax errors', () => {
+  const { execFileSync } = require('node:child_process');
+  for (const file of listMiniappFiles()) {
+    execFileSync(process.execPath, ['--check', file], { stdio: 'pipe' });
+  }
+});
+
 test('miniapp keeps orders and service records in the server store', () => {
   const forbiddenStorageKeys = [
     'campusGoOrders',
@@ -359,6 +366,10 @@ test('limited recharge promos run as an availability-controlled campaign', () =>
 });
 
 test('product sale campaigns show server-controlled promo pricing', () => {
+  const homeJs = readMiniappFile(path.join('pages', 'home', 'home.js'));
+  const homeWxml = readMiniappFile(path.join('pages', 'home', 'home.wxml'));
+  const scooterJs = readMiniappFile(path.join('pages', 'scooters', 'scooters.js'));
+  const scooterWxml = readMiniappFile(path.join('pages', 'scooters', 'scooters.wxml'));
   const detailJs = readMiniappFile(path.join('pages', 'detail', 'detail.js'));
   const detailWxml = readMiniappFile(path.join('pages', 'detail', 'detail.wxml'));
   const checkoutJs = readMiniappFile(path.join('pages', 'checkout', 'checkout.js'));
@@ -373,6 +384,11 @@ test('product sale campaigns show server-controlled promo pricing', () => {
   }
   assert.ok(checkoutJs.includes('effectivePriceInCents'), 'checkout should preserve server effective pricing');
   assert.ok(checkoutWxml.includes('originalPrice'), 'checkout should show the crossed-out original price');
+  assert.ok(homeJs.includes('effectivePriceInCents'), 'home should use server effective pricing');
+  assert.ok(homeWxml.includes('originalPrice'), 'home should show crossed-out original prices');
+  assert.ok(scooterJs.includes('effectivePriceInCents'), 'scooter list should use server effective pricing');
+  assert.ok(scooterWxml.includes('promo-badge'), 'scooter list should surface promotions');
+  assert.ok(scooterWxml.includes('original-price'), 'scooter list should compare original and sale prices');
   assert.ok(checkoutWxml.includes('paymentTimeoutText'), 'checkout should show the configured payment timeout');
   assert.ok(checkoutJs.includes('stockNote'), 'checkout should explain unavailable stock');
   assert.ok(checkoutWxml.includes('stockNote'), 'checkout should show the unavailable stock note');

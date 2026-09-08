@@ -15,7 +15,7 @@ Page({
     this.setData({ payToken: `ebike-${id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` });
     this.loadAddresses();
     request(`/api/products/${encodeURIComponent(id)}`).then(({ data }) => {
-      const sellableStock = Number(data.availableStock ?? data.stock || 0);
+      const sellableStock = Number(data.availableStock ?? (data.stock || 0));
       this.setData({ scooter: {
         ...data,
         price: Math.round((data.effectivePriceInCents ?? data.priceInCents) / 100),
@@ -76,7 +76,7 @@ Page({
     const scooter = this.data.scooter;
     if (!scooter) return;
     const deliveryFee = this.data.config ? this.data.config.deliveryFee : 0;
-    const itemsFee = Math.round((scooter.effectivePriceInCents ?? scooter.priceInCents || 0) / 100);
+    const itemsFee = Math.round((scooter.effectivePriceInCents ?? (scooter.priceInCents || 0)) / 100);
     this.setData({ itemsFee, deliveryFee, totalFee: itemsFee + deliveryFee });
   },
   setName(e) { this.setData({ name: e.detail.value, selectedAddressId: '' }); },

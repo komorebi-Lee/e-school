@@ -12,6 +12,12 @@
 .hot-card { padding: 20rpx; border-radius: 18rpx; background: #f5f7fb; text-align: left; }
 .hot-name { font-size: 23rpx; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hot-meta { display: flex; justify-content: space-between; margin-top: 12rpx; color: #002fa7; font-size: 21rpx; font-weight: 800; }
+.hot-price-group { display: inline-flex; align-items: baseline; gap: 8rpx; }
+.hot-original { color: #98a4b7; font-weight: 500; text-decoration: line-through; }
+.promo-row { margin-top: 12rpx; }
+.promo-badge { display: inline-flex; padding: 6rpx 12rpx; border-radius: 999rpx; background: #fff1b8; color: #a05a00; font-size: 20rpx; font-weight: 800; }
+.price-group { display: inline-flex; align-items: baseline; gap: 10rpx; }
+.original-price { color: #98a4b7; font-size: 22rpx; text-decoration: line-through; }
 .hot-meta text:last-child { color: #78849a; font-weight: 600; }
 .tags { display: flex; gap: 10rpx; margin-top: 16rpx; }
 .tags text { padding: 7rpx 13rpx; border-radius: 999rpx; background: #eaf0ff; color: #002fa7; font-size: 19rpx; font-weight: 700; }

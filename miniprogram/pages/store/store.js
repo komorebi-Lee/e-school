@@ -16,7 +16,7 @@ function decorateStoreReview(review) {
 }
 
 function decorateProduct(product) {
-  const stock = Number(product.availableStock ?? product.stock || 0);
+  const stock = Number(product.availableStock ?? (product.stock || 0));
   return {
     id: product.id,
     name: product.name,
@@ -24,7 +24,7 @@ function decorateProduct(product) {
     imageUrl: product.imageUrl || '',
     icon: product.icon || '车',
     color: product.color || '#eaf0ff',
-    price: ((Number(product.effectivePriceInCents ?? product.priceInCents || 0)) / 100).toFixed(2),
+    price: ((Number(product.effectivePriceInCents ?? (product.priceInCents || 0))) / 100).toFixed(2),
     originalPrice: product.promotion?.originalPriceInCents
       ? (Number(product.promotion.originalPriceInCents) / 100).toFixed(2) : '',
     promoText: product.promotion?.statusText || '',

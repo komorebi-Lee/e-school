@@ -65,7 +65,7 @@ Page({
           favoriteCount: Number(product.favoriteCount || 0),
           favoriteDemandText: product.favoriteDemandText || '暂无收藏需求',
           restockHint: product.restockHint || '',
-          priceText: (Number(product.effectivePriceInCents ?? product.priceInCents || 0) / 100).toFixed(2),
+          priceText: (Number(product.effectivePriceInCents ?? (product.priceInCents || 0)) / 100).toFixed(2),
           originalPriceText: product.promotion ? (Number(product.promotion.originalPriceInCents || 0) / 100).toFixed(2) : '',
           promotionText: product.promotion ? product.promotion.statusText : '',
           sellableStock,

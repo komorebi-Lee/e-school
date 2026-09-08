@@ -31,3 +31,6 @@ page {
 .field-label { display: block; color: #536078; font-size: 24rpx; margin-bottom: 12rpx; }
 .input { background: #f5f7fb; border: 2rpx solid #e8ecf4; border-radius: 18rpx; padding: 22rpx; }
 .price { color: #002fa7; font-weight: 900; }
+.price-group { display: inline-flex; align-items: baseline; gap: 10rpx; }
+.original-price { color: #98a4b7; font-size: 22rpx; text-decoration: line-through; }
+.promo-badge { display: inline-flex; margin-top: 10rpx; padding: 6rpx 12rpx; border-radius: 999rpx; background: #fff1b8; color: #a05a00; font-size: 20rpx; font-weight: 800; }
