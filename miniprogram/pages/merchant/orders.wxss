@@ -45,3 +45,4 @@
 .timeline-role { color: #002fa7; font-size: 20rpx; font-weight: 800; margin-right: 10rpx; }
 .timeline-note { color: #33435f; font-size: 22rpx; line-height: 1.5; }
 .timeline-time { font-size: 19rpx; margin-top: 5rpx; }
+.focus-item { border-color: #002fa7 !important; box-shadow: 0 0 0 4rpx rgba(0, 47, 167, .12) !important; }

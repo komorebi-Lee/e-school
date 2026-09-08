@@ -33,7 +33,7 @@ const stockMovementFilters = [
 
 Page({
   data: {
-    categories, products: [], filtered: [], metrics: null, lowStockThreshold: 10, query: '', filter: 'ALL',
+    categories, products: [], filtered: [], metrics: null, lowStockThreshold: 10, query: '', filter: 'ALL', focusId: '',
     filters: [
       { key:'ALL', label:'全部' },
       { key:'LOW', label:'低库存' },
@@ -41,6 +41,10 @@ Page({
     ],
     form: emptyForm, editId: '', loading: true,
     stockMovements: [], stockMovementFilters, stockMovementFilter: 'ALL'
+  },
+  onLoad(options = {}) {
+    if (options.focusId) this.focusId = options.focusId;
+    if (options.filter) this.setData({ filter: options.filter });
   },
   onShow() {
     this.load();
@@ -85,6 +89,8 @@ Page({
         loading: false
       });
       return this.loadStockMovements();
+    }).then(() => {
+      this.focusLoadedItem('merchant-product', this.data.products);
     }).catch(() => {
       this.setData({ loading: false });
       wx.showToast({ title: '请重新进入商家工作台', icon: 'none' });
@@ -125,6 +131,14 @@ Page({
         operatorText: item.operator === 'ORDER_FLOW' ? '订单流程' : item.operator === 'ADMIN' ? '平台' : merchantName,
         timeText: String(item.createdAt || '').slice(5, 16).replace('T', ' ')
       }));
+  },
+  focusLoadedItem(prefix, items) {
+    const focusId = this.focusId;
+    if (!focusId || !(items || []).some((item) => item.id === focusId)) return;
+    this.setData({ focusId });
+    wx.nextTick(() => {
+      wx.pageScrollTo({ selector: `#${prefix}-${focusId}`, offsetTop: 80, duration: 300 });
+    });
   },
   setSearch(event) {
     const query = event.detail.value.trim();

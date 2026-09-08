@@ -11,3 +11,4 @@
 .reply-content { margin-top: 8rpx; color: #33435f; font-size: 22rpx; line-height: 1.5; }
 .actions { margin-top: 18rpx; display: flex; justify-content: flex-end; }
 .actions button { margin: 0; }
+.focus-item { border-color: #002fa7 !important; box-shadow: 0 0 0 4rpx rgba(0, 47, 167, .12) !important; }

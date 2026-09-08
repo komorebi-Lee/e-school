@@ -49,3 +49,4 @@
 .movement-tone.warn { color: #b42318; }
 .movement-tone.blue { color: #002fa7; }
 .movement-time { font-size: 21rpx; }
+.focus-item { border-color: #002fa7 !important; box-shadow: 0 0 0 4rpx rgba(0, 47, 167, .12) !important; }

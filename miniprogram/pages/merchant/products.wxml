@@ -68,7 +68,7 @@
   <view wx:if="{{loading}}" class="empty card"><view class="muted">正在加载…</view></view>
   <view wx:elif="{{!filtered.length}}" class="empty card"><view class="muted">没有匹配商品</view></view>
   <block wx:else>
-    <view class="product card" wx:for="{{filtered}}" wx:key="id">
+    <view id="merchant-product-{{item.id}}" class="product card {{item.id === focusId ? 'focus-item' : ''}}" wx:for="{{filtered}}" wx:key="id">
       <view class="product-head"><image wx:if="{{item.imageUrl}}" class="product-thumb" src="{{item.imageUrl}}" mode="aspectFill" /><view class="head"><view class="strong">{{item.name}}</view><text class="{{item.active ? 'on' : 'off'}}">{{item.active ? '销售中' : '已下架'}}</text></view></view>
       <view class="category-row">
         <text class="category">{{item.categoryLabel}}</text>

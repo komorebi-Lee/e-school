@@ -15,7 +15,7 @@
       </view>
     </scroll-view>
 
-    <view class="order card" wx:for="{{filtered}}" wx:key="id">
+    <view id="merchant-order-{{item.id}}" class="order card {{item.id === focusId ? 'focus-item' : ''}}" wx:for="{{filtered}}" wx:key="id">
       <view class="head"><view class="strong">{{item.orderNo}}</view><text class="status tone-{{item.status}}">{{item.statusLabel}}</text></view>
       <view class="items"><view wx:for="{{item.items}}" wx:for-item="orderItem" wx:key="productId">{{orderItem.name}} × {{orderItem.quantity}}</view></view>
       <view class="delivery" wx:if="{{item.delivery}}">

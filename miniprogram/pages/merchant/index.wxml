@@ -96,7 +96,7 @@
           <view class="strong">风险处理清单</view>
           <view class="muted">按影响优先处理</view>
         </view>
-        <view class="risk-task" wx:for="{{riskTasks}}" wx:key="id" bindtap="goRiskTask" data-type="{{item.type}}">
+        <view class="risk-task" wx:for="{{riskTasks}}" wx:key="id" bindtap="goRiskTask" data-type="{{item.type}}" data-id="{{item.reference}}">
           <view class="risk-task-main">
             <view class="risk-task-title">{{item.title}}</view>
             <view class="muted risk-task-detail">{{item.detail}}</view>

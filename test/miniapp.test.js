@@ -433,6 +433,20 @@ test('merchant workspace visualizes service score trend', () => {
   assert.ok(wxss.includes('.risk-task-block'), 'risk task list should have visible styling');
 });
 
+test('risk tasks deep-link into focused workspace entries', () => {
+  const workspaceJs = readMiniappFile(path.join('pages', 'merchant', 'index.js'));
+  const workspaceWxml = readMiniappFile(path.join('pages', 'merchant', 'index.wxml'));
+  const orderJs = readMiniappFile(path.join('pages', 'merchant', 'orders.js'));
+  const reviewJs = readMiniappFile(path.join('pages', 'merchant', 'reviews.js'));
+  const productJs = readMiniappFile(path.join('pages', 'merchant', 'products.js'));
+
+  assert.ok(workspaceJs.includes('focusId='), 'risk tasks should pass the target id');
+  assert.ok(workspaceWxml.includes('data-id="{{item.reference}}"'), 'risk tasks should carry the exact business reference');
+  assert.ok(orderJs.includes('focusLoadedItem'), 'orders should support focused entry routing');
+  assert.ok(reviewJs.includes('focusLoadedItem'), 'reviews should support focused entry routing');
+  assert.ok(productJs.includes('focusLoadedItem'), 'products should support focused entry routing');
+});
+
 test('product detail surfaces merchant rectification status prominently', () => {
   const js = readMiniappFile(path.join('pages', 'detail', 'detail.js'));
   const wxml = readMiniappFile(path.join('pages', 'detail', 'detail.wxml'));

@@ -3,7 +3,7 @@
   <view wx:elif="{{!reviews.length}}" class="empty card"><view class="muted">暂无已购评价</view></view>
   <block wx:else>
     <view class="summary card">共 {{reviews.length}} 条评价，{{pendingReviewCount}} 条待回复</view>
-    <view class="review card" wx:for="{{reviews}}" wx:key="id">
+    <view id="merchant-review-{{item.id}}" class="review card {{item.id === focusId ? 'focus-item' : ''}}" wx:for="{{reviews}}" wx:key="id">
       <view class="head">
         <view><view class="product">{{item.productName}}</view><view class="muted">{{item.customerName}} · {{item.dateText}}</view></view>
         <text class="stars">{{item.stars}}</text>

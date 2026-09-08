@@ -7,16 +7,28 @@ const nextSteps = { PAID:'确认履约', FULFILLING:'核验交付码并完成配
 const roleLabels = { USER:'用户', MERCHANT:'商家', PLATFORM:'平台' };
 
 Page({
-  data: { orders: [], filtered: [], afterSales: [], metrics: null, filter: 'ALL', filters: [
+  data: { orders: [], filtered: [], afterSales: [], metrics: null, filter: 'ALL', focusId: '', filters: [
     { key:'ALL', label:'全部' },
     { key:'PENDING', label:'待履约' },
     { key:'AFTER_SALE', label:'售后' },
     { key:'COMPLETED', label:'已完成' }
   ], loading: true },
+  onLoad(options = {}) {
+    if (options.focusId) this.focusId = options.focusId;
+    if (options.filter) this.setData({ filter: options.filter });
+  },
   onShow() {
     this.load();
   },
 
+  focusLoadedItem(prefix, items) {
+    const focusId = this.focusId;
+    if (!focusId || !(items || []).some((item) => item.id === focusId)) return;
+    this.setData({ focusId });
+    wx.nextTick(() => {
+      wx.pageScrollTo({ selector: `#${prefix}-${focusId}`, offsetTop: 80, duration: 300 });
+    });
+  },
   request(path, options = {}) {
     const token = wx.getStorageSync('campusGoMerchantToken');
     return apiRequest(path, { ...options, header: { authorization: `Bearer ${token}` } });
@@ -37,6 +49,7 @@ Page({
         metrics: data.metrics || null,
         loading: false
       });
+      this.focusLoadedItem('merchant-order', orders);
     }).catch(() => {
       this.setData({ loading: false });
       wx.showToast({ title: '请重新进入商家工作台', icon: 'none' });

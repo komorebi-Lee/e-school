@@ -356,10 +356,17 @@ Page({
     wx.navigateTo({ url: '/pages/merchant/reviews' });
   },
   goRiskTask(event) {
-    const type = event.currentTarget.dataset.type;
-    if (type === 'NEGATIVE_REVIEW') return this.goReviews();
-    if (type === 'LOW_STOCK') return this.goProducts();
-    return this.goOrders();
+    const { type, id } = event.currentTarget.dataset;
+    const focusId = encodeURIComponent(id || '');
+    if (!focusId) return;
+    if (type === 'NEGATIVE_REVIEW') {
+      return wx.navigateTo({ url: `/pages/merchant/reviews?focusId=${focusId}` });
+    }
+    if (type === 'LOW_STOCK') {
+      return wx.navigateTo({ url: `/pages/merchant/products?focusId=${focusId}&filter=LOW` });
+    }
+    const filter = type === 'AFTER_SALE' ? '&filter=AFTER_SALE' : '';
+    return wx.navigateTo({ url: `/pages/merchant/orders?focusId=${focusId}${filter}` });
   },
   setRenewalLicenseNo(event) {
     this.setData({ renewalLicenseNo: event.detail.value });

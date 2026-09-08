@@ -1,7 +1,10 @@
 const { request: apiRequest } = require('../../services/api');
 
 Page({
-  data: { reviews: [], loading: true, replying: '' },
+  data: { reviews: [], loading: true, replying: '', focusId: '' },
+  onLoad(options = {}) {
+    if (options.focusId) this.focusId = options.focusId;
+  },
   onShow() { this.load(); },
   request(path, options = {}) {
     const token = wx.getStorageSync('campusGoMerchantToken');
@@ -16,9 +19,18 @@ Page({
         replied: Boolean(review.reply)
       }));
       this.setData({ reviews, pendingReviewCount: reviews.filter((review) => !review.replied).length, loading: false });
+      this.focusLoadedItem('merchant-review', reviews);
     }).catch(() => {
       this.setData({ pendingReviewCount: 0, loading: false });
       wx.showToast({ title: '请重新进入商家工作台', icon: 'none' });
+    });
+  },
+  focusLoadedItem(prefix, items) {
+    const focusId = this.focusId;
+    if (!focusId || !(items || []).some((item) => item.id === focusId)) return;
+    this.setData({ focusId });
+    wx.nextTick(() => {
+      wx.pageScrollTo({ selector: `#${prefix}-${focusId}`, offsetTop: 80, duration: 300 });
     });
   },
   reply(e) {
