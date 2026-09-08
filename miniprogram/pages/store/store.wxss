@@ -11,7 +11,21 @@
 .store-chips { display: flex; flex-wrap: wrap; gap: 12rpx; margin-top: 20rpx; }
 .chip { padding: 9rpx 18rpx; border-radius: 999rpx; background: #eaf0ff; color: #002fa7; font-size: 21rpx; font-weight: 700; }
 .store-stats { margin-top: 22rpx; color: #17233d; font-size: 24rpx; font-weight: 850; }
+.store-review-summary { margin-top: 10rpx; display: flex; justify-content: space-between; gap: 18rpx; color: #536078; font-size: 22rpx; }
+.store-review-summary .strong { color: #002fa7; font-weight: 850; }
 .products { display: grid; gap: 18rpx; }
+.store-reviews { display: grid; gap: 18rpx; }
+.store-review { padding: 22rpx; }
+.review-head { display: flex; align-items: center; gap: 14rpx; }
+.review-stars { color: #ff8a00; font-size: 24rpx; font-weight: 900; }
+.review-product { min-width: 0; flex: 1; overflow: hidden; color: #17233d; font-size: 24rpx; font-weight: 850; text-overflow: ellipsis; white-space: nowrap; }
+.review-content { margin-top: 14rpx; color: #334155; font-size: 24rpx; line-height: 1.6; }
+.review-images { display: flex; gap: 12rpx; margin-top: 16rpx; }
+.review-image { width: 130rpx; height: 130rpx; border-radius: 14rpx; background: #eaf0ff; }
+.review-person { margin-top: 16rpx; }
+.merchant-reply { margin-top: 16rpx; padding: 16rpx; border-radius: 14rpx; background: #f5f7ff; }
+.reply-name { color: #002fa7; font-size: 22rpx; font-weight: 850; }
+.reply-content { margin-top: 8rpx; color: #334155; font-size: 22rpx; line-height: 1.5; }
 .product { display: flex; gap: 20rpx; padding: 20rpx; }
 .visual { width: 170rpx; height: 170rpx; border-radius: 20rpx; display: flex; align-items: center; justify-content: center; overflow: hidden; color: #1746a2; font-size: 50rpx; font-weight: 900; flex: 0 0 auto; }
 .visual image { width: 100%; height: 100%; }

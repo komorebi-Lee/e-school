@@ -17,6 +17,10 @@
         <view class="chip">{{store.scoreNote}}</view>
       </view>
       <view class="store-stats">{{store.statsText}}</view>
+      <view class="store-review-summary">
+        <text>{{store.reviewText}}</text>
+        <text class="strong">{{store.positiveRateText}}</text>
+      </view>
     </view>
 
     <view class="section-title">在售商品</view>
@@ -43,5 +47,26 @@
       </view>
     </view>
     <view wx:if="{{!products.length}}" class="empty card"><view class="muted">这家店暂无在售商品</view></view>
+
+    <view class="section-title">同学评价</view>
+    <view class="store-reviews">
+      <view class="store-review card" wx:for="{{reviews}}" wx:key="id">
+        <view class="review-head">
+          <text class="review-stars">{{item.stars}}</text>
+          <text class="review-product">{{item.productName}}</text>
+          <text class="muted small">{{item.timeText}}</text>
+        </view>
+        <view class="review-content">{{item.content}}</view>
+        <view class="review-images" wx:if="{{item.images.length}}">
+          <image wx:for="{{item.images}}" wx:for-item="image" wx:key="*this" class="review-image" src="{{image}}" mode="aspectFill" />
+        </view>
+        <view class="muted small review-person">{{item.customerName}} · {{item.college || '华中农业大学'}}</view>
+        <view class="merchant-reply" wx:if="{{item.reply}}">
+          <view class="reply-head"><text class="reply-name">{{item.reply.merchantName}}</text></view>
+          <view class="reply-content">{{item.reply.content}}</view>
+        </view>
+      </view>
+    </view>
+    <view wx:if="{{!reviews.length}}" class="empty card"><view class="muted">这家店暂无已购评价</view></view>
   </block>
 </view>

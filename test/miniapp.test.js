@@ -78,6 +78,12 @@ test('merchant storefront is reachable from product detail', () => {
   const source = readMiniappFile(path.join('pages', 'store', 'store.js'));
   assert.ok(source.includes('/storefront'), 'storefront should load the merchant storefront API');
   assert.ok(source.includes('goProduct'), 'storefront should link to product detail');
+  assert.ok(source.includes('reviewSummary'), 'storefront should summarize verified reviews');
+  assert.ok(source.includes('positiveRateText'), 'storefront should show the positive review rate');
+
+  const storeMarkup = readMiniappFile(path.join('pages', 'store', 'store.wxml'));
+  assert.ok(storeMarkup.includes('store-reviews'), 'storefront should show verified review evidence');
+  assert.ok(storeMarkup.includes('positiveRateText'), 'storefront should show the positive review rate');
 
   const markup = readMiniappFile(path.join('pages', 'detail', 'detail.wxml'));
   assert.ok(markup.includes('goStore'), 'product detail should provide a storefront entry');
