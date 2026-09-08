@@ -15,3 +15,5 @@
 .summary-row { display: flex; justify-content: space-between; color: #536078; font-size: 24rpx; margin-bottom: 16rpx; }
 .summary-row.total { color: #172033; font-size: 30rpx; font-weight: 900; margin-bottom: 14rpx; }
 .summary-note { color: #78849a; font-size: 21rpx; line-height: 1.5; }
+.price-line .promo { margin-left: 12rpx; padding: 4rpx 12rpx; border-radius: 999rpx; background: #eaf0ff; color: #002fa7; font-size: 19rpx; font-weight: 850; }
+.muted.small { margin-top: 8rpx; font-size: 21rpx; }

@@ -333,6 +333,9 @@ test('product sale campaigns show server-controlled promo pricing', () => {
   }
   assert.ok(checkoutJs.includes('effectivePriceInCents'), 'checkout should preserve server effective pricing');
   assert.ok(checkoutWxml.includes('originalPrice'), 'checkout should show the crossed-out original price');
+  assert.ok(checkoutWxml.includes('paymentTimeoutText'), 'checkout should show the configured payment timeout');
+  assert.ok(checkoutJs.includes('stockNote'), 'checkout should explain unavailable stock');
+  assert.ok(checkoutWxml.includes('stockNote'), 'checkout should show the unavailable stock note');
 
   assert.ok(adminJs.includes('salePriceInCents'), 'admin should configure sale prices');
   assert.ok(adminJs.includes('saleStartsAt'), 'admin should configure sale start time');

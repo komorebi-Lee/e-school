@@ -15,7 +15,17 @@ Page({
     this.setData({ payToken: `ebike-${id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` });
     this.loadAddresses();
     request(`/api/products/${encodeURIComponent(id)}`).then(({ data }) => {
-      this.setData({ scooter: { ...data, price: Math.round((data.effectivePriceInCents ?? data.priceInCents) / 100), originalPrice: Math.round((data.promotion?.originalPriceInCents || 0) / 100), subtitle: data.description, color: '#eaf0ff', icon: '车' } });
+      const sellableStock = Number(data.availableStock ?? data.stock || 0);
+      this.setData({ scooter: {
+        ...data,
+        price: Math.round((data.effectivePriceInCents ?? data.priceInCents) / 100),
+        originalPrice: Math.round((data.promotion?.originalPriceInCents || 0) / 100),
+        subtitle: data.description,
+        color: '#eaf0ff',
+        icon: '车',
+        sellableStock,
+        stockNote: sellableStock > 0 ? '' : '该车型已售罄或库存被待支付订单占用，暂不能提交订单。'
+      } });
       this.updateTotals();
     }).catch((error) => {
       wx.showToast({ title: error.message || '商品加载失败，请稍后重试', icon: 'none' });
@@ -66,7 +76,7 @@ Page({
     const scooter = this.data.scooter;
     if (!scooter) return;
     const deliveryFee = this.data.config ? this.data.config.deliveryFee : 0;
-    const itemsFee = scooter.price || 0;
+    const itemsFee = Math.round((scooter.effectivePriceInCents ?? scooter.priceInCents || 0) / 100);
     this.setData({ itemsFee, deliveryFee, totalFee: itemsFee + deliveryFee });
   },
   setName(e) { this.setData({ name: e.detail.value, selectedAddressId: '' }); },
