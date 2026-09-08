@@ -3,7 +3,7 @@ const { loadBusinessConfig } = require('../../services/business');
 const { payPaymentOrder } = require('../../services/payment');
 
 Page({
-  data: { scooter: null, config: null, deliveryTimeSlots: [], deliveryTimeIndex: 0, name: '', phone: '', date: '', minDate: '', deliveryAddress: '', submitting: false, payToken: '', itemsFee: 0, deliveryFee: 0, totalFee: 0, agreed: false },
+  data: { scooter: null, config: null, deliveryTimeSlots: [], deliveryTimeIndex: 0, name: '', phone: '', date: '', minDate: '', deliveryAddress: '', addresses: [], selectedAddressId: '', saveAddress: true, submitting: false, payToken: '', itemsFee: 0, deliveryFee: 0, totalFee: 0, agreed: false },
   onShow() {
     const now = new Date();
     const minDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -13,6 +13,7 @@ Page({
   onLoad(options) {
     const id = options.id || '';
     this.setData({ payToken: `ebike-${id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` });
+    this.loadAddresses();
     request(`/api/products/${encodeURIComponent(id)}`).then(({ data }) => {
       this.setData({ scooter: { ...data, price: Math.round((data.effectivePriceInCents ?? data.priceInCents) / 100), originalPrice: Math.round((data.promotion?.originalPriceInCents || 0) / 100), subtitle: data.description, color: '#eaf0ff', icon: '车' } });
       this.updateTotals();
@@ -24,6 +25,43 @@ Page({
       this.updateTotals();
     });
   },
+  loadAddresses() {
+    request('/api/my/addresses').then(({ data }) => {
+      const addressList = Array.isArray(data) ? data : [];
+      this.setData({ addresses: addressList });
+      const selected = addressList.find((item) => item.isDefault) || addressList[0];
+      if (selected) this.applyAddress(selected);
+    }).catch(() => this.setData({ addresses: [] }));
+  },
+  applyAddress(address) {
+    if (!address) return;
+    this.setData({
+      selectedAddressId: address.id,
+      name: address.contactName || '',
+      phone: address.contactPhone || '',
+      deliveryAddress: address.address || ''
+    });
+  },
+  selectAddress(event) {
+    const selected = this.data.addresses.find((item) => item.id === event.currentTarget.dataset.id);
+    this.applyAddress(selected);
+  },
+  deleteAddress(event) {
+    const id = event.currentTarget.dataset.id;
+    if (!id) return;
+    wx.showModal({
+      title: '删除常用地址',
+      content: '删除后下次下单需要重新填写配送信息。',
+      success: ({ confirm }) => {
+        if (!confirm) return;
+        request(`/api/my/addresses/${encodeURIComponent(id)}`, { method: 'DELETE' }).then(() => {
+          if (this.data.selectedAddressId === id) this.setData({ selectedAddressId: '' });
+          this.loadAddresses();
+          wx.showToast({ title: '地址已删除', icon: 'success' });
+        }).catch((error) => wx.showToast({ title: error.message || '删除失败', icon: 'none' }));
+      }
+    });
+  },
   updateTotals() {
     const scooter = this.data.scooter;
     if (!scooter) return;
@@ -31,11 +69,24 @@ Page({
     const itemsFee = scooter.price || 0;
     this.setData({ itemsFee, deliveryFee, totalFee: itemsFee + deliveryFee });
   },
-  setName(e) { this.setData({ name: e.detail.value }); },
-  setPhone(e) { this.setData({ phone: e.detail.value }); },
+  setName(e) { this.setData({ name: e.detail.value, selectedAddressId: '' }); },
+  setPhone(e) { this.setData({ phone: e.detail.value, selectedAddressId: '' }); },
   setDate(e) { this.setData({ date: e.detail.value }); },
   setDeliveryTime(e) { this.setData({ deliveryTimeIndex: Number(e.detail.value) }); },
-  setAddress(e) { this.setData({ deliveryAddress: e.detail.value }); },
+  setAddress(e) { this.setData({ deliveryAddress: e.detail.value, selectedAddressId: '' }); },
+  setSaveAddress() { this.setData({ saveAddress: !this.data.saveAddress }); },
+  saveNewAddress() {
+    if (!this.data.saveAddress || this.data.selectedAddressId) return Promise.resolve();
+    return request('/api/my/addresses', {
+      method: 'POST',
+      data: {
+        contactName: this.data.name,
+        contactPhone: this.data.phone,
+        address: this.data.deliveryAddress,
+        campusName: this.data.config?.campusName || ''
+      }
+    }).then(() => this.setData({ saveAddress: false })).catch(() => {});
+  },
   submit() {
     if (!this.data.agreed) return wx.showToast({ title: '请先阅读并同意协议', icon: 'none' });
     const { name, phone, date, deliveryAddress, scooter } = this.data;
@@ -47,12 +98,14 @@ Page({
       .then(({ data, paymentOrder }) => {
         if (!paymentOrder || !paymentOrder.id) throw new Error('支付单创建失败');
         return payPaymentOrder(paymentOrder).then(({ data: result }) => {
-          wx.showModal({
-            title: '支付成功',
-            content: `订单 ${result.order.orderNo} 已支付。平台购车订单会同步生成免费校园牌照辅助。`,
-            confirmText: '查看订单',
-            showCancel: false,
-            success: () => wx.switchTab({ url: '/pages/orders/orders' })
+          return this.saveNewAddress().then(() => {
+            wx.showModal({
+              title: '支付成功',
+              content: `订单 ${result.order.orderNo} 已支付。平台购车订单会同步生成免费校园牌照辅助。`,
+              confirmText: '查看订单',
+              showCancel: false,
+              success: () => wx.switchTab({ url: '/pages/orders/orders' })
+            });
           });
         });
       })

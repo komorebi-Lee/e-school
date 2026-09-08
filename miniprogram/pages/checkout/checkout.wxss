@@ -1,3 +1,11 @@
+.saved-addresses { padding: 18rpx; display: flex; gap: 18rpx; overflow-x: auto; }
+.saved-address { min-width: 380rpx; border: 2rpx solid #dbe3f1; border-radius: 20rpx; padding: 18rpx 20rpx; background: #fff; }
+.saved-address.active { border-color: #002fa7; background: #eef3ff; }
+.saved-address-main { margin-bottom: 12rpx; }
+.saved-address-name { font-weight: 900; font-size: 25rpx; color: #172033; }
+.default-tag { margin-left: 10rpx; padding: 2rpx 10rpx; border-radius: 999rpx; background: #002fa7; color: #fff; font-size: 18rpx; }
+.delete-address { color: #9aa5ba; border-color: #dbe3f1; background: #f7f9fd; font-size: 20rpx; padding: 4rpx 16rpx; }
+.address-save { margin-top: 22rpx; padding: 22rpx 24rpx; display: flex; align-items: center; gap: 14rpx; color: #536078; font-size: 23rpx; }
 .summary { display: flex; padding: 24rpx; align-items: center; }.mark { width: 130rpx; height: 130rpx; border-radius: 22rpx; display: flex; align-items: center; justify-content: center; font-size: 54rpx; color: #1746a2; font-weight: 900; margin-right: 22rpx; }.name { font-size: 31rpx; font-weight: 900; }.price-line { margin-top: 12rpx; }.price-line .price { font-size: 30rpx; font-weight: 900; color: #002fa7; }.price-line .original { margin-left: 12rpx; color: #a2aabc; font-size: 23rpx; text-decoration: line-through; }.form { padding: 28rpx; }.fixed { color: #536078; }.agreement { color: #78849a; font-size: 22rpx; line-height: 1.6; margin: 24rpx 4rpx 16rpx; }
 .agreement-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8rpx; margin: 0 4rpx 24rpx; color: #536078; font-size: 22rpx; }
 .checkbox { width: 32rpx; height: 32rpx; border: 2rpx solid #b8c3d8; border-radius: 10rpx; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 20rpx; font-weight: 900; }

@@ -50,6 +50,18 @@ test('miniapp order and after-sale pages use the API layer', () => {
   }
 });
 
+test('checkout reuses and saves delivery addresses', () => {
+  const source = readMiniappFile(path.join('pages', 'checkout', 'checkout.js'));
+  assert.ok(source.includes('/api/my/addresses'), 'checkout should load and save server addresses');
+  assert.ok(source.includes('selectedAddressId'), 'checkout should track the selected address');
+  assert.ok(source.includes('saveAddress'), 'checkout should let users save a new address');
+
+  const markup = readMiniappFile(path.join('pages', 'checkout', 'checkout.wxml'));
+  assert.ok(markup.includes('saved-addresses'), 'checkout should show saved addresses');
+  assert.ok(markup.includes('selectAddress'), 'checkout should let users select an address');
+  assert.ok(markup.includes('deleteAddress'), 'checkout should let users delete an address');
+});
+
 test('miniapp uses a shared payment action for mock and wechat jsapi payments', () => {
   const paymentService = readMiniappFile(path.join('services', 'payment.js'));
   assert.ok(paymentService.includes('wx.requestPayment'));
