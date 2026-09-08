@@ -62,6 +62,15 @@ test('checkout reuses and saves delivery addresses', () => {
   assert.ok(markup.includes('deleteAddress'), 'checkout should let users delete an address');
 });
 
+test('sold-out products can register restock alerts', () => {
+  const source = readMiniappFile(path.join('pages', 'detail', 'detail.js'));
+  assert.ok(source.includes('/restock-alert'), 'detail should call the restock alert API');
+  assert.ok(source.includes('toggleRestockAlert'), 'detail should support restock registration');
+
+  const markup = readMiniappFile(path.join('pages', 'detail', 'detail.wxml'));
+  assert.ok(markup.includes('restockSubscribed'), 'detail should show the restock alert state');
+});
+
 test('miniapp uses a shared payment action for mock and wechat jsapi payments', () => {
   const paymentService = readMiniappFile(path.join('services', 'payment.js'));
   assert.ok(paymentService.includes('wx.requestPayment'));

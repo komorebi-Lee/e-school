@@ -50,3 +50,5 @@
 .storefront-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14rpx; margin-top: 18rpx; padding-top: 18rpx; border-top: 1rpx solid #edf0f5; text-align: center; }
 .storefront-stat-value { font-size: 27rpx; font-weight: 900; color: #202b45; }
 .storefront-foot { margin-top: 14rpx; line-height: 1.5; }
+.bottom-actions { display: flex; gap: 14rpx; align-items: center; }
+.restock-button { margin: 0; padding: 0 22rpx; height: 78rpx; line-height: 78rpx; border-radius: 999rpx; background: #eaf0ff; color: #002fa7; font-size: 23rpx; font-weight: 800; }

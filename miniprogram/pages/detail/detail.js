@@ -132,7 +132,7 @@ function normalizeProduct(product, config = {}, reviewFilter = 'ALL') {
 }
 
 Page({
-  data: { scooter: null, config: null, reviewFilter: 'ALL', loading: true },
+  data: { scooter: null, config: null, reviewFilter: 'ALL', loading: true, restockSubscribed: false },
   onLoad(options) {
     loadBusinessConfig().then((config) => {
       this.setData({ config });
@@ -141,12 +141,29 @@ Page({
     request(`/api/products/${encodeURIComponent(options.id || '')}`).then(({ data }) => {
       this.rawProduct = data;
       this.setData({ scooter: normalizeProduct(data, this.data.config || {}, this.data.reviewFilter), loading: false });
+      this.loadRestockState(data.id);
     }).catch(() => {
       const cached = getScooter(options.id);
       this.rawProduct = cached;
       if (cached) this.setData({ scooter: normalizeProduct(cached, this.data.config || {}, this.data.reviewFilter), loading: false });
       else { this.setData({ loading: false }); wx.showToast({ title: '商品加载失败', icon: 'none' }); }
     });
+  },
+  loadRestockState(productId) {
+    request(`/api/products/${encodeURIComponent(productId)}/restock-alert`).then(({ data }) => {
+      this.setData({ restockSubscribed: data.subscribed === true });
+    }).catch(() => this.setData({ restockSubscribed: false }));
+  },
+  toggleRestockAlert() {
+    const scooter = this.data.scooter;
+    if (!scooter) return;
+    const subscribed = !this.data.restockSubscribed;
+    request(`/api/products/${encodeURIComponent(scooter.id)}/restock-alert`, {
+      method: 'POST', data: { subscribed }
+    }).then(() => {
+      this.setData({ restockSubscribed: subscribed });
+      wx.showToast({ title: subscribed ? '到货后通知你' : '已取消提醒', icon: 'success' });
+    }).catch((error) => wx.showToast({ title: error.message || '设置失败', icon: 'none' }));
   },
   setReviewFilter(event) {
     const reviewFilter = event.currentTarget.dataset.key || 'ALL';

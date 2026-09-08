@@ -78,6 +78,6 @@
   <view class="section-title">买前常问</view>
   <view class="questions card"><view class="question-item" wx:for="{{scooter.questions}}" wx:key="id"><view class="question">{{item.question}}</view><view class="answer">{{item.answer}}</view></view></view>
 
-  <view class="safe-space"></view><view class="bottom-bar"><view><view class="muted small">校内配送 · 可协助上牌</view><view class="price">¥{{scooter.price}}</view></view><button class="primary-button buy" disabled="{{!scooter.sellableStock}}" bindtap="checkout">{{scooter.sellableStock > 0 ? '立即购买' : '暂无可售'}}</button></view>
+  <view class="safe-space"></view><view class="bottom-bar"><view><view class="muted small">校内配送 · 可协助上牌</view><view class="price">¥{{scooter.price}}</view></view><view class="bottom-actions"><button wx:if="{{!scooter.sellableStock}}" class="restock-button" bindtap="toggleRestockAlert">{{restockSubscribed ? '已登记到货提醒' : '到货提醒我'}}</button><button class="primary-button buy" disabled="{{!scooter.sellableStock}}" bindtap="checkout">{{scooter.sellableStock > 0 ? '立即购买' : '暂无可售'}}</button></view></view>
   </block>
 </view>
