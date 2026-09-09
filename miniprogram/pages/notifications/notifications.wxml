@@ -1,0 +1,41 @@
+<view class="page notification-page">
+  <view class="filter-bar">
+    <view
+      wx:for="{{filters}}"
+      wx:key="key"
+      class="filter-item {{activeFilter === item.key ? 'active' : ''}}"
+      data-key="{{item.key}}"
+      bindtap="setFilter"
+    >{{item.text}}</view>
+  </view>
+
+  <view class="toolbar">
+    <text class="muted">{{unreadCount ? unreadCount + ' 条未读' : '消息都已读完'}}</text>
+    <button class="mark-all" disabled="{{!unreadCount}}" bindtap="markAllRead">全部已读</button>
+  </view>
+
+  <view wx:if="{{loading}}" class="empty card"><view class="muted">正在加载消息</view></view>
+  <block wx:elif="{{filteredNotifications.length}}">
+    <view
+      wx:for="{{filteredNotifications}}"
+      wx:key="id"
+      class="message card {{item.unread ? 'unread' : ''}}"
+      data-id="{{item.id}}"
+      data-link="{{item.link}}"
+      data-unread="{{item.unread}}"
+      bindtap="openNotification"
+    >
+      <view class="message-head">
+        <view class="type-pill tone-{{item.toneClass}}">{{item.typeText}}</view>
+        <text class="time">{{item.timeText}}</text>
+      </view>
+      <view class="title">{{item.title}}</view>
+      <view class="content">{{item.content}}</view>
+      <view class="footer">
+        <text wx:if="{{item.link}}" class="action">查看详情</text>
+        <text wx:if="{{item.unread}}" class="dot">未读</text>
+      </view>
+    </view>
+  </block>
+  <view wx:else class="empty card"><view class="muted">这个筛选下暂无消息</view></view>
+</view>

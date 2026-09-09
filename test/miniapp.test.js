@@ -453,6 +453,22 @@ test('risk tasks deep-link into focused workspace entries', () => {
   assert.ok(productJs.includes('focusLoadedItem'), 'products should support focused entry routing');
 });
 
+test('message center keeps history filters and actionable notification links', () => {
+  const appJson = JSON.parse(fs.readFileSync(path.join(miniappDirectory, 'app.json'), 'utf8'));
+  const pageJs = readMiniappFile(path.join('pages', 'notifications', 'notifications.js'));
+  const pageWxml = readMiniappFile(path.join('pages', 'notifications', 'notifications.wxml'));
+  const profileJs = readMiniappFile(path.join('pages', 'profile', 'profile.js'));
+  const profileWxml = readMiniappFile(path.join('pages', 'profile', 'profile.wxml'));
+
+  assert.ok(appJson.pages.includes('pages/notifications/notifications'), 'message center should be registered');
+  assert.ok(pageJs.includes('/api/my/notifications'), 'message center should load the full history');
+  assert.ok(pageJs.includes('/api/my/notifications/${encodeURIComponent(id)}/read'), 'one notice should mark only itself read');
+  assert.ok(pageJs.includes('UNREAD'), 'message center should support unread filtering');
+  assert.ok(pageWxml.includes('item.link'), 'notifications should retain business deep links');
+  assert.ok(profileJs.includes('goNotifications'), 'profile should route to the message center');
+  assert.ok(profileWxml.includes('消息中心'), 'profile should expose the message center entry');
+});
+
 test('merchant notifications carry actionable business links', () => {
   const js = readMiniappFile(path.join('pages', 'merchant', 'index.js'));
   const wxml = readMiniappFile(path.join('pages', 'merchant', 'index.wxml'));

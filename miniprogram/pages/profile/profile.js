@@ -108,6 +108,7 @@ Page({
   },
   verify() { this.setData({ verified: true }); wx.showToast({ title: "演示认证成功" }); },
   goOrders() { wx.switchTab({ url: "/pages/orders/orders" }); },
+  goNotifications() { wx.navigateTo({ url: "/pages/notifications/notifications" }); },
   goFavorites() { wx.navigateTo({ url: "/pages/favorites/favorites" }); },
   goCard() { wx.navigateTo({ url: "/pages/card/card" }); },
   goMerchant() {

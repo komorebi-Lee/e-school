@@ -21,6 +21,7 @@
     "pages/recharge/detail"
     ,"pages/store/store"
     ,"pages/favorites/favorites"
+    ,"pages/notifications/notifications"
   ],
   "requiredPrivateInfos": [
     "getLocation"
