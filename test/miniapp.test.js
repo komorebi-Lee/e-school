@@ -561,3 +561,12 @@ test('order actions route to edit and after-sale pages', () => {
   assert.ok(js.includes('afterSales(e)'), 'orders page should implement afterSales');
   assert.ok(editPage.includes('this.data.deliveryTimeSlots[deliveryTimeIndex]'), 'rescheduling should use the selected configured time slot');
 });
+
+test('completed order reviews support image evidence and text-only submission', () => {
+  const js = readMiniappFile(path.join('pages', 'orders', 'orders.js'));
+
+  assert.ok(js.includes('function uploadReviewImage(file)'), 'review flow should upload local images to the platform');
+  assert.ok(js.includes("mediaType: ['image']"), 'review flow should collect image evidence');
+  assert.ok(js.includes('count: 3'), 'review flow should cap review images at 3');
+  assert.ok(js.includes('fail: () => {'), 'closing the image picker should not block a text review');
+});
