@@ -532,6 +532,10 @@ test('sla alerts surface owner workload and filtering', () => {
   assert.ok(admin.includes('function slaOwnerKey'), 'admin should group alerts by the same owner key');
   assert.ok(admin.includes('slaOwnerTasksPanel'), 'admin dashboard should show owner workload');
   assert.ok(admin.includes('data-owner="${esc(task.key)}"'), 'admin should filter patrol alerts by owner');
+  assert.ok(app.includes('/assign$'), 'server should expose SLA alert assignment');
+  assert.ok(app.includes('ADMIN_NOT_ACTIVE'), 'assignment should reject disabled operators');
+  assert.ok(admin.includes('class="assign-alert"'), 'admin should provide an owner assignment control');
+  assert.ok(admin.includes('预警已分配，负责人已收到提醒'), 'assignment should confirm operator notification');
 });
 
 test('product detail surfaces merchant rectification status prominently', () => {
