@@ -480,6 +480,16 @@ test('merchant workspace surfaces rectification review deadlines', () => {
   assert.ok(wxml.includes('item.countdownText'), 'delisted products should show remaining time');
 });
 
+test('merchant surfaces explain service risk auto delisting', () => {
+  const workspaceJs = readMiniappFile(path.join('pages', 'merchant', 'index.js'));
+  const productsJs = readMiniappFile(path.join('pages', 'merchant', 'products.js'));
+
+  assert.ok(workspaceJs.includes('SERVICE_RISK'), 'workspace should include service-risk delisted products');
+  assert.ok(workspaceJs.includes('售后超时'), 'workspace should tell merchants why service risk happened');
+  assert.ok(productsJs.includes('SERVICE_RISK'), 'product list should show service-risk products');
+  assert.ok(productsJs.includes('触发平台风控规则'), 'product list should use plain risk wording');
+});
+
 test('merchant workspace visualizes service score trend', () => {
   const js = readMiniappFile(path.join('pages', 'merchant', 'index.js'));
   const wxml = readMiniappFile(path.join('pages', 'merchant', 'index.wxml'));

@@ -295,12 +295,14 @@ Page({
         }),
         pendingPublishProducts: data.pendingPublishProducts || [],
         delistedProducts: (data.products || [])
-          .filter((item) => item.autoDelistRule === 'LOW_QUALITY' && item.active === false)
+          .filter((item) => ['LOW_QUALITY', 'SERVICE_RISK'].includes(item.autoDelistRule) && item.active === false)
           .map((item) => {
             const countdown = rectifyCountdown(item.complianceCase?.dueAt, item.complianceCase?.status);
             return {
               ...item,
-              evidenceText: `低分评价 ${item.autoDelistEvidence?.lowRatingCount || 0} 条 · 均分 ${item.autoDelistEvidence?.averageRating || 0}`,
+              evidenceText: item.autoDelistRule === 'SERVICE_RISK'
+                ? `售后超时 ${item.autoDelistEvidence?.overdueAfterSaleCount || 0} 单，请先处理超时工单`
+                : `低分评价 ${item.autoDelistEvidence?.lowRatingCount || 0} 条 · 均分 ${item.autoDelistEvidence?.averageRating || 0}`,
               statusText: item.complianceCase?.statusLabel || (item.autoDelistStatus === 'REVIEW_PENDING' ? '整改待平台复核' : item.autoDelistStatus === 'REVIEW_REJECTED' ? '整改未通过' : '待提交整改'),
               nextActionText: item.complianceCase?.status === 'SUBMITTED' || item.complianceCase?.status === 'REVIEWING'
                 ? '平台审核中，无需重复提交'
