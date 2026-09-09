@@ -35,6 +35,8 @@
 .after-sale-result text:first-child { flex: 0 0 auto; font-weight: 900; }
 .after-sale-images { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10rpx; margin-top: 16rpx; }
 .after-sale-images image { width: 100%; height: 160rpx; border-radius: 12rpx; }
+.after-sale-overdue { margin-top: 14rpx; padding: 12rpx 16rpx; border-radius: 12rpx; background: #ffe9e6; color: #b42318; font-size: 21rpx; font-weight: 800; }
+.after-sale-overdue.top-alert { margin-top: 0; padding: 12rpx 16rpx; }
 .status-note { margin: -4rpx 0 10rpx; padding: 10rpx 14rpx; border-radius: 12rpx; background: #f2f4f8; color: #667289; font-size: 20rpx; }
 .partial-refund { margin: -4rpx 0 10rpx; padding: 12rpx 16rpx; border-radius: 12rpx; background: #fff7cf; color: #9a7200; font-size: 21rpx; font-weight: 700; }
 .record-meta { display: flex; justify-content: space-between; color: #78849a; font-size: 21rpx; }

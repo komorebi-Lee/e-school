@@ -348,6 +348,7 @@ test('merchant surfaces collect qualification expiry for renewals', () => {
 test('orders page surfaces after-sale progress and merchant result', () => {
   const js = readMiniappFile(path.join('pages', 'orders', 'orders.js'));
   const wxml = readMiniappFile(path.join('pages', 'orders', 'orders.wxml'));
+  const css = readMiniappFile(path.join('pages', 'orders', 'orders.wxss'));
 
   assert.ok(js.includes('afterSaleJourney'), 'orders page should build an after-sale journey');
   assert.ok(js.includes('afterSales'), 'orders page should read after-sale records from server data');
@@ -356,6 +357,10 @@ test('orders page surfaces after-sale progress and merchant result', () => {
   assert.ok(wxml.includes('after-sale-panel'), 'orders page should show an after-sale panel');
   assert.ok(wxml.includes('处理结果'), 'orders page should show the merchant resolution note');
   assert.ok(wxml.includes('item.afterSale.resolutionNote'), 'orders page should bind the merchant resolution note');
+  assert.ok(js.includes('平台已加入催办'), 'orders should explain overdue after-sale escalation');
+  assert.ok(js.includes('售后已超时，平台正在催办'), 'overdue after-sale should create a top linkage');
+  assert.ok(wxml.includes('after-sale-overdue'), 'orders should render overdue escalation state');
+  assert.ok(css.includes('.after-sale-overdue'), 'overdue escalation should have visible styling');
 });
 
 test('orders page surfaces partial refund scope to users', () => {

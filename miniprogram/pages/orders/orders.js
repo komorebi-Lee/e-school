@@ -142,6 +142,11 @@ function decorateAfterSale(record) {
     tone,
     responseDueText: formatDueText(record.responseDueAt, '响应截止'),
     resolutionDueText: formatDueText(record.resolutionDueAt, '处理截止'),
+    isOverdue: Boolean(record.status !== 'CLOSED' && record.responseDueAt
+      && new Date(record.responseDueAt).getTime() < Date.now()),
+    overdueText: record.status !== 'CLOSED' && record.responseDueAt
+      && new Date(record.responseDueAt).getTime() < Date.now()
+      ? '已超过承诺响应时限，平台已加入催办' : '',
     statusLabel: record.statusLabel || { SUBMITTED:'待处理', REVIEWING:'处理中', CLOSED:'已完成', REJECTED:'未通过' }[record.status] || record.status
   };
 }
@@ -151,6 +156,7 @@ function card(item) {
   const type = item.type;
   const orderAfterSales = (item.afterSales || []).map(decorateAfterSale);
   const activeAfterSale = orderAfterSales.find(record => record.status !== 'CLOSED') || orderAfterSales[0] || null;
+  const overdueAfterSale = orderAfterSales.find(record => record.isOverdue);
   const totalQuantity = isEbike ? (item.items || []).reduce((sum, orderItem) => sum + Number(orderItem.quantity || 0), 0) : 0;
   const refundedQuantity = Number(item.refundedQuantity || 0);
   const remainingQuantity = Math.max(0, totalQuantity - refundedQuantity);
@@ -223,6 +229,7 @@ function card(item) {
         ? '客服已回复'
         : '',
     afterSale: activeAfterSale,
+    afterSaleOverdue: Boolean(overdueAfterSale),
     journey: isEbike ? ((activeAfterSale && activeAfterSale.status !== 'CLOSED' ? afterSaleJourney[activeAfterSale.status] : ebikeJourney[item.status]) || []) : [],
     nextStep: isEbike && item.status === 'FULFILLING' ? '向商家出示交付码完成配送' : item.collaboration?.roleActions?.MERCHANT?.length ? '商家确认履约' : item.collaboration?.roleActions?.PLATFORM?.length ? '平台介入处理' : item.status === 'COMPLETED' ? '可评价本次服务' : '等待履约更新',
     intervention:item.collaboration?.intervention?.status === 'REQUESTED',
@@ -321,6 +328,8 @@ Page({
   },
   buildLinkage(data,records){
     const links=[];
+    const overdueAfterSale=records.find(item=>item.afterSaleOverdue);
+    if(overdueAfterSale) links.push({icon:'催',title:'售后已超时，平台正在催办',copy:'点击查看工单详情，如需进一步处理可申请平台协助。',view:'orders',filter:'E_BIKE',focusId:overdueAfterSale.id});
     const phonePlans=records.filter(item=>item.type==='PHONE_PLAN');
     const broadband=records.find(item=>item.type==='BROADBAND');
     if(phonePlans.some(item=>item.status==='ACTIVATED')&&!broadband) links.push({icon:'网',title:'双人宽带资格待申请',copy:'已激活电话卡后，可提交两人宽带核验。',view:'card'});
@@ -328,7 +337,7 @@ Page({
     if(paidRecharge&&phonePlans.some(item=>item.status==='PENDING_REALNAME')) links.push({icon:'卡',title:'话费已支付，可推进激活',copy:'点击激活关联的校园电话卡。',view:'orders',filter:'RECHARGE',focusId:paidRecharge.id});
     const plate=records.find(item=>item.type==='PLATE'&&item.status==='MATERIAL_PENDING');
     if(plate) links.push({icon:'牌',title:'校园牌照待补材料',copy:'平台购车订单已自动关联免费上牌服务。',view:'orders',filter:'PLATE',focusId:plate.id});
-    return links.slice(0,2);
+    return links.slice(0,3);
   },
   setFilter(e){
     const active=e.currentTarget.dataset.type||'ALL';
