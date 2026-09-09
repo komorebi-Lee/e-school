@@ -81,6 +81,7 @@ Page({
         address: order.fulfillment.address || '未填写'
       } : null,
       intervention: order.collaboration?.intervention?.status === 'REQUESTED',
+      hasUnrepliedMessage: !!order.collaboration?.unrepliedMessage,
       partialRefundNotice: refundedQuantity > 0 && refundedQuantity < totalQuantity,
       userMessages: (order.collaboration?.messages || []).filter((message)=>message.role==='USER').slice(0,2),
       afterSale: afterSales.find((record) => record.orderId === order.id) || null,

@@ -139,6 +139,17 @@ test('orders link back to the merchant storefront', () => {
   assert.ok(wxml.includes('goStore'), 'orders page should expose a storefront action');
 });
 
+test('merchant orders surface unreplied user messages', () => {
+  const source = readMiniappFile(path.join('pages', 'merchant', 'orders.js'));
+  const markup = readMiniappFile(path.join('pages', 'merchant', 'orders.wxml'));
+  const styles = readMiniappFile(path.join('pages', 'merchant', 'orders.wxss'));
+
+  assert.ok(source.includes('hasUnrepliedMessage: !!order.collaboration?.unrepliedMessage'), 'merchant orders should derive the unreplied state');
+  assert.ok(markup.includes('hasUnrepliedMessage'), 'merchant order card should conditionally show the message warning');
+  assert.ok(markup.includes('用户有待回复留言'), 'merchant order warning should use plain operational wording');
+  assert.ok(styles.includes('.unreplied-message'), 'unreplied message warning should be styled');
+});
+
 test('users can favorite products and revisit favorites', () => {
   const appConfig = JSON.parse(readMiniappFile('app.json'));
   assert.ok(appConfig.pages.includes('pages/favorites/favorites'), 'favorites should be a registered page');

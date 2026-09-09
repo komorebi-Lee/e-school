@@ -28,6 +28,7 @@
 .message { display: flex; gap: 12rpx; font-size: 22rpx; margin-top: 8rpx; color: #536078; }
 .role { flex: 0 0 auto; font-size: 18rpx; padding: 3rpx 8rpx; border-radius: 999rpx; background: #eaf0ff; color: #002fa7; font-weight: 800; }
 .alert { margin-top: 10rpx; color: #b42318; background: #ffe9e6; border-radius: 12rpx; padding: 10rpx; font-size: 21rpx; font-weight: 700; }
+.unreplied-message { margin-top: 10rpx; padding: 10rpx; border-radius: 12rpx; background: #fff7cf; color: #9a7200; font-size: 21rpx; font-weight: 700; }
 .aftersale-box { margin-top: 16rpx; background: #fff; border: 1rpx solid #ffd9d3; border-radius: 16rpx; padding: 18rpx; }
 .aftersale-title { font-size: 23rpx; font-weight: 850; color: #b42318; }
 .aftersale-reason { margin-top: 12rpx; color: #33435f; font-size: 22rpx; line-height: 1.5; }
