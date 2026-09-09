@@ -320,10 +320,23 @@ test('orders page surfaces after-sale progress and merchant result', () => {
 
   assert.ok(js.includes('afterSaleJourney'), 'orders page should build an after-sale journey');
   assert.ok(js.includes('afterSales'), 'orders page should read after-sale records from server data');
+  assert.ok(js.includes('afterSale: activeAfterSale'), 'orders page should show the active or latest after-sale record');
   assert.ok(js.includes('售后详情'), 'orders page should guide users to view an active after-sale case');
   assert.ok(wxml.includes('after-sale-panel'), 'orders page should show an after-sale panel');
   assert.ok(wxml.includes('处理结果'), 'orders page should show the merchant resolution note');
   assert.ok(wxml.includes('item.afterSale.resolutionNote'), 'orders page should bind the merchant resolution note');
+});
+
+test('orders page surfaces partial refund scope to users', () => {
+  const js = readMiniappFile(path.join('pages', 'orders', 'orders.js'));
+  const wxml = readMiniappFile(path.join('pages', 'orders', 'orders.wxml'));
+  const styles = readMiniappFile(path.join('pages', 'orders', 'orders.wxss'));
+
+  assert.ok(js.includes("item.paymentStatus === 'PARTIALLY_REFUNDED'"), 'orders should detect partial refund payment state');
+  assert.ok(js.includes('remainingQuantity'), 'orders should calculate the remaining fulfillment quantity');
+  assert.ok(js.includes("isPartiallyRefunded ? '部分退款'"), 'orders should show a clear partial refund status');
+  assert.ok(wxml.includes('partial-refund'), 'orders should render the partial refund notice');
+  assert.ok(styles.includes('.partial-refund'), 'partial refund notice should be styled');
 });
 
 test('merchant orders surface partial refund fulfillment scope', () => {

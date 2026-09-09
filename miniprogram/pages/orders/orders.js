@@ -142,6 +142,16 @@ function decorateAfterSale(record) {
 function card(item) {
   const isEbike = item.type === 'E_BIKE';
   const type = item.type;
+  const orderAfterSales = (item.afterSales || []).map(decorateAfterSale);
+  const activeAfterSale = orderAfterSales.find(record => record.status !== 'CLOSED') || orderAfterSales[0] || null;
+  const totalQuantity = isEbike ? (item.items || []).reduce((sum, orderItem) => sum + Number(orderItem.quantity || 0), 0) : 0;
+  const refundedQuantity = Number(item.refundedQuantity || 0);
+  const remainingQuantity = Math.max(0, totalQuantity - refundedQuantity);
+  const isPartiallyRefunded = item.paymentStatus === 'PARTIALLY_REFUNDED'
+    && refundedQuantity > 0 && remainingQuantity > 0;
+  const refundAmountText = Number(item.partialRefundedInCents || 0) > 0
+    ? ` · 已退 ¥${(Number(item.partialRefundedInCents) / 100).toFixed(2)}`
+    : '';
   const actions = [];
   if (item.merchantId && type === 'E_BIKE') {
     actions.push({ key:'store', text:'进店', merchantId:item.merchantId });
@@ -194,12 +204,14 @@ function card(item) {
     countdownText: item.status === 'PENDING_PAYMENT' ? paymentCountdownText(item.paymentExpiresAt) : '',
     deliveryCode: isEbike && !['PENDING_PAYMENT','CANCELLED'].includes(item.status) ? (item.deliveryCode || '') : '',
     priceText: item.amountInCents ? `¥${(item.amountInCents / 100).toFixed(2)}` : '',
-    statusLabel: item.cancelReason === 'PAYMENT_TIMEOUT' ? '已超时关闭' : (item.statusLabel || '处理中'),
-    statusNote: item.cancelReason === 'PAYMENT_TIMEOUT' ? '超过支付时限自动关闭，可重新下单' : '',
+    statusLabel: isPartiallyRefunded ? '部分退款' : (item.cancelReason === 'PAYMENT_TIMEOUT' ? '已超时关闭' : (item.statusLabel || '处理中')),
+    statusNote: isPartiallyRefunded ? `已退 ${refundedQuantity} 件，剩余 ${remainingQuantity} 件继续履约${refundAmountText}`
+      : (item.cancelReason === 'PAYMENT_TIMEOUT' ? '超过支付时限自动关闭，可重新下单' : ''),
     deliveryText: fulfillment.address ? `${fulfillment.date || '尽快配送'} · ${fulfillment.address}` : '',
     actions,
     merchantName:item.merchantName || '',
-    journey: isEbike ? ((item.afterSales?.length && item.afterSales[0].status !== 'CLOSED' ? afterSaleJourney[item.afterSales[0].status] : ebikeJourney[item.status]) || []) : [],
+    afterSale: activeAfterSale,
+    journey: isEbike ? ((activeAfterSale && activeAfterSale.status !== 'CLOSED' ? afterSaleJourney[activeAfterSale.status] : ebikeJourney[item.status]) || []) : [],
     nextStep: isEbike && item.status === 'FULFILLING' ? '向商家出示交付码完成配送' : item.collaboration?.roleActions?.MERCHANT?.length ? '商家确认履约' : item.collaboration?.roleActions?.PLATFORM?.length ? '平台介入处理' : item.status === 'COMPLETED' ? '可评价本次服务' : '等待履约更新',
     intervention:item.collaboration?.intervention?.status === 'REQUESTED',
     messages:(item.collaboration?.messages || []).slice(0,2),

@@ -22,7 +22,7 @@
   <view id="user-record-{{item.id}}" class="record card {{item.id === focusId ? 'focus-item' : ''}}" wx:for="{{filtered}}" wx:key="id">
     <view class="record-head"><view class="record-type"><text class="record-icon">{{item.icon}}</text>{{item.typeLabel}}</view><text class="status tone-{{item.tone}}">{{item.statusLabel}}</text></view>
     <view class="record-title">{{item.title}}</view>
-    <view class="status-note" wx:if="{{item.statusNote}}">{{item.statusNote}}</view>
+    <view class="{{item.paymentStatus === 'PARTIALLY_REFUNDED' ? 'partial-refund' : 'status-note'}}" wx:if="{{item.statusNote}}">{{item.statusNote}}</view>
     <view class="after-sale-panel" wx:if="{{item.afterSale}}">
       <view class="after-sale-head">
         <view>
