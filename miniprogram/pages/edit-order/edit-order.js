@@ -42,7 +42,13 @@ Page({
   setName(e) { this.setData({ name: e.detail.value }); },
   setPhone(e) { this.setData({ phone: e.detail.value }); },
   setDate(e) { this.setData({ date: e.detail.value }); },
-  setTimeSlot(e) { this.setData({ deliveryTimeIndex: Number(e.detail.value) }); },
+  setTimeSlot(e) {
+    const deliveryTimeIndex = Number(e.detail.value);
+    this.setData({
+      deliveryTimeIndex,
+      timeSlot: this.data.deliveryTimeSlots[deliveryTimeIndex] || ''
+    });
+  },
   setAddress(e) { this.setData({ address: e.detail.value }); },
   save() {
     const { name, phone, date, timeSlot, address } = this.data;

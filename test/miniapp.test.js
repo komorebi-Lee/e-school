@@ -481,7 +481,7 @@ test('user notices and service linkage land on focused records', () => {
 
   assert.ok(profileJs.includes('link: item.link'), 'profile notices should use server business links');
   assert.ok(!profileJs.includes('metadata.productId ? `/pages/detail/detail'), 'profile notices should not hand-roll partial links');
-  assert.ok(orderJs.includes('focusId:creditedRecharge.id'), 'recharge linkage should preserve the target record');
+  assert.ok(orderJs.includes('focusId:paidRecharge.id'), 'recharge linkage should preserve the target record');
   assert.ok(orderJs.includes('focusId:plate.id'), 'plate linkage should preserve the target record');
   assert.ok(orderJs.includes('this.focusId=focusId'), 'linkage actions should highlight the focused record');
   assert.ok(orderWxml.includes('data-focus-id="{{item.focusId}}"'), 'linkage cards should carry the focus id');
@@ -548,4 +548,16 @@ test('product detail surfaces merchant rectification status prominently', () => 
   assert.ok(wxml.includes('rectify-badge'), 'seller line should show a rectification badge');
   assert.ok(wxml.includes('rectify-banner'), 'detail should show a unified rectification banner');
   assert.ok(wxss.includes('.rectify-banner'), 'rectification banner should have visible styling');
+});
+
+test('order actions route to edit and after-sale pages', () => {
+  const js = readMiniappFile(path.join('pages', 'orders', 'orders.js'));
+  const wxml = readMiniappFile(path.join('pages', 'orders', 'orders.wxml'));
+  const editPage = readMiniappFile(path.join('pages', 'edit-order', 'edit-order.js'));
+
+  assert.ok(wxml.includes("action.key === 'edit' ? 'editOrder'"), 'edit action should open the delivery editor');
+  assert.ok(wxml.includes("action.key === 'aftersale' ? 'afterSales'"), 'after-sale action should open the after-sale page');
+  assert.ok(js.includes('editOrder(e)'), 'orders page should implement editOrder');
+  assert.ok(js.includes('afterSales(e)'), 'orders page should implement afterSales');
+  assert.ok(editPage.includes('this.data.deliveryTimeSlots[deliveryTimeIndex]'), 'rescheduling should use the selected configured time slot');
 });

@@ -177,7 +177,7 @@ function card(item) {
   if (type === 'RECHARGE') {
     actions.push({ key:'detail', text:'\u6743\u76ca\u8be6\u60c5', rechargeId:item.id });
     if (item.status === 'PENDING_CREDIT') actions.push({ key:'consult', text:'到账咨询', business:'话费到账确认' });
-    if (item.relatedIds.phoneCardOrderId) actions.push({ key:'action', text:'激活电话卡', action:'ACTIVATE_CARD', disabled:item.status !== 'CREDITED', reason:'到账后可激活' });
+    if (item.relatedIds.phoneCardOrderId) actions.push({ key:'action', text:'激活电话卡', action:'ACTIVATE_CARD', disabled:!['PENDING_CREDIT','CREDITED'].includes(item.status), reason:'支付后可激活' });
   }
   if (type === 'BROADBAND') actions.push({ key:'consult', text:item.status === 'APPROVED' ? '预约安装' : '核验咨询', business:item.status === 'APPROVED' ? '宽带安装预约' : '宽带资格核验' });
   if (type === 'PLATE' && item.status !== 'PENDING_PAYMENT') {
@@ -300,8 +300,8 @@ Page({
     const phonePlans=records.filter(item=>item.type==='PHONE_PLAN');
     const broadband=records.find(item=>item.type==='BROADBAND');
     if(phonePlans.some(item=>item.status==='ACTIVATED')&&!broadband) links.push({icon:'网',title:'双人宽带资格待申请',copy:'已激活电话卡后，可提交两人宽带核验。',view:'card'});
-    const creditedRecharge=records.find(item=>item.type==='RECHARGE'&&item.status==='CREDITED');
-    if(creditedRecharge&&phonePlans.some(item=>item.status==='PENDING_REALNAME')) links.push({icon:'卡',title:'话费已到账，可推进激活',copy:'客服确认后，把关联电话卡改为已激活。',view:'orders',filter:'RECHARGE',focusId:creditedRecharge.id});
+    const paidRecharge=records.find(item=>item.type==='RECHARGE'&&['PENDING_CREDIT','CREDITED'].includes(item.status));
+    if(paidRecharge&&phonePlans.some(item=>item.status==='PENDING_REALNAME')) links.push({icon:'卡',title:'话费已支付，可推进激活',copy:'点击激活关联的校园电话卡。',view:'orders',filter:'RECHARGE',focusId:paidRecharge.id});
     const plate=records.find(item=>item.type==='PLATE'&&item.status==='MATERIAL_PENDING');
     if(plate) links.push({icon:'牌',title:'校园牌照待补材料',copy:'平台购车订单已自动关联免费上牌服务。',view:'orders',filter:'PLATE',focusId:plate.id});
     return links.slice(0,2);

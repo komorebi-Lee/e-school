@@ -1,4 +1,4 @@
-const { request, userId } = require('../../services/api');
+const { request } = require('../../services/api');
 const { payPaymentOrderById } = require('../../services/payment');
 
 Page({
@@ -13,7 +13,7 @@ Page({
   },
   loadOrder(orderId) {
     if (!orderId) return wx.navigateBack();
-    request('/api/my/orders?userId=' + encodeURIComponent(userId())).then(({ data }) => {
+    request('/api/my/orders').then(({ data }) => {
       const record = (data.serviceRecords || []).find((item) => item.type === 'RECHARGE' && item.id === orderId);
       if (!record) return wx.navigateBack();
       const match = record.title.match(/\u5145(\d+)\u9001(\d+)/);

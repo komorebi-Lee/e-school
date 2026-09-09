@@ -1,4 +1,4 @@
-const { request, userId } = require('../../services/api');
+const { request } = require('../../services/api');
 const { loadBusinessConfig } = require('../../services/business');
 const { payPaymentOrder } = require('../../services/payment');
 
@@ -10,13 +10,13 @@ Page({
     serviceContact: config.servicePhone || config.serviceWechat || '15527111396'
   })).catch(() => {});},
   loadOrders(){
-    request(`/api/orders?userId=${encodeURIComponent(userId())}`).then(({data})=>{
+    request('/api/my/orders').then(({data})=>{
       const orders=(data||[]).filter(order=>order.status!=='CANCELLED'&&order.items&&order.items.length);
       this.setData({eligibleOrders:orders.map(order=>({...order,productName:order.items[0].name}))});
     }).catch(()=>this.setData({eligibleOrders:[]}));
   },
   loadStatus(){
-    request(`/api/service-records?userId=${encodeURIComponent(userId())}`).then(({data})=>{
+    request('/api/service-records').then(({data})=>{
       const plate=(data||[]).find(item=>item.type==='PLATE');
       this.setData({status:plate?{id:plate.id,state:plate.statusLabel,vehicleModel:plate.title,name:'',fee:plate.amountInCents/100}:null});
     }).catch(()=>{});
@@ -35,7 +35,7 @@ Page({
     if(source==='external'&&!vehicleModel.trim())return wx.showToast({title:'请填写车辆型号',icon:'none'});
     if(this.data.submitting)return;
     this.setData({submitting:true});
-    request('/api/plate-applications',{method:'POST',data:{userId:userId(),customerName:name.trim(),customerPhone:phone.trim(),studentNo:studentNo.trim(),vehicleModel:source==='platform'?order.productName:vehicleModel.trim(),orderId:source==='platform'?order.id:''}})
+    request('/api/plate-applications',{method:'POST',data:{customerName:name.trim(),customerPhone:phone.trim(),studentNo:studentNo.trim(),vehicleModel:source==='platform'?order.productName:vehicleModel.trim(),orderId:source==='platform'?order.id:''}})
       .then((result)=>{
         if(source!=='external'||!result.paymentOrder||!result.paymentOrder.id){
           wx.showModal({title:'申请已提交',content:'平台购车免费牌照辅助已创建，请按客服指引补齐材料。',showCancel:false,success:()=>{this.setData({submitting:false,vehicleModel:''});this.loadStatus()}});
