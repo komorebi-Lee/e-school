@@ -350,6 +350,19 @@ test('merchant orders surface partial refund fulfillment scope', () => {
   assert.ok(wxml.includes('剩余 {{item.remainingQuantity}} 件继续履约'), 'merchant orders should show the remaining quantity');
 });
 
+test('after-sale rejection keeps users and merchants connected', () => {
+  const merchantJs = readMiniappFile(path.join('pages', 'merchant', 'orders.js'));
+  const merchantWxml = readMiniappFile(path.join('pages', 'merchant', 'orders.wxml'));
+  const ordersJs = readMiniappFile(path.join('pages', 'orders', 'orders.js'));
+  const afterSaleJs = readMiniappFile(path.join('pages', 'aftersales', 'aftersales.js'));
+
+  assert.ok(merchantJs.includes('REJECTED'), 'merchant after-sale labels should include rejection');
+  assert.ok(merchantJs.includes('拒绝售后申请'), 'merchant should supply a rejection reason');
+  assert.ok(merchantWxml.includes('拒绝申请'), 'merchant orders should expose the reject action');
+  assert.ok(ordersJs.includes('REJECTED'), 'user order timeline should explain rejection');
+  assert.ok(afterSaleJs.includes('REJECTED'), 'after-sale detail should show rejection status');
+});
+
 test('merchant products expose an inventory movement ledger', () => {
   const js = readMiniappFile(path.join('pages', 'merchant', 'products.js'));
   const wxml = readMiniappFile(path.join('pages', 'merchant', 'products.wxml'));

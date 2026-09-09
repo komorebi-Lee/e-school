@@ -17,6 +17,7 @@
     <view class="existing-title">该订单已有处理中的售后</view>
     <view class="existing-copy muted">{{existing.typeLabel}} · {{existing.statusLabel}}</view>
     <view class="existing-copy muted" wx:if="{{existing.dueText}}">预计 {{existing.dueText}} 前响应</view>
+    <view class="existing-copy muted" wx:if="{{existing.resolutionNote}}">处理结论：{{existing.resolutionNote}}</view>
     <view class="evidence-grid" wx:if="{{existing.images.length}}">
       <image wx:for="{{existing.images}}" wx:key="*this" src="{{item}}" mode="aspectFill" />
     </view>

@@ -1,7 +1,7 @@
 const { request: apiRequest } = require('../../services/api');
 
 const statusLabels = { PAID: '待发货', FULFILLING: '履约中', COMPLETED: '已完成', CANCELLED: '已取消', AFTER_SALE: '售后中', PARTIALLY_REFUNDED: '部分退款' };
-const afterSaleLabels = { SUBMITTED: '待处理', REVIEWING: '处理中', CLOSED: '已完成' };
+const afterSaleLabels = { SUBMITTED: '待处理', REVIEWING: '处理中', CLOSED: '已完成', REJECTED: '未通过' };
 const afterSaleTypes = { REFUND: '申请退款', RETURN: '退货', REPAIR: '维修' };
 const nextSteps = { PAID:'确认履约', FULFILLING:'核验交付码并完成配送', COMPLETED:'已交付', CANCELLED:'已关闭' };
 const roleLabels = { USER:'用户', MERCHANT:'商家', PLATFORM:'平台' };
@@ -94,6 +94,17 @@ Page({
   },
   updateAfterSale(e) {
     const { id, status } = e.currentTarget.dataset;
+    if (status === 'REJECTED') {
+      return wx.showModal({
+        title: '拒绝售后申请',
+        editable: true,
+        placeholderText: '请说明拒绝原因，例如车辆外观无损伤且可正常骑行',
+        success: ({ confirm, content }) => {
+          if (!confirm) return;
+          this.submitAfterSaleStatus(id, { status, resolutionNote: (content || '').trim() });
+        }
+      });
+    }
     if (status !== 'CLOSED') {
       return this.submitAfterSaleStatus(id, { status });
     }

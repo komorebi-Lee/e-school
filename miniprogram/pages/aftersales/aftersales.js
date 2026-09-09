@@ -69,9 +69,10 @@ Page({
         existing: existing ? {
           id: existing.id,
           typeLabel: existing.typeLabel || existing.type,
-          statusLabel: { SUBMITTED:'已提交', REVIEWING:'处理中', CLOSED:'已关闭' }[existing.status] || existing.status,
+          statusLabel: { SUBMITTED:'已提交', REVIEWING:'处理中', CLOSED:'已关闭', REJECTED:'未通过' }[existing.status] || existing.status,
           dueText: formatDate(existing.responseDueAt),
           images: existing.images || [],
+          resolutionNote: existing.resolutionNote || '',
         } : null,
         loading: false
       });

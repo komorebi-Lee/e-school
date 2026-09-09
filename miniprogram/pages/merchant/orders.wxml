@@ -46,6 +46,7 @@
           </view>
           <view class="aftersale-actions">
             <button size="mini" class="ghost-button" data-id="{{item.afterSale.id}}" data-status="REVIEWING" bindtap="updateAfterSale" disabled="{{item.afterSale.status === 'REVIEWING'}}">处理中</button>
+            <button size="mini" class="ghost-button" data-id="{{item.afterSale.id}}" data-status="REJECTED" bindtap="updateAfterSale" disabled="{{item.afterSale.status === 'REJECTED'}}">拒绝申请</button>
             <button size="mini" class="primary-button" data-id="{{item.afterSale.id}}" data-status="CLOSED" bindtap="updateAfterSale" disabled="{{item.afterSale.status === 'CLOSED'}}">处理完成</button>
           </view>
         </view>

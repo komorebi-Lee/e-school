@@ -77,6 +77,11 @@ const afterSaleJourney = {
     { title:'售后已受理', detail:'处理流程已启动', done:true },
     { title:'处理中', detail:'商家完成跟进', done:true },
     { title:'处理完成', detail:'可查看处理结果', done:true }
+  ],
+  REJECTED: [
+    { title:'售后已受理', detail:'处理流程已启动', done:true },
+    { title:'商家反馈', detail:'本次申请未通过', done:true },
+    { title:'如仍有异议', detail:'可联系平台协助', done:false }
   ]
 };
 
@@ -135,7 +140,7 @@ function decorateAfterSale(record) {
     tone,
     responseDueText: formatDueText(record.responseDueAt, '响应截止'),
     resolutionDueText: formatDueText(record.resolutionDueAt, '处理截止'),
-    statusLabel: record.statusLabel || { SUBMITTED:'待处理', REVIEWING:'处理中', CLOSED:'已完成' }[record.status] || record.status
+    statusLabel: record.statusLabel || { SUBMITTED:'待处理', REVIEWING:'处理中', CLOSED:'已完成', REJECTED:'未通过' }[record.status] || record.status
   };
 }
 
