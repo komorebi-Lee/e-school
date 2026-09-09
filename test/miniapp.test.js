@@ -624,6 +624,18 @@ test('subscribe messages and user orders deep-link to focused records', () => {
   assert.ok(orderCss.includes('.focus-item'), 'focused order should have visible styling');
 });
 
+test('user orders surface consultation response progress', () => {
+  const orderJs = readMiniappFile(path.join('pages', 'orders', 'orders.js'));
+  const orderWxml = readMiniappFile(path.join('pages', 'orders', 'orders.wxml'));
+  const orderCss = readMiniappFile(path.join('pages', 'orders', 'orders.wxss'));
+
+  assert.ok(orderJs.includes("item.collaboration?.unrepliedMessage"), 'user orders should read the persisted unreplied state');
+  assert.ok(orderJs.includes('已提交留言，预计 ${responseHours || 24} 小时内回复'), 'pending consultation should show a response expectation');
+  assert.ok(orderJs.includes('客服已回复'), 'answered consultation should show a completed state');
+  assert.ok(orderWxml.includes('item.messageStatus'), 'order cards should render the response progress');
+  assert.ok(orderCss.includes('.message-status'), 'response progress should have visible styling');
+});
+
 test('user notices and service linkage land on focused records', () => {
   const profileJs = readMiniappFile(path.join('pages', 'profile', 'profile.js'));
   const orderJs = readMiniappFile(path.join('pages', 'orders', 'orders.js'));

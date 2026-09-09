@@ -215,6 +215,11 @@ function card(item) {
     deliveryText: fulfillment.address ? `${fulfillment.date || '尽快配送'} · ${fulfillment.address}` : '',
     actions,
     merchantName:item.merchantName || '',
+    messageStatus:item.collaboration?.unrepliedMessage
+      ? `已提交留言，预计 ${responseHours || 24} 小时内回复`
+      : (item.collaboration?.messages || []).some(message => ['MERCHANT', 'PLATFORM'].includes(message.role))
+        ? '客服已回复'
+        : '',
     afterSale: activeAfterSale,
     journey: isEbike ? ((activeAfterSale && activeAfterSale.status !== 'CLOSED' ? afterSaleJourney[activeAfterSale.status] : ebikeJourney[item.status]) || []) : [],
     nextStep: isEbike && item.status === 'FULFILLING' ? '向商家出示交付码完成配送' : item.collaboration?.roleActions?.MERCHANT?.length ? '商家确认履约' : item.collaboration?.roleActions?.PLATFORM?.length ? '平台介入处理' : item.status === 'COMPLETED' ? '可评价本次服务' : '等待履约更新',
