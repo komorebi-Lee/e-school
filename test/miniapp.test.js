@@ -150,6 +150,15 @@ test('merchant orders surface unreplied user messages', () => {
   assert.ok(styles.includes('.unreplied-message'), 'unreplied message warning should be styled');
 });
 
+test('admin dashboard links fulfillment queues to order operations', () => {
+  const admin = readServerFile(path.join('public', 'admin.js'));
+
+  assert.ok(admin.includes('operationsInsights?.orderQueues'), 'dashboard should consume server fulfillment queues');
+  assert.ok(admin.includes('履约联动'), 'dashboard should show the fulfillment linkage panel');
+  assert.ok(admin.includes('function orderCollabDetail'), 'order drawer should render fulfillment collaboration details');
+  assert.ok(admin.includes('view==="orders"?orderCollabDetail(item):""'), 'order detail should activate collaboration detail only for orders');
+});
+
 test('users can favorite products and revisit favorites', () => {
   const appConfig = JSON.parse(readMiniappFile('app.json'));
   assert.ok(appConfig.pages.includes('pages/favorites/favorites'), 'favorites should be a registered page');
