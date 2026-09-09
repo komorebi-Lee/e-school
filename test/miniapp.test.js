@@ -172,6 +172,15 @@ test('miniapp uses a shared payment action for mock and wechat jsapi payments', 
   }
 });
 
+test('plate page uses server order history correctly', () => {
+  const source = readMiniappFile(path.join('pages', 'plate', 'plate.js'));
+
+  assert.ok(source.includes('data?.ebikeOrders'), 'plate page should read the paginated order history envelope');
+  assert.ok(source.includes("data?.serviceRecords"), 'plate page should read service records from the response envelope');
+  assert.ok(source.includes('PENDING_PAYMENT'), 'plate page should not offer unpaid orders for free plate assistance');
+  assert.ok(source.includes('Number(item.quantity)>1'), 'plate page should expose ordered bike quantity');
+});
+
 test('payment surfaces use production-ready payment wording', () => {
   const paymentSurfaceFiles = [
     path.join('pages', 'checkout', 'checkout.wxml'),

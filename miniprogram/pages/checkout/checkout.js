@@ -77,7 +77,8 @@ Page({
     if (!scooter) return;
     const deliveryFee = this.data.config ? this.data.config.deliveryFee : 0;
     const unitPrice = Math.round((scooter.effectivePriceInCents ?? (scooter.priceInCents || 0)) / 100);
-    const itemsFee = unitPrice * this.data.quantity;
+    const quantity = Math.max(1, Math.min(Number(this.data.quantity || 1), this.data.maxQuantity || 1));
+    const itemsFee = unitPrice * quantity;
     this.setData({ itemsFee, deliveryFee, totalFee: itemsFee + deliveryFee });
   },
   setQuantity(event) {

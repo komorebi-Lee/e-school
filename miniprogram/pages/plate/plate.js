@@ -11,13 +11,19 @@ Page({
   })).catch(() => {});},
   loadOrders(){
     request('/api/my/orders').then(({data})=>{
-      const orders=(data||[]).filter(order=>order.status!=='CANCELLED'&&order.items&&order.items.length);
-      this.setData({eligibleOrders:orders.map(order=>({...order,productName:order.items[0].name}))});
+      const ebikeOrders=(data?.ebikeOrders||[])
+        .filter(order=>!['CANCELLED','PENDING_PAYMENT'].includes(order.status)&&order.items&&order.items.length);
+      this.setData({
+        eligibleOrders:ebikeOrders.map(order=>({
+          ...order,
+          productName:(order.items||[]).map(item=>`${item.name}${Number(item.quantity)>1?` ×${item.quantity}`:''}`).join(' + ')
+        }))
+      });
     }).catch(()=>this.setData({eligibleOrders:[]}));
   },
   loadStatus(){
     request('/api/service-records').then(({data})=>{
-      const plate=(data||[]).find(item=>item.type==='PLATE');
+      const plate=(data?.serviceRecords||[]).find(item=>item.type==='PLATE');
       this.setData({status:plate?{id:plate.id,state:plate.statusLabel,vehicleModel:plate.title,name:'',fee:plate.amountInCents/100}:null});
     }).catch(()=>{});
   },
