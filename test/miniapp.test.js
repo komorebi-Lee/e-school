@@ -326,6 +326,17 @@ test('orders page surfaces after-sale progress and merchant result', () => {
   assert.ok(wxml.includes('item.afterSale.resolutionNote'), 'orders page should bind the merchant resolution note');
 });
 
+test('merchant orders surface partial refund fulfillment scope', () => {
+  const js = readMiniappFile(path.join('pages', 'merchant', 'orders.js'));
+  const wxml = readMiniappFile(path.join('pages', 'merchant', 'orders.wxml'));
+
+  assert.ok(js.includes('PARTIALLY_REFUNDED'), 'merchant orders should recognize partial refund status');
+  assert.ok(js.includes('remainingQuantity'), 'merchant orders should calculate remaining fulfillment quantity');
+  assert.ok(js.includes('partialRefundNotice'), 'merchant orders should expose the partial refund notice');
+  assert.ok(wxml.includes('partial-refund'), 'merchant orders should show the partial refund notice');
+  assert.ok(wxml.includes('剩余 {{item.remainingQuantity}} 件继续履约'), 'merchant orders should show the remaining quantity');
+});
+
 test('merchant products expose an inventory movement ledger', () => {
   const js = readMiniappFile(path.join('pages', 'merchant', 'products.js'));
   const wxml = readMiniappFile(path.join('pages', 'merchant', 'products.wxml'));

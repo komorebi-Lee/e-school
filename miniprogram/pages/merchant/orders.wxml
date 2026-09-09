@@ -18,6 +18,7 @@
     <view id="merchant-order-{{item.id}}" class="order card {{item.id === focusId ? 'focus-item' : ''}}" wx:for="{{filtered}}" wx:key="id">
       <view class="head"><view class="strong">{{item.orderNo}}</view><text class="status tone-{{item.status}}">{{item.statusLabel}}</text></view>
       <view class="items"><view wx:for="{{item.items}}" wx:for-item="orderItem" wx:key="productId">{{orderItem.name}} × {{orderItem.quantity}}</view></view>
+      <view class="partial-refund" wx:if="{{item.partialRefundNotice}}">已退 {{item.refundedQuantity}} 件 / 剩余 {{item.remainingQuantity}} 件继续履约</view>
       <view class="delivery" wx:if="{{item.delivery}}">
         <view class="delivery-title">配送资料</view>
         <view class="collab-row"><text class="muted">联系人</text><text>{{item.delivery.contactName}} · {{item.delivery.contactPhone}}</text></view>

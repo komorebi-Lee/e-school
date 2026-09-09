@@ -1,6 +1,6 @@
 const { request: apiRequest } = require('../../services/api');
 
-const statusLabels = { PAID: '待发货', FULFILLING: '履约中', COMPLETED: '已完成', CANCELLED: '已取消', AFTER_SALE: '售后中' };
+const statusLabels = { PAID: '待发货', FULFILLING: '履约中', COMPLETED: '已完成', CANCELLED: '已取消', AFTER_SALE: '售后中', PARTIALLY_REFUNDED: '部分退款' };
 const afterSaleLabels = { SUBMITTED: '待处理', REVIEWING: '处理中', CLOSED: '已完成' };
 const afterSaleTypes = { REFUND: '申请退款', RETURN: '退货', REPAIR: '维修' };
 const nextSteps = { PAID:'确认履约', FULFILLING:'核验交付码并完成配送', COMPLETED:'已交付', CANCELLED:'已关闭' };
@@ -65,9 +65,14 @@ Page({
     return orders.filter((order) => order.status === filter);
   },
   decorateOrder(order, afterSales) {
+    const totalQuantity = (order.items || []).reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+    const refundedQuantity = Number(order.refundedQuantity || 0);
     return {
       ...order,
       statusLabel: statusLabels[order.status] || order.status,
+      totalQuantity,
+      refundedQuantity,
+      remainingQuantity: Math.max(0, totalQuantity - refundedQuantity),
       nextStep: nextSteps[order.status] || '等待更新',
       delivery: order.fulfillment?.type === 'DELIVERY' ? {
         contactName: order.fulfillment.contactName || '未填写',
@@ -76,6 +81,7 @@ Page({
         address: order.fulfillment.address || '未填写'
       } : null,
       intervention: order.collaboration?.intervention?.status === 'REQUESTED',
+      partialRefundNotice: refundedQuantity > 0 && refundedQuantity < totalQuantity,
       userMessages: (order.collaboration?.messages || []).filter((message)=>message.role==='USER').slice(0,2),
       afterSale: afterSales.find((record) => record.orderId === order.id) || null,
       timeline: (order.collaboration?.handoffs || []).slice(0,4).map((event, index) => ({

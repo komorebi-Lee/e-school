@@ -16,6 +16,7 @@
 .tone-COMPLETED { color: #157552; background: #dcf7ea; }
 .tone-CANCELLED { color: #667289; background: #eef1f5; }
 .items { margin: 18rpx 0; color: #536078; }
+.partial-refund { margin: -8rpx 0 18rpx; padding: 10rpx 14rpx; border-radius: 12rpx; background: #fff7cf; color: #9a7200; font-size: 21rpx; font-weight: 700; }
 .delivery { margin-bottom: 18rpx; padding: 18rpx; border: 1rpx solid #dce6ff; border-radius: 16rpx; }
 .delivery-title { font-size: 23rpx; font-weight: 800; color: #002fa7; margin-bottom: 12rpx; }
 .bottom { display: flex; justify-content: space-between; align-items: center; padding-top: 20rpx; border-top: 1rpx solid #edf0f5; }
