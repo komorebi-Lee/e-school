@@ -100,6 +100,19 @@ test('checkout supports bounded e-bike purchase quantity', () => {
   assert.ok(styles.includes('.quantity-row') && styles.includes('.quantity-control'), 'quantity controls should be styled');
 });
 
+test('multi-quantity aftersales supports partial refund selection', () => {
+  const source = readMiniappFile(path.join('pages', 'aftersales', 'aftersales.js'));
+  const markup = readMiniappFile(path.join('pages', 'aftersales', 'aftersales.wxml'));
+  const styles = readMiniappFile(path.join('pages', 'aftersales', 'aftersales.wxss'));
+
+  assert.ok(source.includes('quantity: 1, maxQuantity: 1'), 'aftersales should initialize refund quantity');
+  assert.ok(source.includes('quantity: this.data.quantity'), 'aftersales should submit refund quantity');
+  assert.ok(source.includes('refundedQuantity'), 'aftersales should exclude already refunded bikes');
+  assert.ok(markup.includes('maxQuantity > 1'), 'quantity selector should appear only for multi-bike orders');
+  assert.ok(markup.includes('bindtap="setQuantity"'), 'quantity selector should be interactive');
+  assert.ok(styles.includes('.quantity-row') && styles.includes('.quantity-control'), 'quantity controls should be styled');
+});
+
 test('merchant storefront is reachable from product detail', () => {
   const appConfig = JSON.parse(readMiniappFile('app.json'));
   assert.ok(appConfig.pages.includes('pages/store/store'), 'merchant storefront should be a registered page');

@@ -21,6 +21,9 @@
 .type-name { font-size: 24rpx; font-weight: 850; color: #202b45; text-align: center; }
 .type-copy { margin-top: 8rpx; font-size: 18rpx; line-height: 1.35; text-align: center; }
 .field { margin-top: 26rpx; }
+.quantity-row { display: flex; align-items: center; gap: 20rpx; }
+.quantity-control { width: 68rpx; height: 68rpx; display: flex; align-items: center; justify-content: center; border: 2rpx solid #d9e2f3; border-radius: 18rpx; background: #f8faff; color: #002fa7; font-size: 32rpx; font-weight: 900; }
+.quantity-value { flex: 1; text-align: center; font-size: 25rpx; font-weight: 850; color: #202b45; }
 .field-label { display: block; margin-bottom: 15rpx; font-size: 23rpx; font-weight: 850; color: #202b45; }
 .reason-grid { display: grid; gap: 12rpx; }
 .reason { padding: 18rpx 20rpx; border: 1rpx solid #e3e9f5; border-radius: 16rpx; background: #fff; color: #33435f; font-size: 22rpx; line-height: 1.4; }

@@ -27,6 +27,16 @@
   <block wx:if="{{order && !existing}}">
     <view class="section-title">需要什么帮助？</view>
     <view class="form card">
+      <view class="field" wx:if="{{maxQuantity > 1}}">
+        <text class="field-label">本次申请退款数量</text>
+        <view class="quantity-row">
+          <view class="quantity-control" data-action="decrease" bindtap="setQuantity">−</view>
+          <view class="quantity-value">{{quantity}} 件 / 共 {{maxQuantity}} 件</view>
+          <view class="quantity-control" data-action="increase" bindtap="setQuantity">＋</view>
+        </view>
+        <view class="muted">多辆车可只申请部分退款，剩余车辆继续正常履约。</view>
+      </view>
+
       <view class="type-grid">
         <view class="type-item {{selectedType.key === item.key ? 'active' : ''}}" wx:for="{{typeOptions}}" wx:key="key" data-key="{{item.key}}" bindtap="chooseType">
           <view class="type-name">{{item.label}}</view>

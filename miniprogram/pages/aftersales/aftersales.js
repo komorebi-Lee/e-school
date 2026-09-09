@@ -33,7 +33,8 @@ function uploadAfterSaleImage(file) {
 Page({
   data: {
     orderId: '', order: null, existing: null, typeOptions, selectedType: typeOptions[0], images: [],
-    detail: '', submitting: false, loading: true, dueText: '', afterSaleResponseHours: 24, afterSaleResolutionHours: 72
+    detail: '', submitting: false, loading: true, dueText: '', quantity: 1, maxQuantity: 1,
+    afterSaleResponseHours: 24, afterSaleResolutionHours: 72
   },
   onLoad(options) {
     this.setData({ orderId: options.id || '' });
@@ -50,6 +51,11 @@ Page({
     ]).then(([orderData, afterSaleData]) => {
       const order = (orderData.data?.ebikeOrders || []).find(item => item.id === this.data.orderId) || null;
       const existing = (afterSaleData.data || []).find(item => item.orderId === this.data.orderId && item.status !== 'CLOSED') || null;
+      const totalQuantity = (order?.items || []).reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+      const refundedQuantity = (afterSaleData.data || [])
+        .filter(item => item.orderId === this.data.orderId && item.type === 'REFUND' && item.status === 'CLOSED')
+        .reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+      const maxQuantity = Math.max(0, totalQuantity - refundedQuantity);
       this.setData({
         order: order ? {
           title: order.items.map(item => `${item.name}${item.quantity > 1 ? ` ×${item.quantity}` : ''}`).join(' + '),
@@ -58,6 +64,8 @@ Page({
           merchantName: order.merchantName || '平台自营',
           statusLabel: order.statusLabel || order.status
         } : null,
+        quantity: 1,
+        maxQuantity,
         existing: existing ? {
           id: existing.id,
           typeLabel: existing.typeLabel || existing.type,
@@ -75,6 +83,11 @@ Page({
   },
   chooseReason(e) {
     this.setData({ detail: e.currentTarget.dataset.reason });
+  },
+  setQuantity(e) {
+    const action = e.currentTarget.dataset.action;
+    const nextQuantity = action === 'increase' ? this.data.quantity + 1 : this.data.quantity - 1;
+    this.setData({ quantity: Math.max(1, Math.min(Number(this.data.maxQuantity || 1), nextQuantity)) });
   },
   setDetail(e) { this.setData({ detail: e.detail.value }); },
   chooseImage() {
@@ -118,7 +131,7 @@ Page({
     this.setData({ submitting: true });
     request('/api/after-sales', {
       method: 'POST',
-      data: { userId: userId(), orderId: this.data.orderId, type: this.data.selectedType.key, reason: this.data.detail.trim(), images: this.data.images }
+      data: { userId: userId(), orderId: this.data.orderId, type: this.data.selectedType.key, quantity: this.data.quantity, reason: this.data.detail.trim(), images: this.data.images }
     }).then(({ data }) => wx.showModal({
       title: '已提交',
       content: `预计${formatDate(data.responseDueAt) || `${this.data.afterSaleResponseHours || 24} 小时内`}前响应。`,
