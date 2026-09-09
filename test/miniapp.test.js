@@ -91,6 +91,7 @@ test('checkout supports bounded e-bike purchase quantity', () => {
   assert.ok(source.includes('quantity: 1, maxQuantity: 1'), 'checkout should initialize quantity state');
   assert.ok(source.includes('Math.max(1, Math.min(sellableStock, 5))'), 'quantity cap should follow sellable stock');
   assert.ok(source.includes('setQuantity'), 'checkout should expose quantity controls');
+  assert.ok(source.includes('Math.max(1, Math.min(Number(this.data.quantity || 1), this.data.maxQuantity || 1))'), 'totals should guard against stale quantity state');
   assert.ok(source.includes('quantity > Number(scooter.sellableStock || 0)'), 'submit should guard against stock changes');
   assert.ok(source.includes('items: [{ productId: scooter.id, quantity }]'), 'order payload should submit selected quantity');
   assert.ok(markup.includes('data-action="increase"') && markup.includes('data-action="decrease"'), 'quantity UI should support both actions');
