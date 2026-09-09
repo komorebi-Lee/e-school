@@ -523,6 +523,17 @@ test('overdue leads keep owner accountability', () => {
   assert.ok(admin.includes('alert.ownerName || alert.acknowledgedBy'), 'patrol rows should expose the accountable owner');
 });
 
+test('sla alerts surface owner workload and filtering', () => {
+  const app = readServerFile(path.join('src', 'app.js'));
+  const admin = readServerFile(path.join('public', 'admin.js'));
+
+  assert.ok(app.includes('slaOwnerTasks(data.slaAlerts'), 'overview should aggregate owner workload');
+  assert.ok(app.includes('item.ownerId = actor.id'), 'claiming a platform alert should set the accountable operator');
+  assert.ok(admin.includes('function slaOwnerKey'), 'admin should group alerts by the same owner key');
+  assert.ok(admin.includes('slaOwnerTasksPanel'), 'admin dashboard should show owner workload');
+  assert.ok(admin.includes('data-owner="${esc(task.key)}"'), 'admin should filter patrol alerts by owner');
+});
+
 test('product detail surfaces merchant rectification status prominently', () => {
   const js = readMiniappFile(path.join('pages', 'detail', 'detail.js'));
   const wxml = readMiniappFile(path.join('pages', 'detail', 'detail.wxml'));
