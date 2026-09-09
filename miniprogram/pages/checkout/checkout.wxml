@@ -1,7 +1,7 @@
   <view wx:if="{{scooter}}" class="page">
   <view class="summary card"><view class="mark" style="background: {{scooter.color}}">{{scooter.icon}}</view><view><view class="name">{{scooter.name}}</view><view class="muted">{{scooter.subtitle}}</view><view class="price-line"><text class="price">¥{{scooter.price}}</text><text wx:if="{{scooter.originalPrice}}" class="original">¥{{scooter.originalPrice}}</text><text wx:if="{{scooter.promotion?.statusText}}" class="promo">{{scooter.promotion.statusText}}</text></view><view class="muted small" wx:if="{{scooter.sellableStock < 5}}">{{scooter.sellableStock > 0 ? '仅剩 ' + scooter.sellableStock + ' 件' : '已售罄'}}</view></view></view>
   <view class="quantity-row card" wx:if="{{!scooter.stockNote}}">
-    <view><view class="quantity-title">购买数量</view><view class="muted small">最多可买 {{maxQuantity}} 辆</view></view>
+    <view><view class="quantity-title">购买数量</view><view class="muted small">每辆车同步免费校园牌照辅助 · 最多可买 {{maxQuantity}} 辆</view></view>
     <view class="quantity-control">
       <view class="quantity-button {{quantity <= 1 ? 'disabled' : ''}}" data-action="decrease" bindtap="setQuantity">-</view>
       <view class="quantity-value">{{quantity}}</view>

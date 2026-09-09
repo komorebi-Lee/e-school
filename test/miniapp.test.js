@@ -94,6 +94,7 @@ test('checkout supports bounded e-bike purchase quantity', () => {
   assert.ok(source.includes('Math.max(1, Math.min(Number(this.data.quantity || 1), this.data.maxQuantity || 1))'), 'totals should guard against stale quantity state');
   assert.ok(source.includes('quantity > Number(scooter.sellableStock || 0)'), 'submit should guard against stock changes');
   assert.ok(source.includes('items: [{ productId: scooter.id, quantity }]'), 'order payload should submit selected quantity');
+  assert.ok(markup.includes('每辆车同步免费校园牌照辅助'), 'multi-bike checkout should set plate assistance expectations');
   assert.ok(markup.includes('data-action="increase"') && markup.includes('data-action="decrease"'), 'quantity UI should support both actions');
   assert.ok(markup.includes('bindtap="setQuantity"'), 'quantity controls should be interactive');
   assert.ok(styles.includes('.quantity-row') && styles.includes('.quantity-control'), 'quantity controls should be styled');
