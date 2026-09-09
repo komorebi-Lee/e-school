@@ -651,6 +651,17 @@ test('subscribe messages and user orders deep-link to focused records', () => {
   assert.ok(orderCss.includes('.focus-item'), 'focused order should have visible styling');
 });
 
+test('profile order reminders respect the WeChat authorization result', () => {
+  const profileJs = readMiniappFile(path.join('pages', 'profile', 'profile.js'));
+  const profileWxml = readMiniappFile(path.join('pages', 'profile', 'profile.wxml'));
+
+  assert.ok(profileJs.includes('request("/api/subscribe-templates")'), 'reminder toggle should load configured templates');
+  assert.ok(profileJs.includes('wx.requestSubscribeMessage'), 'reminder toggle should request WeChat authorization');
+  assert.ok(profileJs.includes('acceptedTemplates.length'), 'only accepted templates should activate the server subscription');
+  assert.ok(profileJs.includes('没有获得微信提醒授权'), 'rejected authorization should keep the reminder off');
+  assert.ok(profileWxml.includes('toggleOrderMessages'), 'profile should expose the reminder toggle');
+});
+
 test('user orders surface consultation response progress', () => {
   const orderJs = readMiniappFile(path.join('pages', 'orders', 'orders.js'));
   const orderWxml = readMiniappFile(path.join('pages', 'orders', 'orders.wxml'));

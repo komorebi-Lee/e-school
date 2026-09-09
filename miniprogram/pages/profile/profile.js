@@ -102,7 +102,15 @@ Page({
       }
       wx.requestSubscribeMessage({
         tmplIds: templateIds,
-        complete: finish
+        success: (result) => {
+          const acceptedTemplates = templateIds.filter((templateId) => result[templateId] === "accept");
+          if (!acceptedTemplates.length) {
+            wx.showToast({ title: "没有获得微信提醒授权", icon: "none" });
+            return;
+          }
+          finish();
+        },
+        fail: (error) => wx.showToast({ title: error.errMsg || "微信提醒授权失败", icon: "none" })
       });
     }).catch((error) => wx.showToast({ title: error.message || "开启失败", icon: "none" }));
   },
