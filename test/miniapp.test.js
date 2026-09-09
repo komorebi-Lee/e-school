@@ -568,6 +568,7 @@ test('merchant workspace visualizes service score trend', () => {
   assert.ok(wxml.includes('risk-task-block'), 'workspace should render the risk task list');
   assert.ok(wxss.includes('.trend-chart'), 'trend bars should have visible styling');
   assert.ok(wxss.includes('.risk-task-block'), 'risk task list should have visible styling');
+  assert.ok(wxss.includes('.focus-item'), 'focused risk cards should have visible highlight');
 });
 
 test('risk tasks deep-link into focused workspace entries', () => {
@@ -579,7 +580,12 @@ test('risk tasks deep-link into focused workspace entries', () => {
 
   assert.ok(workspaceJs.includes('focusId='), 'risk tasks should pass the target id');
   assert.ok(workspaceJs.includes("type === 'NEGATIVE_REVIEW'"), 'negative review risk tasks should route to merchant reviews');
+  assert.ok(workspaceJs.includes("type === 'AUTO_DELIST'"), 'delisted products should route back to rectification');
+  assert.ok(workspaceJs.includes('merchant-delist-'), 'delisted rectification cards should support anchored focus');
+  assert.ok(workspaceJs.includes('merchant-score-case-'), 'service score cases should support anchored focus');
   assert.ok(workspaceWxml.includes('data-id="{{item.reference}}"'), 'risk tasks should carry the exact business reference');
+  assert.ok(workspaceWxml.includes('merchant-delist-{{item.id}}'), 'delisted cards should expose anchors');
+  assert.ok(workspaceWxml.includes('merchant-score-case-{{item.id}}'), 'score case cards should expose anchors');
   assert.ok(workspaceWxml.includes('risk-task-urge'), 'risk tasks should surface platform urge state');
   assert.ok(orderJs.includes('focusLoadedItem'), 'orders should support focused entry routing');
   assert.ok(reviewJs.includes('focusLoadedItem'), 'reviews should support focused entry routing');

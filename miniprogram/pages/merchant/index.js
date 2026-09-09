@@ -206,7 +206,7 @@ function decorateScoreTrend(trend) {
 
 Page({
   data: {
-    merchant: null, metrics: null, products: [], orders: [], settlements: [], payoutRequests: [],
+    merchant: null, metrics: null, products: [], orders: [], settlements: [], payoutRequests: [], focusId: '',
     lowStockProducts: [], lowStockThreshold: 10,
     slaAlerts: [], riskTasks: [], promotionSummary: [], notifications: [], unreadNotificationCount: 0, loading: true,
     serviceScore: null, scoreTrend: null, pendingPublishProducts: [], scoreCases: [], scoreNoticeSubscribed: false,
@@ -273,7 +273,8 @@ Page({
         riskTasks: (data.riskTasks || []).slice(0, 8).map((item) => ({
           ...item,
           urgeText: item.urged ? '平台已催办，请尽快回复' : '',
-          dueText: item.dueAt ? String(item.dueAt).slice(5, 16).replace('T', ' ') : ''
+          dueText: item.dueAt ? String(item.dueAt).slice(5, 16).replace('T', ' ') : '',
+          dueTone: item.dueAt && new Date(item.dueAt).getTime() < Date.now() ? 'warn' : 'todo'
         })),
         qualificationRenewals: (data.qualificationRenewals || []).slice(0, 5).map((item) => ({
           ...item,
@@ -367,6 +368,24 @@ Page({
     }
     if (type === 'LOW_STOCK') {
       return wx.navigateTo({ url: `/pages/merchant/products?focusId=${focusId}&filter=LOW` });
+    }
+    if (type === 'AUTO_DELIST') {
+      const productIndex = this.data.delistedProducts.findIndex((item) => item.id === id);
+      if (productIndex >= 0) {
+        this.setData({ scoreCaseType: 'RECTIFY', rectifyProductIndex: productIndex });
+      }
+      this.setData({ focusId: id });
+      wx.nextTick(() => {
+        wx.pageScrollTo({ selector: `#merchant-delist-${id}`, offsetTop: 90, duration: 320 });
+      });
+      return;
+    }
+    if (type === 'SCORE_CASE') {
+      this.setData({ focusId: id });
+      wx.nextTick(() => {
+        wx.pageScrollTo({ selector: `#merchant-score-case-${id}`, offsetTop: 90, duration: 320 });
+      });
+      return;
     }
     const filter = type === 'AFTER_SALE' ? '&filter=AFTER_SALE' : '';
     return wx.navigateTo({ url: `/pages/merchant/orders?focusId=${focusId}${filter}` });

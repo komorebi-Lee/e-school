@@ -101,7 +101,7 @@
             <view class="risk-task-title">{{item.title}}</view>
             <view class="muted risk-task-detail">{{item.detail}}</view>
             <view class="risk-task-urge" wx:if="{{item.urgeText}}">{{item.urgeText}}</view>
-            <view class="muted risk-task-due" wx:if="{{item.dueText}}">处理时限 {{item.dueText}}</view>
+            <view class="muted risk-task-due" wx:if="{{item.dueText}}">处理时限 <text class="status-text tone-{{item.dueTone}}">{{item.dueText}}</text></view>
           </view>
           <view class="risk-task-action">{{item.action}}</view>
         </view>
@@ -129,7 +129,7 @@
           </view>
         </view>
       </view>
-      <view class="score-case" wx:for="{{scoreCases}}" wx:key="id">
+      <view id="merchant-score-case-{{item.id}}" class="score-case {{item.id === focusId ? 'focus-item' : ''}}" wx:for="{{scoreCases}}" wx:key="id">
         <view class="score-case-head">
           <view class="strong">{{item.caseNo}} · {{item.typeLabel}}</view>
           <text class="status-text tone-{{item.statusTone}}">{{item.statusLabel}}</text>
@@ -145,7 +145,7 @@
     </view>
     <view class="score card" wx:if="{{delistedProducts.length}}">
       <view class="notice-head"><view class="strong">商品自动下架</view><text class="muted">{{delistedProducts.length}} 件待整改</text></view>
-      <view class="sla-item" wx:for="{{delistedProducts}}" wx:key="id">
+      <view id="merchant-delist-{{item.id}}" class="sla-item {{item.id === focusId ? 'focus-item' : ''}}" wx:for="{{delistedProducts}}" wx:key="id">
         <view class="sla-main">
           <view class="strong">{{item.name}}<text class="status-text tone-blue risk-status">{{item.statusText}}</text></view>
           <view class="muted">{{item.autoDelistReason}} · {{item.evidenceText}}</view>
