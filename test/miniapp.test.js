@@ -446,6 +446,7 @@ test('risk tasks deep-link into focused workspace entries', () => {
   const productJs = readMiniappFile(path.join('pages', 'merchant', 'products.js'));
 
   assert.ok(workspaceJs.includes('focusId='), 'risk tasks should pass the target id');
+  assert.ok(workspaceJs.includes("type === 'NEGATIVE_REVIEW'"), 'negative review risk tasks should route to merchant reviews');
   assert.ok(workspaceWxml.includes('data-id="{{item.reference}}"'), 'risk tasks should carry the exact business reference');
   assert.ok(orderJs.includes('focusLoadedItem'), 'orders should support focused entry routing');
   assert.ok(reviewJs.includes('focusLoadedItem'), 'reviews should support focused entry routing');
