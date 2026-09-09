@@ -159,6 +159,17 @@ test('admin dashboard links fulfillment queues to order operations', () => {
   assert.ok(admin.includes('view==="orders"?orderCollabDetail(item):""'), 'order detail should activate collaboration detail only for orders');
 });
 
+test('service collaboration tracks response state in operations surfaces', () => {
+  const serverSource = readServerFile(path.join('src', 'app.js'));
+  const admin = readServerFile(path.join('public', 'admin.js'));
+
+  assert.ok(serverSource.includes('unrepliedMessage = { action, text: note, createdAt: time }'), 'service records should persist the latest unreplied user message');
+  assert.ok(serverSource.includes("ruleKey: 'SERVICE_USER_MESSAGE'"), 'operations patrol should include service message response SLA');
+  assert.ok(serverSource.includes("addNotification(data, 'PLATFORM', 'SERVICE_MESSAGE'"), 'user service messages should create platform notifications');
+  assert.ok(admin.includes('pendingMessage=!!collab.unrepliedMessage'), 'service collaboration rows should use persisted response state');
+  assert.ok(admin.includes('有待回复留言'), 'service collaboration detail should show response state');
+});
+
 test('users can favorite products and revisit favorites', () => {
   const appConfig = JSON.parse(readMiniappFile('app.json'));
   assert.ok(appConfig.pages.includes('pages/favorites/favorites'), 'favorites should be a registered page');
