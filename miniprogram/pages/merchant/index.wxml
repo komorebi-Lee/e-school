@@ -100,6 +100,7 @@
           <view class="risk-task-main">
             <view class="risk-task-title">{{item.title}}</view>
             <view class="muted risk-task-detail">{{item.detail}}</view>
+            <view class="risk-task-urge" wx:if="{{item.urgeText}}">{{item.urgeText}}</view>
             <view class="muted risk-task-due" wx:if="{{item.dueText}}">处理时限 {{item.dueText}}</view>
           </view>
           <view class="risk-task-action">{{item.action}}</view>

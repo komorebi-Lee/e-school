@@ -3,11 +3,16 @@ const { request: apiRequest } = require('../../services/api');
 function decorateReview(review) {
   const dueAt = review.replyDueAt ? new Date(review.replyDueAt) : null;
   const overdue = !review.reply && dueAt && Number.isFinite(dueAt.getTime()) && dueAt.getTime() < Date.now();
+  const urgeAt = review.lastUrge?.urgedAt ? new Date(review.lastUrge.urgedAt) : null;
+  const urgeTime = urgeAt && Number.isFinite(urgeAt.getTime())
+    ? `${urgeAt.getMonth() + 1}/${urgeAt.getDate()} ${String(urgeAt.getHours()).padStart(2, '0')}:${String(urgeAt.getMinutes()).padStart(2, '0')}`
+    : '';
   return {
     ...review,
     dueText: dueAt && Number.isFinite(dueAt.getTime())
       ? `回复截止 ${dueAt.getMonth() + 1}/${dueAt.getDate()} ${String(dueAt.getHours()).padStart(2, '0')}:${String(dueAt.getMinutes()).padStart(2, '0')}`
       : '',
+    urgeText: urgeTime ? `平台已催办 ${urgeTime}，请尽快回复` : '',
     overdue
   };
 }

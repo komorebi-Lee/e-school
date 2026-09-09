@@ -531,6 +531,10 @@ test('merchant reviews surface negative review reply deadlines', () => {
 
   assert.ok(js.includes('replyDueAt'), 'reviews should read persisted reply deadlines');
   assert.ok(js.includes('decorateReview'), 'reviews should decorate due state');
+  assert.ok(js.includes('lastUrge'), 'reviews should read platform urge records');
+  assert.ok(js.includes('urgeText'), 'urge records should be decorated for merchants');
+  assert.ok(wxml.includes('urge-note'), 'platform urge state should be visible');
+  assert.ok(css.includes('.urge-note'), 'platform urge note should have warning styling');
   assert.ok(wxml.includes('reply-due'), 'reply deadline should be visible');
   assert.ok(css.includes('.reply-due.overdue'), 'overdue deadline should have warning styling');
 });
@@ -576,6 +580,7 @@ test('risk tasks deep-link into focused workspace entries', () => {
   assert.ok(workspaceJs.includes('focusId='), 'risk tasks should pass the target id');
   assert.ok(workspaceJs.includes("type === 'NEGATIVE_REVIEW'"), 'negative review risk tasks should route to merchant reviews');
   assert.ok(workspaceWxml.includes('data-id="{{item.reference}}"'), 'risk tasks should carry the exact business reference');
+  assert.ok(workspaceWxml.includes('risk-task-urge'), 'risk tasks should surface platform urge state');
   assert.ok(orderJs.includes('focusLoadedItem'), 'orders should support focused entry routing');
   assert.ok(reviewJs.includes('focusLoadedItem'), 'reviews should support focused entry routing');
   assert.ok(productJs.includes('focusLoadedItem'), 'products should support focused entry routing');

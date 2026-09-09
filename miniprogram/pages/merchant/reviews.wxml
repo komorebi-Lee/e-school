@@ -10,6 +10,7 @@
       </view>
       <view class="content">{{item.content}}</view>
       <view class="reply-due {{item.overdue ? 'overdue' : ''}}" wx:if="{{item.dueText}}">{{item.dueText}}</view>
+      <view class="urge-note" wx:if="{{item.urgeText}}">{{item.urgeText}}</view>
       <view class="images" wx:if="{{item.images.length}}">
         <image wx:for="{{item.images}}" wx:for-item="image" wx:key="*this" src="{{image}}" mode="aspectFill" />
       </view>

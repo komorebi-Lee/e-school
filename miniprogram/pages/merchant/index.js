@@ -272,6 +272,7 @@ Page({
         scoreTrend: decorateScoreTrend(data.scoreTrend),
         riskTasks: (data.riskTasks || []).slice(0, 8).map((item) => ({
           ...item,
+          urgeText: item.urged ? '平台已催办，请尽快回复' : '',
           dueText: item.dueAt ? String(item.dueAt).slice(5, 16).replace('T', ' ') : ''
         })),
         qualificationRenewals: (data.qualificationRenewals || []).slice(0, 5).map((item) => ({

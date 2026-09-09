@@ -84,6 +84,7 @@
 .risk-task-title { font-size: 24rpx; font-weight: 750; color: #33435f; }
 .risk-task-detail { margin-top: 6rpx; font-size: 21rpx; line-height: 1.45; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .risk-task-due { margin-top: 6rpx; font-size: 20rpx; color: #c0392b; }
+.risk-task-urge { margin-top: 6rpx; font-size: 20rpx; color: #a3341f; font-weight: 750; }
 .risk-task-action { flex-shrink: 0; padding: 8rpx 16rpx; border-radius: 999rpx; background: #fff4f2; border: 1rpx solid #f3c9c4; color: #c0392b; font-size: 21rpx; font-weight: 750; }
 .score-detail { font-size: 20rpx; margin-top: 6rpx; line-height: 1.45; }
 .score-note { font-size: 20rpx; margin-top: 12rpx; line-height: 1.5; }
