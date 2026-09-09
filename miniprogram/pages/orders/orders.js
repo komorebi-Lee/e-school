@@ -217,7 +217,7 @@ function card(item) {
     merchantName:item.merchantName || '',
     messageStatus:item.collaboration?.unrepliedMessage
       ? `已提交留言，预计 ${responseHours || 24} 小时内回复`
-      : (item.collaboration?.messages || []).some(message => ['MERCHANT', 'PLATFORM'].includes(message.role))
+      : (item.collaboration?.messages || []).some(message => ['MERCHANT', 'PLATFORM'].includes(message.role) && message.text !== '订单已支付，等待商家确认履约。')
         ? '客服已回复'
         : '',
     afterSale: activeAfterSale,

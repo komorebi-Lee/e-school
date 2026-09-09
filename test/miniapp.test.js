@@ -630,6 +630,7 @@ test('user orders surface consultation response progress', () => {
   const orderCss = readMiniappFile(path.join('pages', 'orders', 'orders.wxss'));
 
   assert.ok(orderJs.includes("item.collaboration?.unrepliedMessage"), 'user orders should read the persisted unreplied state');
+  assert.ok(orderJs.includes('订单已支付，等待商家确认履约。'), 'platform payment acknowledgement should not count as consultation reply');
   assert.ok(orderJs.includes('已提交留言，预计 ${responseHours || 24} 小时内回复'), 'pending consultation should show a response expectation');
   assert.ok(orderJs.includes('客服已回复'), 'answered consultation should show a completed state');
   assert.ok(orderWxml.includes('item.messageStatus'), 'order cards should render the response progress');
