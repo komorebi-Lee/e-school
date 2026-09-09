@@ -2,6 +2,8 @@ const { request, userId } = require('../../services/api');
 const { payPaymentOrderById } = require('../../services/payment');
 const { loadBusinessConfig } = require('../../services/business');
 
+const DEFAULT_RESPONSE_HOURS = 24;
+
 const typeNames = { E_BIKE:'电瓶车', PHONE_PLAN:'电话卡', RECHARGE:'话费权益', BROADBAND:'宽带', PLATE:'校园牌照' };
 const consultQuestions = {
   PHONE_PLAN: ['实名审核需要多久？','实名信息填错了怎么修改？','订单进度请帮忙查询'],
@@ -216,7 +218,7 @@ function card(item) {
     actions,
     merchantName:item.merchantName || '',
     messageStatus:item.collaboration?.unrepliedMessage
-      ? `已提交留言，预计 ${responseHours || 24} 小时内回复`
+      ? `已提交留言，预计 ${DEFAULT_RESPONSE_HOURS} 小时内回复`
       : (item.collaboration?.messages || []).some(message => ['MERCHANT', 'PLATFORM'].includes(message.role) && message.text !== '订单已支付，等待商家确认履约。')
         ? '客服已回复'
         : '',

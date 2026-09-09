@@ -524,6 +524,17 @@ test('merchant workspace surfaces rectification review deadlines', () => {
   assert.ok(wxml.includes('item.countdownText'), 'delisted products should show remaining time');
 });
 
+test('merchant reviews surface negative review reply deadlines', () => {
+  const js = readMiniappFile(path.join('pages', 'merchant', 'reviews.js'));
+  const wxml = readMiniappFile(path.join('pages', 'merchant', 'reviews.wxml'));
+  const css = readMiniappFile(path.join('pages', 'merchant', 'reviews.wxss'));
+
+  assert.ok(js.includes('replyDueAt'), 'reviews should read persisted reply deadlines');
+  assert.ok(js.includes('decorateReview'), 'reviews should decorate due state');
+  assert.ok(wxml.includes('reply-due'), 'reply deadline should be visible');
+  assert.ok(css.includes('.reply-due.overdue'), 'overdue deadline should have warning styling');
+});
+
 test('merchant surfaces explain service risk auto delisting', () => {
   const workspaceJs = readMiniappFile(path.join('pages', 'merchant', 'index.js'));
   const productsJs = readMiniappFile(path.join('pages', 'merchant', 'products.js'));
@@ -631,7 +642,7 @@ test('user orders surface consultation response progress', () => {
 
   assert.ok(orderJs.includes("item.collaboration?.unrepliedMessage"), 'user orders should read the persisted unreplied state');
   assert.ok(orderJs.includes('订单已支付，等待商家确认履约。'), 'platform payment acknowledgement should not count as consultation reply');
-  assert.ok(orderJs.includes('已提交留言，预计 ${responseHours || 24} 小时内回复'), 'pending consultation should show a response expectation');
+  assert.ok(orderJs.includes('已提交留言，预计 ${DEFAULT_RESPONSE_HOURS} 小时内回复'), 'pending consultation should show a response expectation');
   assert.ok(orderJs.includes('客服已回复'), 'answered consultation should show a completed state');
   assert.ok(orderWxml.includes('item.messageStatus'), 'order cards should render the response progress');
   assert.ok(orderCss.includes('.message-status'), 'response progress should have visible styling');

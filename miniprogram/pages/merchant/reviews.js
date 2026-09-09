@@ -1,5 +1,17 @@
 const { request: apiRequest } = require('../../services/api');
 
+function decorateReview(review) {
+  const dueAt = review.replyDueAt ? new Date(review.replyDueAt) : null;
+  const overdue = !review.reply && dueAt && Number.isFinite(dueAt.getTime()) && dueAt.getTime() < Date.now();
+  return {
+    ...review,
+    dueText: dueAt && Number.isFinite(dueAt.getTime())
+      ? `回复截止 ${dueAt.getMonth() + 1}/${dueAt.getDate()} ${String(dueAt.getHours()).padStart(2, '0')}:${String(dueAt.getMinutes()).padStart(2, '0')}`
+      : '',
+    overdue
+  };
+}
+
 Page({
   data: { reviews: [], loading: true, replying: '', focusId: '' },
   onLoad(options = {}) {
@@ -14,6 +26,7 @@ Page({
     this.request('/api/merchant/overview').then(({ data }) => {
       const reviews = (data.reviews || []).map((review) => ({
         ...review,
+        ...decorateReview(review),
         dateText: String(review.createdAt || '').slice(5, 16).replace('T', ' '),
         stars: '★★★★★'.slice(0, Math.max(0, Math.min(5, Number(review.rating) || 0))),
         replied: Boolean(review.reply)

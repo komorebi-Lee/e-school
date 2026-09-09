@@ -7,6 +7,8 @@
 .images { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12rpx; margin-top: 16rpx; }
 .images image { width: 100%; aspect-ratio: 4 / 3; border-radius: 14rpx; background: #f2f5fa; }
 .reply { margin-top: 16rpx; padding: 18rpx; background: #f7f9ff; border-radius: 16rpx; }
+.reply-due { margin-top: 14rpx; color: #536078; font-size: 22rpx; font-weight: 700; }
+.reply-due.overdue { color: #d63627; }
 .reply-title { color: #002fa7; font-size: 21rpx; font-weight: 850; }
 .reply-content { margin-top: 8rpx; color: #33435f; font-size: 22rpx; line-height: 1.5; }
 .actions { margin-top: 18rpx; display: flex; justify-content: flex-end; }
