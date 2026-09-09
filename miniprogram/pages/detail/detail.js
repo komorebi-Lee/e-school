@@ -216,5 +216,16 @@ Page({
     const merchantId = this.data.scooter?.storeProfile?.merchantId;
     if (!merchantId) return wx.showToast({ title: '该商品暂无店铺主页', icon: 'none' });
     wx.navigateTo({ url: `/pages/store/store?id=${encodeURIComponent(merchantId)}` });
+  },
+  previewProductImage(event) {
+    const url = event.currentTarget.dataset.url;
+    if (!url) return;
+    wx.previewImage({ current: url, urls: [url] });
+  },
+  previewReviewImages(event) {
+    const urls = event.currentTarget.dataset.urls;
+    const current = event.currentTarget.dataset.url;
+    if (!Array.isArray(urls) || !urls.length) return;
+    wx.previewImage({ current: current || urls[0], urls });
   }
 });

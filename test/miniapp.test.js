@@ -469,6 +469,22 @@ test('message center keeps history filters and actionable notification links', (
   assert.ok(profileWxml.includes('消息中心'), 'profile should expose the message center entry');
 });
 
+test('storefront supports commerce filters and image evidence preview', () => {
+  const storeJs = readMiniappFile(path.join('pages', 'store', 'store.js'));
+  const storeWxml = readMiniappFile(path.join('pages', 'store', 'store.wxml'));
+  const detailJs = readMiniappFile(path.join('pages', 'detail', 'detail.js'));
+  const detailWxml = readMiniappFile(path.join('pages', 'detail', 'detail.wxml'));
+
+  assert.ok(storeJs.includes('applyFilters'), 'storefront should expose a reusable filter pipeline');
+  assert.ok(storeJs.includes('previewReviewImages'), 'store reviews should support image preview');
+  assert.ok(storeWxml.includes('catalog-search'), 'storefront should provide product search');
+  assert.ok(storeWxml.includes('catalog-tab'), 'storefront should provide category filters');
+  assert.ok(storeWxml.includes('filteredProducts'), 'storefront should render filtered results');
+  assert.ok(detailJs.includes('previewProductImage'), 'product image should support preview');
+  assert.ok(detailJs.includes('previewReviewImages'), 'review evidence should support preview');
+  assert.ok(detailWxml.includes('data-urls="{{item.images}}"'), 'review evidence should pass an image set');
+});
+
 test('merchant notifications carry actionable business links', () => {
   const js = readMiniappFile(path.join('pages', 'merchant', 'index.js'));
   const wxml = readMiniappFile(path.join('pages', 'merchant', 'index.wxml'));

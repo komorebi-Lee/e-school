@@ -23,10 +23,24 @@
       </view>
     </view>
 
-    <view class="section-title">在售商品</view>
+    <view class="section-head">
+      <view class="section-title">在售商品</view>
+      <view class="muted small">{{filteredProducts.length}} 件</view>
+    </view>
+    <view class="catalog card">
+      <input class="catalog-search" placeholder="搜索店内商品" value="{{query}}" bindinput="setSearch" />
+      <scroll-view class="catalog-tabs" scroll-x show-scrollbar="{{false}}">
+        <view class="tab-inner">
+          <view wx:for="{{categories}}" wx:key="key" class="catalog-tab {{activeCategory === item.key ? 'active' : ''}}" data-key="{{item.key}}" bindtap="setCategory">{{item.categoryText || item.text}}</view>
+        </view>
+      </scroll-view>
+      <view class="sort-inner">
+        <view wx:for="{{sortOptions}}" wx:key="key" class="sort-tab {{sortKey === item.key ? 'active' : ''}}" data-key="{{item.key}}" bindtap="setSort">{{item.text}}</view>
+      </view>
+    </view>
     <view class="products">
-      <view class="product card" wx:for="{{products}}" wx:key="id" data-id="{{item.id}}" bindtap="goProduct">
-        <view class="visual" style="background: {{item.color}}">
+      <view class="product card" wx:for="{{filteredProducts}}" wx:key="id" data-id="{{item.id}}" bindtap="goProduct">
+        <view class="visual" style="background: {{item.color}}" data-url="{{item.imageUrl}}" catchtap="previewProductImage">
           <image wx:if="{{item.imageUrl}}" src="{{item.imageUrl}}" mode="aspectFill" />
           <text wx:else>{{item.icon}}</text>
         </view>
@@ -46,7 +60,7 @@
         </view>
       </view>
     </view>
-    <view wx:if="{{!products.length}}" class="empty card"><view class="muted">这家店暂无在售商品</view></view>
+    <view wx:if="{{!filteredProducts.length}}" class="empty card"><view class="muted">{{products.length ? '没有符合筛选的商品' : '这家店暂无在售商品'}}</view></view>
 
     <view class="section-title">同学评价</view>
     <view class="store-reviews">
@@ -58,7 +72,7 @@
         </view>
         <view class="review-content">{{item.content}}</view>
         <view class="review-images" wx:if="{{item.images.length}}">
-          <image wx:for="{{item.images}}" wx:for-item="image" wx:key="*this" class="review-image" src="{{image}}" mode="aspectFill" />
+          <image wx:for="{{item.images}}" wx:for-item="image" wx:key="*this" class="review-image" src="{{image}}" mode="aspectFill" data-urls="{{item.images}}" data-url="{{image}}" bindtap="previewReviewImages" />
         </view>
         <view class="muted small review-person">{{item.customerName}} · {{item.college || '华中农业大学'}}</view>
         <view class="merchant-reply" wx:if="{{item.reply}}">

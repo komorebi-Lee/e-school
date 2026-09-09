@@ -2,7 +2,7 @@
   <view wx:if="{{loading}}" class="empty card"><view class="muted">正在加载车型…</view></view>
   <view wx:elif="{{!scooter}}" class="empty card"><view class="muted">车型不存在或已下架</view></view>
   <block wx:else>
-  <view class="visual" style="background: {{scooter.color}}"><view class="pill badge">{{scooter.badge}}</view><image wx:if="{{scooter.imageUrl}}" class="product-image" src="{{scooter.imageUrl}}" mode="aspectFit" /><text wx:else>{{scooter.icon}}</text></view>
+  <view class="visual" style="background: {{scooter.color}}"><view class="pill badge">{{scooter.badge}}</view><image wx:if="{{scooter.imageUrl}}" class="product-image" src="{{scooter.imageUrl}}" mode="aspectFit" data-url="{{scooter.imageUrl}}" bindtap="previewProductImage" /><text wx:else>{{scooter.icon}}</text></view>
   <view class="main card"><view class="name">{{scooter.name}}</view><view class="muted">{{scooter.subtitle}}</view><view class="price-line"><text class="price">¥{{scooter.promotionPrice || scooter.price}}</text><text wx:if="{{scooter.originalPrice}}" class="original">¥{{scooter.originalPrice}}</text><text wx:if="{{scooter.promotionStatusText}}" class="promo">{{scooter.promotionStatusText}}</text></view><view class="seller-line"><text class="seller">{{scooter.merchantName}}</text><text wx:if="{{scooter.merchantRectify}}" class="rectify-badge tone-{{scooter.merchantRectify.toneClass}}">{{scooter.merchantRectify.badgeText}}</text><text class="muted">{{scooter.stockText}}</text></view><view class="muted small" wx:if="{{scooter.stockHint}}">{{scooter.stockHint}}</view></view>
   <view class="rectify-banner tone-{{scooter.merchantRectify.toneClass}}" wx:if="{{scooter.merchantRectify}}">
     <view class="rectify-title">{{scooter.merchantRectify.title}}</view>
@@ -63,7 +63,7 @@
         <text class="review-stars">{{item.stars}}</text>
       </view>
       <view class="review-content">{{item.content}}</view>
-      <view class="review-images" wx:if="{{item.images.length}}"><image wx:for="{{item.images}}" wx:for-item="image" wx:key="*this" class="review-image" src="{{image}}" mode="aspectFill" /></view>
+      <view class="review-images" wx:if="{{item.images.length}}"><image wx:for="{{item.images}}" wx:for-item="image" wx:key="*this" class="review-image" src="{{image}}" mode="aspectFill" data-urls="{{item.images}}" data-url="{{image}}" bindtap="previewReviewImages" /></view>
       <view class="merchant-reply" wx:if="{{item.reply}}"><view class="reply-head"><text class="reply-name">{{item.reply.merchantName}}</text><text class="muted reply-time">{{item.reply.timeText}}</text></view><view class="reply-content">{{item.reply.content}}</view></view>
     </view>
     <view wx:if="{{!scooter.reviews.length}}" class="muted review-empty">{{scooter.review.count ? '这个筛选下暂无评价' : '这款车型暂无已购评价，可先查看平台保障和服务承诺。'}}</view>

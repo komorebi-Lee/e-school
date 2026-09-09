@@ -13,7 +13,18 @@
 .store-stats { margin-top: 22rpx; color: #17233d; font-size: 24rpx; font-weight: 850; }
 .store-review-summary { margin-top: 10rpx; display: flex; justify-content: space-between; gap: 18rpx; color: #536078; font-size: 22rpx; }
 .store-review-summary .strong { color: #002fa7; font-weight: 850; }
-.products { display: grid; gap: 18rpx; }
+.products { display: grid; gap: 18rpx; margin-top: 18rpx; }
+.catalog { margin-top: 18rpx; padding: 20rpx; }
+.catalog-search { height: 64rpx; padding: 0 24rpx; border-radius: 18rpx; background: #f4f6fa; color: #17233d; font-size: 24rpx; }
+.catalog-tabs { margin-top: 18rpx; white-space: nowrap; }
+.tab-inner { display: inline-flex; gap: 14rpx; }
+.catalog-tab { padding: 11rpx 24rpx; border-radius: 999rpx; background: #f4f6fa; color: #536078; font-size: 23rpx; font-weight: 800; }
+.catalog-tab.active { background: #002fa7; color: #fff; }
+.sort-inner { display: flex; gap: 20rpx; margin-top: 18rpx; padding-top: 18rpx; border-top: 1rpx solid #edf0f5; }
+.sort-tab { position: relative; color: #536078; font-size: 23rpx; font-weight: 800; }
+.sort-tab.active { color: #002fa7; }
+.sort-tab.active::after { content: ""; position: absolute; left: 50%; bottom: -8rpx; width: 30rpx; height: 5rpx; border-radius: 999rpx; background: #002fa7; transform: translateX(-50%); }
+.section-head { display: flex; align-items: baseline; justify-content: space-between; margin-top: 30rpx; }
 .store-reviews { display: grid; gap: 18rpx; }
 .store-review { padding: 22rpx; }
 .review-head { display: flex; align-items: center; gap: 14rpx; }

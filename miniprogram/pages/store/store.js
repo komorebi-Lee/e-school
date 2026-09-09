@@ -1,5 +1,12 @@
 const { request } = require('../../services/api');
 
+const categoryLabels = {
+  E_BIKE_NEW: "电动车",
+  PHONE_PLAN: "电话套餐",
+  RECHARGE_PROMO: "话费权益",
+  SERVICE: "服务"
+};
+
 function decorateStoreReview(review) {
   return {
     id: review.id,
@@ -31,12 +38,30 @@ function decorateProduct(product) {
     stockText: stock > 0 ? (stock < 5 ? `仅剩 ${stock} 件` : `库存 ${stock}`) : '已售罄',
     salesText: Number(product.salesCount || 0) > 0 ? `已售 ${product.salesCount}` : '新品上架',
     ratingText: product.ratingSummary?.count ? Number(product.ratingSummary.average || 0).toFixed(1) : '新',
+    category: product.category || "",
+    categoryText: categoryLabels[product.category] || "校园服务",
     sellableStock: stock
   };
 }
 
 Page({
-  data: { store: null, products: [], reviews: [], loading: true },
+  data: {
+    store: null,
+    products: [],
+    filteredProducts: [],
+    reviews: [],
+    loading: true,
+    query: "",
+    activeCategory: "ALL",
+    sortKey: "recommend",
+    sortOptions: [
+      { key: "recommend", text: "综合" },
+      { key: "price", text: "价格" },
+      { key: "sales", text: "销量" },
+      { key: "rating", text: "评分" }
+    ],
+    categories: [{ key: "ALL", text: "全部" }]
+  },
   onLoad(options) {
     request(`/api/merchants/${encodeURIComponent(options.id || '')}/storefront`).then(({ data }) => {
       const score = data.merchant?.serviceScore || null;
@@ -61,6 +86,11 @@ Page({
         products: (data.products || []).map(decorateProduct),
         reviews: (data.reviews || []).map(decorateStoreReview)
       });
+      const categoryKeys = [...new Set(this.data.products.map((item) => item.category).filter(Boolean))];
+      this.setData({
+        categories: [{ key: "ALL", text: "全部" }, ...categoryKeys.map((key) => ({ key, text: key }))]
+      });
+      this.applyFilters();
     }).catch((error) => {
       this.setData({ loading: false, store: null, products: [], reviews: [] });
       wx.showToast({ title: error.message || '店铺加载失败', icon: 'none' });
@@ -70,5 +100,43 @@ Page({
     const id = event.currentTarget.dataset.id;
     if (!id) return;
     wx.navigateTo({ url: `/pages/detail/detail?id=${encodeURIComponent(id)}` });
+  },
+  setSearch(event) {
+    this.setData({ query: event.detail.value.trim() });
+    this.applyFilters();
+  },
+  setCategory(event) {
+    this.setData({ activeCategory: event.currentTarget.dataset.key || "ALL" });
+    this.applyFilters();
+  },
+  setSort(event) {
+    this.setData({ sortKey: event.currentTarget.dataset.key || "recommend" });
+    this.applyFilters();
+  },
+  applyFilters() {
+    const { products, query, activeCategory, sortKey } = this.data;
+    const keyword = query.toLowerCase();
+    let filtered = products.filter((item) => (
+      (activeCategory === "ALL" || item.category === activeCategory)
+      && `${item.name} ${item.description} ${item.categoryText}`.toLowerCase().includes(keyword)
+    ));
+    const sorters = {
+      price: (a, b) => Number(a.price) - Number(b.price),
+      sales: (a, b) => Number(b.salesCount || 0) - Number(a.salesCount || 0),
+      rating: (a, b) => Number(b.ratingSummary?.average || 0) - Number(a.ratingSummary?.average || 0)
+    };
+    if (sorters[sortKey]) filtered = filtered.sort(sorters[sortKey]);
+    this.setData({ filteredProducts: filtered });
+  },
+  previewProductImage(event) {
+    const url = event.currentTarget.dataset.url;
+    if (!url) return;
+    wx.previewImage({ current: url, urls: [url] });
+  },
+  previewReviewImages(event) {
+    const urls = event.currentTarget.dataset.urls;
+    const current = event.currentTarget.dataset.url;
+    if (!Array.isArray(urls) || !urls.length) return;
+    wx.previewImage({ current: current || urls[0], urls });
   }
 });
