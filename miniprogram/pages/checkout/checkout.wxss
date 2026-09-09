@@ -17,3 +17,9 @@
 .summary-note { color: #78849a; font-size: 21rpx; line-height: 1.5; }
 .price-line .promo { margin-left: 12rpx; padding: 4rpx 12rpx; border-radius: 999rpx; background: #eaf0ff; color: #002fa7; font-size: 19rpx; font-weight: 850; }
 .muted.small { margin-top: 8rpx; font-size: 21rpx; }
+.quantity-row { padding: 22rpx 24rpx; display: flex; align-items: center; justify-content: space-between; }
+.quantity-title { color: #172033; font-size: 25rpx; font-weight: 900; }
+.quantity-control { display: flex; align-items: center; gap: 18rpx; }
+.quantity-button { width: 52rpx; height: 52rpx; border-radius: 16rpx; border: 2rpx solid #dbe3f1; background: #f7f9fd; color: #002fa7; font-size: 32rpx; font-weight: 900; display: flex; align-items: center; justify-content: center; }
+.quantity-button.disabled { color: #b6c0d2; }
+.quantity-value { min-width: 58rpx; text-align: center; color: #172033; font-size: 28rpx; font-weight: 900; }

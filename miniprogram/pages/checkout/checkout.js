@@ -3,7 +3,7 @@ const { loadBusinessConfig } = require('../../services/business');
 const { payPaymentOrder } = require('../../services/payment');
 
 Page({
-  data: { scooter: null, config: null, deliveryTimeSlots: [], deliveryTimeIndex: 0, name: '', phone: '', date: '', minDate: '', deliveryAddress: '', addresses: [], selectedAddressId: '', saveAddress: true, submitting: false, payToken: '', itemsFee: 0, deliveryFee: 0, totalFee: 0, agreed: false },
+  data: { scooter: null, config: null, deliveryTimeSlots: [], deliveryTimeIndex: 0, name: '', phone: '', date: '', minDate: '', deliveryAddress: '', addresses: [], selectedAddressId: '', saveAddress: true, submitting: false, payToken: '', itemsFee: 0, deliveryFee: 0, totalFee: 0, agreed: false, quantity: 1, maxQuantity: 1 },
   onShow() {
     const now = new Date();
     const minDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -16,7 +16,7 @@ Page({
     this.loadAddresses();
     request(`/api/products/${encodeURIComponent(id)}`).then(({ data }) => {
       const sellableStock = Number(data.availableStock ?? (data.stock || 0));
-      this.setData({ scooter: {
+      this.setData({ maxQuantity: Math.max(1, Math.min(sellableStock, 5)), scooter: {
         ...data,
         price: Math.round((data.effectivePriceInCents ?? data.priceInCents) / 100),
         originalPrice: Math.round((data.promotion?.originalPriceInCents || 0) / 100),
@@ -76,8 +76,18 @@ Page({
     const scooter = this.data.scooter;
     if (!scooter) return;
     const deliveryFee = this.data.config ? this.data.config.deliveryFee : 0;
-    const itemsFee = Math.round((scooter.effectivePriceInCents ?? (scooter.priceInCents || 0)) / 100);
+    const unitPrice = Math.round((scooter.effectivePriceInCents ?? (scooter.priceInCents || 0)) / 100);
+    const itemsFee = unitPrice * this.data.quantity;
     this.setData({ itemsFee, deliveryFee, totalFee: itemsFee + deliveryFee });
+  },
+  setQuantity(event) {
+    const action = event.currentTarget.dataset.action;
+    const maxQuantity = this.data.maxQuantity;
+    const next = action === 'increase' ? this.data.quantity + 1 : this.data.quantity - 1;
+    if (next < 1) return wx.showToast({ title: '至少购买 1 辆', icon: 'none' });
+    if (next > maxQuantity) return wx.showToast({ title: `最多可买 ${maxQuantity} 辆`, icon: 'none' });
+    this.setData({ quantity: next });
+    this.updateTotals();
   },
   setName(e) { this.setData({ name: e.detail.value, selectedAddressId: '' }); },
   setPhone(e) { this.setData({ phone: e.detail.value, selectedAddressId: '' }); },
@@ -102,9 +112,11 @@ Page({
     const { name, phone, date, deliveryAddress, scooter } = this.data;
     if (!name || !phone || !date || !deliveryAddress || !scooter || this.data.submitting) return wx.showToast({ title: '请填写完整信息', icon: 'none' });
     if (!/^1\d{10}$/.test(phone)) return wx.showToast({ title: '请输入正确手机号', icon: 'none' });
+    const quantity = this.data.quantity;
+    if (quantity < 1 || quantity > Number(scooter.sellableStock || 0)) return wx.showToast({ title: '购买数量超出库存', icon: 'none' });
     wx.setStorageSync('shishanUserProfile',{...wx.getStorageSync('shishanUserProfile')||{},name,phone});
     this.setData({ submitting: true });
-    request('/api/orders', { method: 'POST', header: { 'Idempotency-Key': this.data.payToken }, data: { userId: userId(), items: [{ productId: scooter.id, quantity: 1 }], fulfillment: { type: 'DELIVERY', address: deliveryAddress, date, timeSlot: this.data.deliveryTimeSlots[this.data.deliveryTimeIndex] || '', contactName: name, contactPhone: phone } } })
+    request('/api/orders', { method: 'POST', header: { 'Idempotency-Key': this.data.payToken }, data: { userId: userId(), items: [{ productId: scooter.id, quantity }], fulfillment: { type: 'DELIVERY', address: deliveryAddress, date, timeSlot: this.data.deliveryTimeSlots[this.data.deliveryTimeIndex] || '', contactName: name, contactPhone: phone } } })
       .then(({ data, paymentOrder }) => {
         if (!paymentOrder || !paymentOrder.id) throw new Error('支付单创建失败');
         return payPaymentOrder(paymentOrder).then(({ data: result }) => {

@@ -83,6 +83,21 @@ test('sold-out products can register restock alerts', () => {
   assert.ok(markup.includes('restockSubscribed'), 'detail should show the restock alert state');
 });
 
+test('checkout supports bounded e-bike purchase quantity', () => {
+  const source = readMiniappFile(path.join('pages', 'checkout', 'checkout.js'));
+  const markup = readMiniappFile(path.join('pages', 'checkout', 'checkout.wxml'));
+  const styles = readMiniappFile(path.join('pages', 'checkout', 'checkout.wxss'));
+
+  assert.ok(source.includes('quantity: 1, maxQuantity: 1'), 'checkout should initialize quantity state');
+  assert.ok(source.includes('Math.max(1, Math.min(sellableStock, 5))'), 'quantity cap should follow sellable stock');
+  assert.ok(source.includes('setQuantity'), 'checkout should expose quantity controls');
+  assert.ok(source.includes('quantity > Number(scooter.sellableStock || 0)'), 'submit should guard against stock changes');
+  assert.ok(source.includes('items: [{ productId: scooter.id, quantity }]'), 'order payload should submit selected quantity');
+  assert.ok(markup.includes('data-action="increase"') && markup.includes('data-action="decrease"'), 'quantity UI should support both actions');
+  assert.ok(markup.includes('bindtap="setQuantity"'), 'quantity controls should be interactive');
+  assert.ok(styles.includes('.quantity-row') && styles.includes('.quantity-control'), 'quantity controls should be styled');
+});
+
 test('merchant storefront is reachable from product detail', () => {
   const appConfig = JSON.parse(readMiniappFile('app.json'));
   assert.ok(appConfig.pages.includes('pages/store/store'), 'merchant storefront should be a registered page');
