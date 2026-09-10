@@ -634,6 +634,8 @@ test('message center keeps history filters and actionable notification links', (
   assert.ok(pageJs.includes('/api/my/notifications/${encodeURIComponent(id)}/read'), 'one notice should mark only itself read');
   assert.ok(pageJs.includes('UNREAD'), 'message center should support unread filtering');
   assert.ok(pageWxml.includes('item.link'), 'notifications should retain business deep links');
+  assert.ok(pageJs.includes('PHONE_PLAN: "电话卡"'), 'message center should label phone card notices');
+  assert.ok(pageJs.includes('RECHARGE: "话费权益"'), 'message center should label recharge notices');
   assert.ok(profileJs.includes('goNotifications'), 'profile should route to the message center');
   assert.ok(profileWxml.includes('消息中心'), 'profile should expose the message center entry');
 });

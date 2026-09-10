@@ -8,8 +8,14 @@ function decorateNotification(item) {
     timeText: String(item.createdAt || "").slice(5, 16).replace("T", " "),
     unread: !item.read,
     link: item.link || "",
-    typeText: { ORDER: "订单", AFTER_SALE: "售后", SCORE: "服务分", SLA: "服务提醒", STOCK: "库存" }[type] || "业务提醒",
-    toneClass: { ORDER: "blue", AFTER_SALE: "orange", SCORE: "green", SLA: "orange", STOCK: "blue" }[type] || "blue"
+    typeText: {
+      ORDER: "订单", AFTER_SALE: "售后", SCORE: "服务分", SLA: "服务提醒", STOCK: "库存",
+      PROMOTION: "优惠活动", PHONE_PLAN: "电话卡", RECHARGE: "话费权益", PLATE: "校园牌照", BROADBAND: "宽带资格"
+    }[type] || "业务提醒",
+    toneClass: {
+      ORDER: "blue", AFTER_SALE: "orange", SCORE: "green", SLA: "orange", STOCK: "blue",
+      PROMOTION: "orange", PHONE_PLAN: "blue", RECHARGE: "green", PLATE: "orange", BROADBAND: "blue"
+    }[type] || "blue"
   };
 }
 
@@ -56,7 +62,7 @@ Page({
     if (activeFilter === "UNREAD") filtered = notifications.filter((item) => item.unread);
     else if (activeFilter === "ORDER") filtered = notifications.filter((item) => item.type === "ORDER");
     else if (activeFilter === "AFTER_SALE") filtered = notifications.filter((item) => item.type === "AFTER_SALE");
-    else if (activeFilter === "SERVICE") filtered = notifications.filter((item) => ["SCORE", "SLA", "STOCK"].includes(item.type));
+    else if (activeFilter === "SERVICE") filtered = notifications.filter((item) => ["SCORE", "SLA", "STOCK", "PROMOTION", "PHONE_PLAN", "RECHARGE", "PLATE", "BROADBAND"].includes(item.type));
     this.setData({ filteredNotifications: filtered });
   },
   async openNotification(event) {
