@@ -209,6 +209,7 @@ Page({
     merchant: null, metrics: null, products: [], orders: [], settlements: [], payoutRequests: [], focusId: '',
     lowStockProducts: [], lowStockThreshold: 10,
     slaAlerts: [], riskTasks: [], promotionSummary: [], notifications: [], unreadNotificationCount: 0, loading: true,
+    workbenchCounts: { overview: 0, risk: 0, finance: 0, messages: 0 },
     serviceScore: null, scoreTrend: null, latestRiskUrge: null, pendingPublishProducts: [], scoreCases: [], scoreNoticeSubscribed: false,
     scoreEvidence: [], uploadingScoreEvidence: false,
     qualificationRenewals: [], renewalLicenseNo: '', renewalLicenseExpireDate: '', renewalNote: '',
@@ -257,6 +258,12 @@ Page({
       const payableInCents = Number(settlementMetrics.payableInCents || 0);
       const minimumInCents = Number(settlementMetrics.payoutMinimumInCents || 0);
       const pendingRequest = settlementMetrics.pendingPayoutRequest;
+      const operationTodoCount = Number(data.metrics?.pendingCount || 0)
+        + Number(data.metrics?.afterSaleCount || 0)
+        + Number(data.metrics?.lowStockCount || 0)
+        + Number(data.metrics?.pendingReplyCount || 0);
+      const riskTodoCount = (data.riskTasks || []).length + (data.pendingPublishProducts || []).length;
+      const financeTodoCount = pendingRequest || Number(payableInCents) > 0 ? 1 : 0;
       const hasUrgentRisk = Boolean(data.latestRiskUrge
         || data.riskTasks?.length
         || data.slaAlerts?.length
@@ -358,6 +365,12 @@ Page({
         rectifyProductIndex: 0,
         showQualificationPanel: !data.merchant?.licenseExpireDate,
         activeWorkbenchTab: this.nextWorkbenchTab || this.data.activeWorkbenchTab,
+        workbenchCounts: {
+          overview: operationTodoCount,
+          risk: riskTodoCount,
+          finance: financeTodoCount,
+          messages: this.data.workbenchCounts.messages
+        },
         payableText: (payableInCents / 100).toFixed(2),
         payoutMinimumText: (minimumInCents / 100).toFixed(2),
         canRequestPayout: Boolean(data.merchant?.settlementAccountReady) && !pendingRequest && payableInCents >= minimumInCents && payableInCents > 0,
@@ -375,7 +388,7 @@ Page({
           timeText: String(item.createdAt || '').slice(5, 16).replace('T', ' ')
         }));
         const unreadNotificationCount = (items || []).filter((item) => !item.read).length;
-        this.setData({ notifications, unreadNotificationCount });
+        this.setData({ notifications, unreadNotificationCount, 'workbenchCounts.messages': unreadNotificationCount });
         if (unreadNotificationCount) return this.request('/api/merchant/notifications/read', { method: 'POST' });
       });
       const subscriptionTask = this.request('/api/merchant/message-subscriptions').then(({ data }) => {

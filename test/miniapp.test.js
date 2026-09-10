@@ -906,4 +906,8 @@ test('merchant workbench opens with an operations dashboard', () => {
   assert.ok(wxml.includes("activeWorkbenchTab === 'messages'"), 'merchant notices should have a dedicated tab');
   assert.ok(js.includes('setWorkbenchTab(event)'), 'workbench tabs should switch on tap');
   assert.ok(js.includes("hasUrgentRisk ? 'risk' : 'overview'"), 'urgent risk should open the risk tab by default');
+  assert.ok(js.includes('workbenchCounts: {'), 'workbench tabs should carry operation todo counts');
+  assert.ok(js.includes("'workbenchCounts.messages': unreadNotificationCount"), 'message tab should surface unread notices');
+  assert.ok(wxml.includes('wx:if="{{workbenchCounts.risk}}"'), 'risk badge should only render when risk work exists');
+  assert.ok(css.includes('.tab-badge.alert'), 'active tab badges should use a calm color');
 });

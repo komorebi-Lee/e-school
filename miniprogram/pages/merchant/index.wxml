@@ -32,10 +32,18 @@
         <view class="quick-action" bindtap="subscribeScoreNotice"><view class="quick-icon">提醒</view><view class="strong">{{scoreNoticeSubscribed ? '提醒已开' : '开启提醒'}}</view><text>风险不遗漏</text></view>
       </view>
       <view class="workbench-tabs">
-        <view class="workbench-tab {{activeWorkbenchTab === 'overview' ? 'active' : ''}}" data-tab="overview" bindtap="setWorkbenchTab">经营</view>
-        <view class="workbench-tab {{activeWorkbenchTab === 'risk' ? 'active' : ''}}" data-tab="risk" bindtap="setWorkbenchTab">风险</view>
-        <view class="workbench-tab {{activeWorkbenchTab === 'finance' ? 'active' : ''}}" data-tab="finance" bindtap="setWorkbenchTab">资金</view>
-        <view class="workbench-tab {{activeWorkbenchTab === 'messages' ? 'active' : ''}}" data-tab="messages" bindtap="setWorkbenchTab">消息</view>
+        <view class="workbench-tab {{activeWorkbenchTab === 'overview' ? 'active' : ''}}" data-tab="overview" bindtap="setWorkbenchTab">
+          <view class="tab-main">经营<text wx:if="{{workbenchCounts.overview}}" class="tab-badge {{activeWorkbenchTab === 'overview' ? '' : 'alert'}}">{{workbenchCounts.overview}}</text></view>
+        </view>
+        <view class="workbench-tab {{activeWorkbenchTab === 'risk' ? 'active' : ''}}" data-tab="risk" bindtap="setWorkbenchTab">
+          <view class="tab-main">风险<text wx:if="{{workbenchCounts.risk}}" class="tab-badge {{activeWorkbenchTab === 'risk' ? '' : 'alert'}}">{{workbenchCounts.risk}}</text></view>
+        </view>
+        <view class="workbench-tab {{activeWorkbenchTab === 'finance' ? 'active' : ''}}" data-tab="finance" bindtap="setWorkbenchTab">
+          <view class="tab-main">资金<text wx:if="{{workbenchCounts.finance}}" class="tab-badge {{activeWorkbenchTab === 'finance' ? '' : 'alert'}}">{{workbenchCounts.finance}}</text></view>
+        </view>
+        <view class="workbench-tab {{activeWorkbenchTab === 'messages' ? 'active' : ''}}" data-tab="messages" bindtap="setWorkbenchTab">
+          <view class="tab-main">消息<text wx:if="{{workbenchCounts.messages}}" class="tab-badge {{activeWorkbenchTab === 'messages' ? '' : 'alert'}}">{{workbenchCounts.messages}}</text></view>
+        </view>
       </view>
     </view>
     <view id="merchant-qualification-card" class="score card" wx:if="{{showQualificationPanel && activeWorkbenchTab === 'overview'}}">
@@ -241,6 +249,7 @@
         <view class="muted notice-time">{{item.timeText}}<text wx:if="{{item.link}}" class="notice-link">查看详情</text></view>
       </view>
     </view>
+    <view wx:if="{{!notifications.length}}" class="empty card"><view class="muted">暂无商家提醒</view></view>
     </block>
     <block wx:if="{{activeWorkbenchTab === 'overview'}}">
     <view class="sla card" wx:if="{{promotionSummary.length}}">
