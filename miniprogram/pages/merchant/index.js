@@ -459,6 +459,13 @@ Page({
   goAfterSales() {
     wx.navigateTo({ url: '/pages/merchant/orders?filter=AFTER_SALE' });
   },
+  goWorkbenchOrder(event) {
+    const { id, status } = event.currentTarget.dataset;
+    const queue = ['PAID', 'FULFILLING'].includes(status)
+      ? 'PENDING'
+      : ['AFTER_SALE', 'PARTIALLY_REFUNDED'].includes(status) ? 'AFTER_SALE' : status === 'COMPLETED' ? 'COMPLETED' : 'ALL';
+    wx.navigateTo({ url: `/pages/merchant/orders?filter=${queue}&focusId=${encodeURIComponent(id)}` });
+  },
   goProducts() {
     wx.navigateTo({ url: '/pages/merchant/products' });
   },

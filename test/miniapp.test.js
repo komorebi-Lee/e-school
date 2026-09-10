@@ -382,6 +382,7 @@ test('merchant orders surface partial refund fulfillment scope', () => {
   assert.ok(js.includes('PARTIALLY_REFUNDED'), 'merchant orders should recognize partial refund status');
   assert.ok(js.includes('remainingQuantity'), 'merchant orders should calculate remaining fulfillment quantity');
   assert.ok(js.includes('partialRefundNotice'), 'merchant orders should expose the partial refund notice');
+  assert.ok(js.includes("['AFTER_SALE', 'PARTIALLY_REFUNDED'].includes(order.status)"), 'partial refunds should remain visible in the after-sale queue');
   assert.ok(wxml.includes('partial-refund'), 'merchant orders should show the partial refund notice');
   assert.ok(wxml.includes('剩余 {{item.remainingQuantity}} 件继续履约'), 'merchant orders should show the remaining quantity');
 });
@@ -899,10 +900,14 @@ test('merchant workbench opens with an operations dashboard', () => {
   assert.ok(wxml.includes('bindtap="openQualificationPanel"'), 'qualification form should be opened on demand');
   assert.ok(wxml.includes('bindtap="goAfterSales"'), 'after-sale alert should open the after-sale queue directly');
   assert.ok(wxml.includes('bindtap="openNoticeCenter"'), 'notice quick action should route subscribed merchants to notices');
+  assert.ok(wxml.includes('bindtap="goWorkbenchOrder"'), 'recent workbench orders should be tappable');
+  assert.ok(wxml.includes('class="order-link"'), 'recent workbench orders should expose an explicit processing action');
   assert.ok(js.includes('goFinance()'), 'finance quick access should scroll to the settlement panel');
   assert.ok(js.includes('openQualificationPanel()'), 'qualification quick access should reveal the form');
   assert.ok(js.includes('goAfterSales()'), 'after-sale alert should carry an explicit queue filter');
   assert.ok(js.includes('openNoticeCenter()'), 'notice quick action should avoid toggling an existing subscription');
+  assert.ok(js.includes("goWorkbenchOrder(event)"), 'recent orders should route into the matching merchant queue');
+  assert.ok(js.includes("['PAID', 'FULFILLING'].includes(status)"), 'fulfillment orders should open the pending queue');
   assert.ok(css.includes('.workbench-metrics'), 'operations dashboard should have visible layout styles');
   assert.ok(wxml.includes('class="workbench-tabs"'), 'workbench details should be grouped by fixed tabs');
   assert.ok(wxml.includes("activeWorkbenchTab === 'risk'"), 'risk operations should be isolated from daily operations');

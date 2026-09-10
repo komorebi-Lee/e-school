@@ -62,6 +62,7 @@ Page({
   filterOrders(orders, filter) {
     if (filter === 'ALL') return orders;
     if (filter === 'PENDING') return orders.filter((order) => ['PAID', 'FULFILLING'].includes(order.status));
+    if (filter === 'AFTER_SALE') return orders.filter((order) => ['AFTER_SALE', 'PARTIALLY_REFUNDED'].includes(order.status));
     return orders.filter((order) => order.status === filter);
   },
   decorateOrder(order, afterSales) {
