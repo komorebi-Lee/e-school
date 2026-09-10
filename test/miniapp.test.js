@@ -554,6 +554,19 @@ test('merchant notifications deep-link into workspace focus areas', () => {
   assert.ok(js.includes("focusValue === 'merchant-payout'"), 'payout notifications should focus the settlement card');
 });
 
+test('core commerce pages support sharing', () => {
+  const homeJs = readMiniappFile(path.join('pages', 'home', 'home.js'));
+  const detailJs = readMiniappFile(path.join('pages', 'detail', 'detail.js'));
+  const storeJs = readMiniappFile(path.join('pages', 'store', 'store.js'));
+
+  assert.ok(homeJs.includes('onShareAppMessage'), 'home should support sharing');
+  assert.ok(homeJs.includes('onShareTimeline'), 'home should support timeline sharing');
+  assert.ok(detailJs.includes('onShareAppMessage'), 'product detail should support sharing');
+  assert.ok(detailJs.includes('/pages/detail/detail?id='), 'product shares should deep-link to the product');
+  assert.ok(storeJs.includes('onShareAppMessage'), 'store should support sharing');
+  assert.ok(storeJs.includes('/pages/store/store?id='), 'store shares should deep-link to the store');
+});
+
 test('merchant reviews surface negative review reply deadlines', () => {
   const js = readMiniappFile(path.join('pages', 'merchant', 'reviews.js'));
   const wxml = readMiniappFile(path.join('pages', 'merchant', 'reviews.wxml'));

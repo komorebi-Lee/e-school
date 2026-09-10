@@ -96,6 +96,18 @@ Page({
       wx.showToast({ title: error.message || '店铺加载失败', icon: 'none' });
     });
   },
+  onShareAppMessage() {
+    const store = this.data.store;
+    if (!store) return { title: "狮山智生活 · 校园好店", path: "/pages/home/home" };
+    return {
+      title: `${store.name} · 校内配送 · 狮山智生活`,
+      path: `/pages/store/store?id=${encodeURIComponent(store.id)}`
+    };
+  },
+  onShareTimeline() {
+    const store = this.data.store;
+    return { title: store ? `${store.name} · 狮山智生活` : "狮山智生活 · 校园好店" };
+  },
   goProduct(event) {
     const id = event.currentTarget.dataset.id;
     if (!id) return;

@@ -56,6 +56,15 @@ Page({
       });
     }).catch(() => this.setData({ scooterFromPrice: 1899, phoneFromPrice: 19, scootersLoading: false, phonePlansLoading: false }));
   },
+  onShareAppMessage() {
+    return {
+      title: "狮山智生活 · 买车办卡办上牌，校内一次办好",
+      path: "/pages/home/home"
+    };
+  },
+  onShareTimeline() {
+    return { title: "狮山智生活 · 买车办卡办上牌，校内一次办好" };
+  },
   goCard() { wx.navigateTo({ url: "/pages/card/card" }); },
   goMap() { wx.navigateTo({ url: "/pages/map/map" }); },
   goPlate() { wx.navigateTo({ url: "/pages/plate/plate" }); },

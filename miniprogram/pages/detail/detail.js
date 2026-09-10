@@ -163,6 +163,19 @@ Page({
       else { this.setData({ loading: false }); wx.showToast({ title: '商品加载失败', icon: 'none' }); }
     });
   },
+  onShareAppMessage() {
+    const scooter = this.data.scooter;
+    if (!scooter) return { title: "狮山智生活 · 校园好物", path: "/pages/home/home" };
+    return {
+      title: `${scooter.name} · ¥${scooter.price}`,
+      path: `/pages/detail/detail?id=${encodeURIComponent(scooter.id)}`
+    };
+  },
+  onShareTimeline() {
+    const scooter = this.data.scooter;
+    if (!scooter) return { title: "狮山智生活 · 校园好物" };
+    return { title: `${scooter.name} · 狮山智生活`, query: `id=${encodeURIComponent(scooter.id)}` };
+  },
   loadRestockState(productId) {
     request(`/api/products/${encodeURIComponent(productId)}/restock-alert`).then(({ data }) => {
       this.setData({ restockSubscribed: data.subscribed === true });
