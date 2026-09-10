@@ -220,6 +220,13 @@ Page({
     if (Number(this.data.scooter.sellableStock || 0) <= 0) return wx.showToast({ title: '该车型暂无可售库存', icon: 'none' });
     wx.navigateTo({ url: `/pages/checkout/checkout?id=${encodeURIComponent(this.data.scooter.id)}` });
   },
+  consult() {
+    const scooter = this.data.scooter;
+    const interest = scooter ? `${scooter.name} 购买咨询` : '';
+    wx.navigateTo({
+      url: `/pages/consult/consult?type=${encodeURIComponent('电动车')}&interest=${encodeURIComponent(interest)}`
+    });
+  },
   goRelated(e) {
     const id = e.currentTarget.dataset.id;
     if (!id) return;

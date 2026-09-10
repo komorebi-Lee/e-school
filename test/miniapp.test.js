@@ -586,6 +586,15 @@ test('favorites support removing a single item', () => {
   assert.ok(wxml.includes('cancelFavorite'), 'favorite cards should render the remove entry');
 });
 
+test('product detail exposes a consult entry', () => {
+  const js = readMiniappFile(path.join('pages', 'detail', 'detail.js'));
+  const wxml = readMiniappFile(path.join('pages', 'detail', 'detail.wxml'));
+
+  assert.ok(js.includes('consult()'), 'detail should route to the consult page');
+  assert.ok(js.includes('购买咨询'), 'consult entry should carry the product interest');
+  assert.ok(wxml.includes('consult-button'), 'detail bottom bar should expose the consult entry');
+});
+
 test('merchant reviews surface negative review reply deadlines', () => {
   const js = readMiniappFile(path.join('pages', 'merchant', 'reviews.js'));
   const wxml = readMiniappFile(path.join('pages', 'merchant', 'reviews.wxml'));
