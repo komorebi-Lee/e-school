@@ -530,6 +530,17 @@ test('merchant workspace surfaces rectification review deadlines', () => {
   assert.ok(wxml.includes('item.countdownText'), 'delisted products should show remaining time');
 });
 
+test('merchant workspace surfaces latest platform risk urging', () => {
+  const js = readMiniappFile(path.join('pages', 'merchant', 'index.js'));
+  const wxml = readMiniappFile(path.join('pages', 'merchant', 'index.wxml'));
+  const wxss = readMiniappFile(path.join('pages', 'merchant', 'index.wxss'));
+
+  assert.ok(js.includes('latestRiskUrge: data.latestRiskUrge ?'), 'workspace should read the latest urge');
+  assert.ok(wxml.includes('risk-urge-banner'), 'platform urging should be visible');
+  assert.ok(wxml.includes('平台已催办'), 'platform urging should use plain wording');
+  assert.ok(wxss.includes('.risk-urge-banner'), 'platform urging should have warning styling');
+});
+
 test('merchant reviews surface negative review reply deadlines', () => {
   const js = readMiniappFile(path.join('pages', 'merchant', 'reviews.js'));
   const wxml = readMiniappFile(path.join('pages', 'merchant', 'reviews.wxml'));

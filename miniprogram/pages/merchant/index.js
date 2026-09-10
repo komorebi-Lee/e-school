@@ -209,7 +209,7 @@ Page({
     merchant: null, metrics: null, products: [], orders: [], settlements: [], payoutRequests: [], focusId: '',
     lowStockProducts: [], lowStockThreshold: 10,
     slaAlerts: [], riskTasks: [], promotionSummary: [], notifications: [], unreadNotificationCount: 0, loading: true,
-    serviceScore: null, scoreTrend: null, pendingPublishProducts: [], scoreCases: [], scoreNoticeSubscribed: false,
+    serviceScore: null, scoreTrend: null, latestRiskUrge: null, pendingPublishProducts: [], scoreCases: [], scoreNoticeSubscribed: false,
     scoreEvidence: [], uploadingScoreEvidence: false,
     qualificationRenewals: [], renewalLicenseNo: '', renewalLicenseExpireDate: '', renewalNote: '',
     renewalEvidence: [], uploadingRenewalEvidence: false, renewalSubmitting: false,
@@ -270,6 +270,10 @@ Page({
         slaAlerts: (data.slaAlerts || []).slice(0, 4).map(decorateSlaAlert),
         serviceScore: decorateServiceScore(data.serviceScore),
         scoreTrend: decorateScoreTrend(data.scoreTrend),
+        latestRiskUrge: data.latestRiskUrge ? {
+          ...data.latestRiskUrge,
+          timeText: String(data.latestRiskUrge.createdAt || '').slice(5, 16).replace('T', ' ')
+        } : null,
         riskTasks: (data.riskTasks || []).slice(0, 8).map((item) => ({
           ...item,
           urgeText: item.urged ? '平台已催办，请尽快回复' : '',

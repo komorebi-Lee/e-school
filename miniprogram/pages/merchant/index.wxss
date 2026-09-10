@@ -51,6 +51,10 @@
 .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18rpx; margin-top: 26rpx; }
 .action-grid button { margin: 0; }
 .score { border-left: 6rpx solid #002fa7; }
+.risk-urge-banner { margin-bottom: 18rpx; padding: 20rpx 22rpx; border: 1rpx solid #f3c9c4; border-left: 6rpx solid #b42318; border-radius: 18rpx; background: #ffe9e6; }
+.risk-urge-title { font-size: 24rpx; font-weight: 750; color: #b42318; }
+.risk-urge-content { margin-top: 8rpx; font-size: 22rpx; line-height: 1.45; color: #33435f; }
+.risk-urge-meta { margin-top: 8rpx; font-size: 20rpx; color: #7a625d; }
 .score-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16rpx; }
 .score-value { display: flex; flex-direction: column; align-items: flex-end; gap: 4rpx; }
 .score-number { font-size: 46rpx; font-weight: 900; color: #002fa7; line-height: 1; }

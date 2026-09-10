@@ -47,6 +47,11 @@
         <view class="muted notice-time">{{item.timeText}}</view>
       </view>
     </view>
+    <view class="risk-urge-banner" wx:if="{{latestRiskUrge}}">
+      <view class="risk-urge-title">平台已催办</view>
+      <view class="risk-urge-content">{{latestRiskUrge.note}}</view>
+      <view class="risk-urge-meta">{{latestRiskUrge.operator}} · {{latestRiskUrge.timeText}}</view>
+    </view>
     <view class="score card" wx:if="{{serviceScore}}">
       <view class="score-head">
         <view>
