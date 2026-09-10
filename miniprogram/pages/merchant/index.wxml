@@ -5,7 +5,7 @@
       <view><view class="merchant-name">{{merchant.name}}</view><view class="muted">{{merchant.ownerNameMasked}} · {{merchant.phoneMasked}}</view></view>
       <view class="status">已入驻</view>
     </view>
-    <view class="score card">
+    <view id="merchant-qualification-card" class="score card">
       <view class="score-head">
         <view>
           <view class="strong">资质管理</view>

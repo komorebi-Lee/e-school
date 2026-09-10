@@ -330,11 +330,10 @@ Page({
         payoutHint: this.buildPayoutHint(data.merchant, settlementMetrics, payableInCents, minimumInCents),
         loading: false
       });
-      if (this.pendingFocusId === 'merchant-score') {
+      if (this.pendingFocusId) {
+        const focusValue = this.pendingFocusId;
         this.pendingFocusId = '';
-        wx.nextTick(() => {
-          wx.pageScrollTo({ selector: '#merchant-score-card', offsetTop: 90, duration: 320 });
-        });
+        this.applyNotificationFocus(focusValue);
       }
       const notificationTask = this.request('/api/merchant/notifications').then(({ data: items }) => {
         const notifications = (items || []).slice(0, 5).map((item) => ({
@@ -362,6 +361,36 @@ Page({
   },
   goApply() {
     wx.redirectTo({ url: '/pages/merchant/apply' });
+  },
+  applyNotificationFocus(focusValue) {
+    if (focusValue === 'merchant-qualification') {
+      return wx.nextTick(() => {
+        wx.pageScrollTo({ selector: '#merchant-qualification-card', offsetTop: 90, duration: 320 });
+      });
+    }
+    if (focusValue === 'merchant-score') {
+      return wx.nextTick(() => {
+        wx.pageScrollTo({ selector: '#merchant-score-card', offsetTop: 90, duration: 320 });
+      });
+    }
+    if (focusValue.startsWith('merchant-delist-')) {
+      const productId = focusValue.replace('merchant-delist-', '');
+      const productIndex = this.data.delistedProducts.findIndex((item) => item.id === productId);
+      if (productIndex >= 0) {
+        this.setData({ scoreCaseType: 'RECTIFY', rectifyProductIndex: productIndex });
+      }
+      this.setData({ focusId: productId });
+      return wx.nextTick(() => {
+        wx.pageScrollTo({ selector: `#merchant-delist-${productId}`, offsetTop: 90, duration: 320 });
+      });
+    }
+    if (focusValue && !focusValue.startsWith('merchant-')) {
+      this.setData({ focusId: focusValue });
+      return wx.nextTick(() => {
+        wx.pageScrollTo({ selector: `#merchant-score-case-${focusValue}`, offsetTop: 90, duration: 320 });
+      });
+    }
+    return undefined;
   },
   goOrders() {
     wx.navigateTo({ url: '/pages/merchant/orders' });

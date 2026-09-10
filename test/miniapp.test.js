@@ -539,8 +539,17 @@ test('merchant workspace surfaces latest platform risk urging', () => {
   assert.ok(wxml.includes('risk-urge-banner'), 'platform urging should be visible');
   assert.ok(wxml.includes('平台已催办'), 'platform urging should use plain wording');
   assert.ok(wxss.includes('.risk-urge-banner'), 'platform urging should have warning styling');
-  assert.ok(js.includes("pendingFocusId === 'merchant-score'"), 'workspace should focus the score card from notification links');
+  assert.ok(js.includes('applyNotificationFocus'), 'workspace should focus the score card from notification links');
   assert.ok(wxml.includes('merchant-score-card'), 'score card should expose the focus anchor');
+});
+
+test('merchant notifications deep-link into workspace focus areas', () => {
+  const js = readMiniappFile(path.join('pages', 'merchant', 'index.js'));
+  const wxml = readMiniappFile(path.join('pages', 'merchant', 'index.wxml'));
+
+  assert.ok(js.includes('merchant-delist-'), 'delist notifications should focus the rectification card');
+  assert.ok(js.includes('merchant-score-case-'), 'case notifications should focus the score case card');
+  assert.ok(wxml.includes('merchant-qualification-card'), 'qualification notifications should have an anchor');
 });
 
 test('merchant reviews surface negative review reply deadlines', () => {
