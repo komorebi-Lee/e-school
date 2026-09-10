@@ -307,8 +307,14 @@ Page({
           .filter((item) => ['LOW_QUALITY', 'SERVICE_RISK'].includes(item.autoDelistRule) && item.active === false)
           .map((item) => {
             const countdown = rectifyCountdown(item.complianceCase?.dueAt, item.complianceCase?.status);
+            const watchUntilMs = item.watchUntil ? new Date(item.watchUntil).getTime() : 0;
+            const watchOverdue = Boolean(watchUntilMs && watchUntilMs < Date.now());
             return {
               ...item,
+              watchText: watchUntilMs
+                ? `${watchOverdue ? '复核超时' : '复核截止'} ${String(item.watchUntil).slice(5, 16).replace('T', ' ')}`
+                : '',
+              watchTone: watchOverdue ? 'warn' : 'blue',
               evidenceText: item.autoDelistRule === 'SERVICE_RISK'
                 ? `售后超时 ${item.autoDelistEvidence?.overdueAfterSaleCount || 0} 单，请先处理超时工单`
                 : `低分评价 ${item.autoDelistEvidence?.lowRatingCount || 0} 条 · 均分 ${item.autoDelistEvidence?.averageRating || 0}`,

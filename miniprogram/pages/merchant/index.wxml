@@ -156,6 +156,7 @@
           <view class="muted">{{item.autoDelistReason}} · {{item.evidenceText}}</view>
           <view class="muted" wx:if="{{item.complianceCase && item.complianceCase.caseNo}}">工单 {{item.complianceCase.caseNo}}{{item.complianceCase.adminNote ? ' · ' + item.complianceCase.adminNote : ''}}</view>
           <view class="muted" wx:if="{{item.countdownText}}">复核时限：<text class="status-text tone-{{item.countdownTone}}">{{item.countdownText}}</text></view>
+          <view class="muted" wx:if="{{item.watchText}}">观察期：<text class="status-text tone-{{item.watchTone}}">{{item.watchText}}</text></view>
           <view class="muted sla-note">{{item.nextActionText}}</view>
         </view>
         <button size="mini" class="ghost-button" data-type="RECTIFY" data-product-index="{{index}}" bindtap="setScoreCaseType" disabled="{{item.complianceCase && (item.complianceCase.status === 'SUBMITTED' || item.complianceCase.status === 'REVIEWING')}}">{{item.canResubmit ? '重新整改' : (item.complianceCase && (item.complianceCase.status === 'SUBMITTED' || item.complianceCase.status === 'REVIEWING') ? '审核中' : '提交整改')}}</button>

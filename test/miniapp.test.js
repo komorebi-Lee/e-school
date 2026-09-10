@@ -865,3 +865,16 @@ test('completed order reviews support image evidence and text-only submission', 
   assert.ok(js.includes('count: 3'), 'review flow should cap review images at 3');
   assert.ok(js.includes('fail: () => {'), 'closing the image picker should not block a text review');
 });
+
+test('manual compliance review keeps products visible during the observation window', () => {
+  const app = readServerFile(path.join('src', 'app.js'));
+  const admin = readServerFile(path.join('public', 'admin.js'));
+  const merchantJs = readMiniappFile(path.join('pages', 'merchant', 'index.js'));
+  const merchantMarkup = readMiniappFile(path.join('pages', 'merchant', 'index.wxml'));
+
+  assert.ok(app.includes('function productComplianceWatchUntil'), 'compliance observation window should be calculated');
+  assert.ok(app.includes("action: 'WATCH'"), 'patrol should keep manually restored products under review instead of redelisting');
+  assert.ok(admin.includes('reviewDueAt'), 'admin should expose the compliance review deadline');
+  assert.ok(merchantJs.includes('watchText'), 'merchant workbench should decorate the observation window');
+  assert.ok(merchantMarkup.includes('观察期：'), 'merchant workbench should show the observation window');
+});
