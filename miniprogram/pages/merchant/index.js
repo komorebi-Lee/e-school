@@ -456,6 +456,9 @@ Page({
   goOrders() {
     wx.navigateTo({ url: '/pages/merchant/orders' });
   },
+  goAfterSales() {
+    wx.navigateTo({ url: '/pages/merchant/orders?filter=AFTER_SALE' });
+  },
   goProducts() {
     wx.navigateTo({ url: '/pages/merchant/products' });
   },
@@ -465,6 +468,13 @@ Page({
   refreshWorkbench() {
     wx.showToast({ title: '正在刷新', icon: 'loading', duration: 500 });
     this.load();
+  },
+  openNoticeCenter() {
+    if (this.data.scoreNoticeSubscribed) {
+      this.setData({ activeWorkbenchTab: 'messages' });
+      return;
+    }
+    this.subscribeScoreNotice();
   },
   openQualificationPanel() {
     this.setData({ activeWorkbenchTab: 'overview', showQualificationPanel: true });

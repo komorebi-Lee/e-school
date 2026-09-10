@@ -19,7 +19,7 @@
       </view>
       <view class="workbench-alerts">
         <view class="workbench-alert {{metrics.pendingCount ? 'attention' : ''}}" bindtap="goOrders"><text>待履约</text><strong>{{metrics.pendingCount}}</strong></view>
-        <view class="workbench-alert {{metrics.afterSaleCount ? 'attention' : ''}}" bindtap="goOrders"><text>处理中售后</text><strong>{{metrics.afterSaleCount || 0}}</strong></view>
+        <view class="workbench-alert {{metrics.afterSaleCount ? 'attention' : ''}}" bindtap="goAfterSales"><text>处理中售后</text><strong>{{metrics.afterSaleCount || 0}}</strong></view>
         <view class="workbench-alert {{metrics.lowStockCount ? 'attention' : ''}}" bindtap="goProducts"><text>库存偏低</text><strong>{{metrics.lowStockCount}}</strong></view>
         <view class="workbench-alert {{metrics.pendingReplyCount ? 'attention' : ''}}" bindtap="goReviews"><text>待回评</text><strong>{{metrics.pendingReplyCount || 0}}</strong></view>
       </view>
@@ -29,7 +29,7 @@
         <view class="quick-action" bindtap="goReviews"><view class="quick-icon">评价</view><view class="strong">评价管理</view><text>回复 / 复盘</text></view>
         <view class="quick-action" bindtap="openQualificationPanel"><view class="quick-icon">资质</view><view class="strong">资质更新</view><text>{{merchant.licenseExpireDate || '未登记'}}</text></view>
         <view class="quick-action" bindtap="goFinance"><view class="quick-icon">资金</view><view class="strong">资金账户</view><text>可结算 / 提现</text></view>
-        <view class="quick-action" bindtap="subscribeScoreNotice"><view class="quick-icon">提醒</view><view class="strong">{{scoreNoticeSubscribed ? '提醒已开' : '开启提醒'}}</view><text>风险不遗漏</text></view>
+        <view class="quick-action" bindtap="openNoticeCenter"><view class="quick-icon">提醒</view><view class="strong">{{scoreNoticeSubscribed ? '提醒已开' : '开启提醒'}}</view><text>风险不遗漏</text></view>
       </view>
       <view class="workbench-tabs">
         <view class="workbench-tab {{activeWorkbenchTab === 'overview' ? 'active' : ''}}" data-tab="overview" bindtap="setWorkbenchTab">

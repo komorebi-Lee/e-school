@@ -897,8 +897,12 @@ test('merchant workbench opens with an operations dashboard', () => {
   assert.ok(wxml.indexOf('class="workbench card"') < wxml.indexOf('id="merchant-qualification-card"'), 'operations dashboard should come before the qualification form');
   assert.ok(wxml.includes('bindtap="goFinance"'), 'merchant dashboard should expose finance quick access');
   assert.ok(wxml.includes('bindtap="openQualificationPanel"'), 'qualification form should be opened on demand');
+  assert.ok(wxml.includes('bindtap="goAfterSales"'), 'after-sale alert should open the after-sale queue directly');
+  assert.ok(wxml.includes('bindtap="openNoticeCenter"'), 'notice quick action should route subscribed merchants to notices');
   assert.ok(js.includes('goFinance()'), 'finance quick access should scroll to the settlement panel');
   assert.ok(js.includes('openQualificationPanel()'), 'qualification quick access should reveal the form');
+  assert.ok(js.includes('goAfterSales()'), 'after-sale alert should carry an explicit queue filter');
+  assert.ok(js.includes('openNoticeCenter()'), 'notice quick action should avoid toggling an existing subscription');
   assert.ok(css.includes('.workbench-metrics'), 'operations dashboard should have visible layout styles');
   assert.ok(wxml.includes('class="workbench-tabs"'), 'workbench details should be grouped by fixed tabs');
   assert.ok(wxml.includes("activeWorkbenchTab === 'risk'"), 'risk operations should be isolated from daily operations');
