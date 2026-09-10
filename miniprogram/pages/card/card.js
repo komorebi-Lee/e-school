@@ -3,7 +3,8 @@ const { payPaymentOrder } = require('../../services/payment');
 
 Page({
     data:{plans:[],rechargePromos:[],selectedPlan:0,selectedPromo:null,promoIsBuyable:true,activeSection:0,profileName:'',profilePhone:'',companionPhone:'',submitting:false,phoneCardActivationHours:24},
-  onLoad(){
+    onLoad(options = {}){
+      this.pendingPlanId = options.planId ? decodeURIComponent(options.planId) : '';
     const profile=wx.getStorageSync('shishanUserProfile')||{};
     this.setData({profileName:profile.name||'',profilePhone:profile.phone||'',companionPhone:profile.companionPhone||''});
     loadBusinessConfig().then(({ phoneCardActivationHours = 24 }) => this.setData({ phoneCardActivationHours: Number(phoneCardActivationHours || 24) })).catch(() => {});
@@ -22,7 +23,15 @@ Page({
         voice:item.voice||'通话资费见套餐说明',
         badge:item.stock>0?'可办理':'已售罄'
       }));
-      if(plans.length)this.setData({plans,selectedPlan:0});
+      if(plans.length){
+        let selectedPlan=0;
+        if(this.pendingPlanId){
+          const focused=plans.findIndex(item=>item.id===this.pendingPlanId);
+          if(focused>=0)selectedPlan=focused;
+          this.pendingPlanId='';
+        }
+        this.setData({plans,selectedPlan});
+      }
     }).catch(()=>{});
     request('/api/recharge-promos').then(({data})=>{
       const rechargePromos=(data||[]).map(item=>{

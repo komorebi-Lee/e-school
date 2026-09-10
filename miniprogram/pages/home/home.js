@@ -65,7 +65,10 @@ Page({
   onShareTimeline() {
     return { title: "狮山智生活 · 买车办卡办上牌，校内一次办好" };
   },
-  goCard() { wx.navigateTo({ url: "/pages/card/card" }); },
+  goCard(e) {
+    const planId = e?.currentTarget?.dataset?.id;
+    wx.navigateTo({ url: planId ? `/pages/card/card?planId=${encodeURIComponent(planId)}` : "/pages/card/card" });
+  },
   goMap() { wx.navigateTo({ url: "/pages/map/map" }); },
   goPlate() { wx.navigateTo({ url: "/pages/plate/plate" }); },
   goScooters() { wx.navigateTo({ url: "/pages/scooters/scooters" }); },

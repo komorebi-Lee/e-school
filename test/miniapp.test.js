@@ -567,6 +567,16 @@ test('core commerce pages support sharing', () => {
   assert.ok(storeJs.includes('/pages/store/store?id='), 'store shares should deep-link to the store');
 });
 
+test('home phone plans deep-link into the card page selection', () => {
+  const homeJs = readMiniappFile(path.join('pages', 'home', 'home.js'));
+  const homeWxml = readMiniappFile(path.join('pages', 'home', 'home.wxml'));
+  const cardJs = readMiniappFile(path.join('pages', 'card', 'card.js'));
+
+  assert.ok(homeWxml.includes('data-id="{{item.id}}"'), 'home plan cards should carry the plan id');
+  assert.ok(homeJs.includes('planId='), 'home should pass the plan id to the card page');
+  assert.ok(cardJs.includes('pendingPlanId'), 'card page should focus the requested plan');
+});
+
 test('merchant reviews surface negative review reply deadlines', () => {
   const js = readMiniappFile(path.join('pages', 'merchant', 'reviews.js'));
   const wxml = readMiniappFile(path.join('pages', 'merchant', 'reviews.wxml'));
