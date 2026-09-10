@@ -502,6 +502,7 @@ test('product sale campaigns show server-controlled promo pricing', () => {
   for (const marker of ['scooter.promotionPrice', 'scooter.originalPrice', 'scooter.promotionStatusText']) {
     assert.ok(detailWxml.includes(marker), `${marker} should be visible on product detail`);
   }
+  assert.ok(!detailWxml.includes('¥{{scooter.price}}'), 'detail bottom bar must not fall back to original price');
   assert.ok(checkoutJs.includes('effectivePriceInCents'), 'checkout should preserve server effective pricing');
   assert.ok(checkoutWxml.includes('originalPrice'), 'checkout should show the crossed-out original price');
   assert.ok(homeJs.includes('effectivePriceInCents'), 'home should use server effective pricing');
