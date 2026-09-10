@@ -257,6 +257,7 @@ Page({
   onUnload(){ this.stopCountdownTimer(); },
   onLoad(options = {}){
     if (options.focusId) this.focusId = options.focusId;
+    if (options.recordType) this.focusRecordType = options.recordType;
     loadBusinessConfig().then((config) => this.setData({
       serviceContact: config.servicePhone || config.serviceWechat || '15527111396',
       responseHours: Number(config.leadResponseHours || 24)
@@ -310,7 +311,10 @@ Page({
         createdAt:order.createdAt, updatedAt:order.updatedAt
       }));
       const records=[...ebikes,...(orderData.serviceRecords||[])].map(card).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
-      this.setData({records,filtered:this.filterRecords(records,this.data.active),linkage:this.buildLinkage(orderData,records),loading:false});
+      const focusRecordType=this.focusRecordType;
+      if (focusRecordType) this.focusRecordType='';
+      const active=focusRecordType&&focusRecordType!==this.data.active?focusRecordType:this.data.active;
+      this.setData({records,active,filtered:this.filterRecords(records,active),linkage:this.buildLinkage(orderData,records),loading:false});
       this.focusLoadedRecord(records);
     }).catch(error=>{
       this.setData({records:[],filtered:[],linkage:[],loading:false});

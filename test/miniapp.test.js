@@ -807,6 +807,13 @@ test('order actions route to edit and after-sale pages', () => {
   assert.ok(editPage.includes('this.data.deliveryTimeSlots[deliveryTimeIndex]'), 'rescheduling should use the selected configured time slot');
 });
 
+test('order notices focus the matching business tab', () => {
+  const js = readMiniappFile(path.join('pages', 'orders', 'orders.js'));
+
+  assert.ok(js.includes('focusRecordType'), 'order page should read the notice record type');
+  assert.ok(js.includes('focusRecordType&&focusRecordType!==this.data.active?focusRecordType:this.data.active'), 'order page should switch tabs for focused notices');
+});
+
 test('completed order reviews support image evidence and text-only submission', () => {
   const js = readMiniappFile(path.join('pages', 'orders', 'orders.js'));
 
