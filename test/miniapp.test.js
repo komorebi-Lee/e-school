@@ -878,3 +878,12 @@ test('manual compliance review keeps products visible during the observation win
   assert.ok(merchantJs.includes('watchText'), 'merchant workbench should decorate the observation window');
   assert.ok(merchantMarkup.includes('观察期：'), 'merchant workbench should show the observation window');
 });
+
+test('checkout renders promotion text without unsupported WXML chaining', () => {
+  const js = readMiniappFile(path.join('pages', 'checkout', 'checkout.js'));
+  const wxml = readMiniappFile(path.join('pages', 'checkout', 'checkout.wxml'));
+
+  assert.ok(js.includes('promoText: data.promotion?.statusText'), 'promotion text should be normalized in JavaScript');
+  assert.ok(wxml.includes('{{scooter.promoText}}'), 'checkout summary should use the precomputed promotion text');
+  assert.ok(!wxml.includes('scooter.promotion?.'), 'WXML should not use optional chaining');
+});

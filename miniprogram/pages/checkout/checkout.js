@@ -20,6 +20,7 @@ Page({
         ...data,
         price: Math.round((data.effectivePriceInCents ?? data.priceInCents) / 100),
         originalPrice: Math.round((data.promotion?.originalPriceInCents || 0) / 100),
+        promoText: data.promotion?.statusText || '',
         subtitle: data.description,
         color: '#eaf0ff',
         icon: '车',
@@ -76,7 +77,7 @@ Page({
     const scooter = this.data.scooter;
     if (!scooter) return;
     const deliveryFee = this.data.config ? this.data.config.deliveryFee : 0;
-    const unitPrice = Math.round((scooter.effectivePriceInCents ?? (scooter.priceInCents || 0)) / 100);
+    const unitPrice = Math.round((scooter.effectivePriceInCents ?? scooter.price ?? (scooter.priceInCents || 0)) / 100);
     const quantity = Math.max(1, Math.min(Number(this.data.quantity || 1), this.data.maxQuantity || 1));
     const itemsFee = unitPrice * quantity;
     this.setData({ itemsFee, deliveryFee, totalFee: itemsFee + deliveryFee });

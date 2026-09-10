@@ -148,6 +148,18 @@
         <view class="muted notice-time">{{item.timeText}}</view>
       </view>
     </view>
+    <view class="score card" wx:if="{{watchingProducts.length}}">
+      <view class="notice-head"><view class="strong">人工复核观察期</view><text class="muted">{{watchingProducts.length}} 件已恢复</text></view>
+      <view id="merchant-watch-{{item.id}}" class="sla-item {{item.id === focusId ? 'focus-item' : ''}}" wx:for="{{watchingProducts}}" wx:key="id">
+        <view class="sla-main">
+          <view class="strong">{{item.name}}</view>
+          <view class="muted">{{item.autoDelistReason || item.evidenceText}}</view>
+          <view class="muted" wx:if="{{item.autoDelistReviewNote}}">{{item.autoDelistReviewNote}}</view>
+          <view class="muted" wx:if="{{item.watchText}}">观察期：<text class="status-text tone-{{item.watchTone}}">{{item.watchText}}</text></view>
+        </view>
+      </view>
+      <view class="muted sla-note">观察期内再次触发风控将自动下架；7 天后恢复正常展示。</view>
+    </view>
     <view class="score card" wx:if="{{delistedProducts.length}}">
       <view class="notice-head"><view class="strong">商品自动下架</view><text class="muted">{{delistedProducts.length}} 件待整改</text></view>
       <view id="merchant-delist-{{item.id}}" class="sla-item {{item.id === focusId ? 'focus-item' : ''}}" wx:for="{{delistedProducts}}" wx:key="id">

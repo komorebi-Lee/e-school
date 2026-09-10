@@ -213,7 +213,7 @@ Page({
     scoreEvidence: [], uploadingScoreEvidence: false,
     qualificationRenewals: [], renewalLicenseNo: '', renewalLicenseExpireDate: '', renewalNote: '',
     renewalEvidence: [], uploadingRenewalEvidence: false, renewalSubmitting: false,
-    delistedProducts: [], rectifyProductIndex: 0,
+    delistedProducts: [], watchingProducts: [], rectifyProductIndex: 0,
     scoreCaseType: 'APPEAL', scoreCaseReasonTypeIndex: 0, appealReasons,
     payoutMinimumText: '100.00', payableText: '0.00', canRequestPayout: false, payoutHint: '', payoutSubmitting: false,
     statement: null, statementMonth: new Date().toISOString().slice(0, 7), statementSaving: false
@@ -329,6 +329,20 @@ Page({
               countdownTone: countdown?.tone || 'todo'
             };
           }),
+        watchingProducts: (data.watchingProducts || []).map((item) => {
+          const watchUntilMs = item.watchUntil ? new Date(item.watchUntil).getTime() : 0;
+          const watchOverdue = Boolean(watchUntilMs && watchUntilMs < Date.now());
+          return {
+            ...item,
+            watchText: watchUntilMs
+              ? `${watchOverdue ? '复核已过期' : '复核截止'} ${String(item.watchUntil).slice(5, 16).replace('T', ' ')}`
+              : '',
+            watchTone: watchOverdue ? 'warn' : 'blue',
+            evidenceText: item.autoDelistRule === 'SERVICE_RISK'
+              ? '触发履约超时风险'
+              : '触发低质商品风控'
+          };
+        }),
         rectifyProductIndex: 0,
         payableText: (payableInCents / 100).toFixed(2),
         payoutMinimumText: (minimumInCents / 100).toFixed(2),
