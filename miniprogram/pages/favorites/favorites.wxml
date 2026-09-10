@@ -21,6 +21,7 @@
         <view class="meta"><text>{{item.merchantName}}</text><text>{{item.stockText}}</text><text>{{item.salesText}}</text></view>
         <view class="bottom">
           <text class="rating">{{item.ratingText}}</text>
+          <view class="fav-remove" catchtap="cancelFavorite" data-id="{{item.id}}">取消收藏</view>
           <view class="price-group"><text wx:if="{{item.originalPrice}}" class="original-price">¥{{item.originalPrice}}</text><text class="price">¥{{item.price}}</text></view>
         </view>
         <view wx:if="{{item.promoText}}" class="promo-row"><text class="promo-badge">{{item.promoText}}</text></view>

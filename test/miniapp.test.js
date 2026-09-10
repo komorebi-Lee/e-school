@@ -577,6 +577,15 @@ test('home phone plans deep-link into the card page selection', () => {
   assert.ok(cardJs.includes('pendingPlanId'), 'card page should focus the requested plan');
 });
 
+test('favorites support removing a single item', () => {
+  const js = readMiniappFile(path.join('pages', 'favorites', 'favorites.js'));
+  const wxml = readMiniappFile(path.join('pages', 'favorites', 'favorites.wxml'));
+
+  assert.ok(js.includes('cancelFavorite'), 'favorites should expose a remove action');
+  assert.ok(js.includes('favorited: false'), 'removal should call the favorite toggle API');
+  assert.ok(wxml.includes('cancelFavorite'), 'favorite cards should render the remove entry');
+});
+
 test('merchant reviews surface negative review reply deadlines', () => {
   const js = readMiniappFile(path.join('pages', 'merchant', 'reviews.js'));
   const wxml = readMiniappFile(path.join('pages', 'merchant', 'reviews.wxml'));

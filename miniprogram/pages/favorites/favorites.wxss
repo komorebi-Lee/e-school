@@ -21,5 +21,7 @@
 .price-group { display: flex; align-items: baseline; gap: 10rpx; }
 .original-price { color: #98a4b7; font-size: 22rpx; text-decoration: line-through; }
 .price { color: #002fa7; font-size: 30rpx; font-weight: 900; }
+.fav-remove { padding: 8rpx 16rpx; border: 1rpx solid #d8dee9; border-radius: 999rpx; color: #78849a; font-size: 20rpx; }
+.fav-remove:active { background: #f0f3f8; }
 .promo-row { margin-top: 10rpx; }
 .promo-badge { display: inline-flex; padding: 6rpx 12rpx; border-radius: 999rpx; background: #fff1b8; color: #a05a00; font-size: 20rpx; font-weight: 800; }

@@ -25,6 +25,15 @@ Page({
   data: { favorites: [], loading: true, saleCount: 0 },
   onShow() { this.loadFavorites(); },
   loadFavorites() {
+    const removeFavorite = (productId) => {
+      request(`/api/products/${encodeURIComponent(productId)}/favorite`, { method: 'POST', data: { favorited: false } })
+        .then(() => {
+          wx.showToast({ title: '已取消收藏', icon: 'success' });
+          this.loadFavorites();
+        })
+        .catch((error) => wx.showToast({ title: error.message || '操作失败', icon: 'none' }));
+    };
+    this.removeFavorite = removeFavorite;
     request('/api/my/favorites').then(({ data }) => {
       const favorites = (data || []).map(decorateFavorite);
       this.setData({ favorites, saleCount: favorites.filter((item) => item.promoText).length, loading: false });
@@ -37,5 +46,15 @@ Page({
     const id = event.currentTarget.dataset.id;
     if (!id) return;
     wx.navigateTo({ url: `/pages/detail/detail?id=${encodeURIComponent(id)}` });
+  }
+  ,
+  cancelFavorite(event) {
+    const id = event.currentTarget.dataset.id;
+    if (!id || !this.removeFavorite) return;
+    wx.showModal({
+      title: '取消收藏',
+      content: '确定不再关注这件商品吗？',
+      success: ({ confirm }) => { if (confirm) this.removeFavorite(id); }
+    });
   }
 });
