@@ -213,7 +213,7 @@ Page({
     scoreEvidence: [], uploadingScoreEvidence: false,
     qualificationRenewals: [], renewalLicenseNo: '', renewalLicenseExpireDate: '', renewalNote: '',
     renewalEvidence: [], uploadingRenewalEvidence: false, renewalSubmitting: false,
-    delistedProducts: [], watchingProducts: [], rectifyProductIndex: 0,
+    delistedProducts: [], watchingProducts: [], rectifyProductIndex: 0, showQualificationPanel: false,
     scoreCaseType: 'APPEAL', scoreCaseReasonTypeIndex: 0, appealReasons,
     payoutMinimumText: '100.00', payableText: '0.00', canRequestPayout: false, payoutHint: '', payoutSubmitting: false,
     statement: null, statementMonth: new Date().toISOString().slice(0, 7), statementSaving: false
@@ -344,6 +344,7 @@ Page({
           };
         }),
         rectifyProductIndex: 0,
+        showQualificationPanel: !data.merchant?.licenseExpireDate,
         payableText: (payableInCents / 100).toFixed(2),
         payoutMinimumText: (minimumInCents / 100).toFixed(2),
         canRequestPayout: Boolean(data.merchant?.settlementAccountReady) && !pendingRequest && payableInCents >= minimumInCents && payableInCents > 0,
@@ -425,6 +426,24 @@ Page({
   },
   goReviews() {
     wx.navigateTo({ url: '/pages/merchant/reviews' });
+  },
+  refreshWorkbench() {
+    wx.showToast({ title: '正在刷新', icon: 'loading', duration: 500 });
+    this.load();
+  },
+  openQualificationPanel() {
+    this.setData({ showQualificationPanel: true });
+    wx.nextTick(() => {
+      wx.pageScrollTo({ selector: '#merchant-qualification-card', offsetTop: 90, duration: 320 });
+    });
+  },
+  toggleQualificationPanel() {
+    this.setData({ showQualificationPanel: !this.data.showQualificationPanel });
+  },
+  goFinance() {
+    wx.nextTick(() => {
+      wx.pageScrollTo({ selector: '#merchant-payout-card', offsetTop: 90, duration: 320 });
+    });
   },
   goRiskTask(event) {
     const { type, id } = event.currentTarget.dataset;

@@ -887,3 +887,17 @@ test('checkout renders promotion text without unsupported WXML chaining', () => 
   assert.ok(wxml.includes('{{scooter.promoText}}'), 'checkout summary should use the precomputed promotion text');
   assert.ok(!wxml.includes('scooter.promotion?.'), 'WXML should not use optional chaining');
 });
+
+test('merchant workbench opens with an operations dashboard', () => {
+  const wxml = readMiniappFile(path.join('pages', 'merchant', 'index.wxml'));
+  const js = readMiniappFile(path.join('pages', 'merchant', 'index.js'));
+  const css = readMiniappFile(path.join('pages', 'merchant', 'index.wxss'));
+
+  assert.ok(wxml.includes('class="workbench card"'), 'merchant workbench should open with an operations dashboard');
+  assert.ok(wxml.indexOf('class="workbench card"') < wxml.indexOf('id="merchant-qualification-card"'), 'operations dashboard should come before the qualification form');
+  assert.ok(wxml.includes('bindtap="goFinance"'), 'merchant dashboard should expose finance quick access');
+  assert.ok(wxml.includes('bindtap="openQualificationPanel"'), 'qualification form should be opened on demand');
+  assert.ok(js.includes('goFinance()'), 'finance quick access should scroll to the settlement panel');
+  assert.ok(js.includes('openQualificationPanel()'), 'qualification quick access should reveal the form');
+  assert.ok(css.includes('.workbench-metrics'), 'operations dashboard should have visible layout styles');
+});
