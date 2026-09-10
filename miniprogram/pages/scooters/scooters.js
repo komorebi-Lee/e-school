@@ -18,7 +18,11 @@ function normalizeProduct(item) {
     ratingText: item.ratingSummary?.count ? item.ratingSummary.average.toFixed(1) : '',
     ratingCountText: item.ratingSummary?.count ? `${item.ratingSummary.count}条已购评价` : '暂无已购评价',
     scoreText: item.merchantScore?.score ? `${item.merchantScore.score}分` : '新店',
-    scoreTone: item.merchantScore?.score >= 80 ? 'good' : item.merchantScore ? 'watch' : 'new',
+    scoreTone: item.merchantScore?.stage === 'NORMAL'
+      ? 'good'
+      : item.merchantScore?.stage === 'LIMITED'
+        ? 'watch'
+        : item.merchantScore ? 'risk' : 'new',
     salesText: item.salesCount > 0 ? `已售 ${item.salesCount}` : '新品上架',
     promoText: item.promotion?.statusText || '',
     sellableStock,

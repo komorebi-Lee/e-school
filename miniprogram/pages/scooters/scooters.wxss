@@ -25,5 +25,6 @@
 .signal { display: inline-flex; padding: 7rpx 13rpx; border-radius: 999rpx; background: #f5f7fb; color: #536078; font-size: 19rpx; font-weight: 700; }
 .service-score.score-good { background: #dcf7ea; color: #157552; }
 .service-score.score-watch { background: #fff7cf; color: #9a7200; }
+.service-score.score-risk { background: #ffe9e6; color: #b42318; }
 .service-score.score-new { background: #eaf0ff; color: #002fa7; }
 .stock-signal.urgent { background: #ffe9e6; color: #b42318; }

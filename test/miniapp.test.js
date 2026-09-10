@@ -669,6 +669,8 @@ test('scooter list shows service score and commerce signals', () => {
   const wxss = readMiniappFile(path.join('pages', 'scooters', 'scooters.wxss'));
 
   assert.ok(js.includes('item.merchantScore?.score'), 'product cards should expose the merchant service score');
+  assert.ok(js.includes("item.merchantScore?.stage === 'LIMITED'"), 'product cards should use the platform service stage');
+  assert.ok(wxss.includes('.service-score.score-risk'), 'restricted merchants should get a visible risk tone');
   assert.ok(js.includes('salesText'), 'product cards should expose verified sales volume');
   assert.ok(js.includes('promoText'), 'active campaigns should be visible in the list');
   assert.ok(js.includes('recommendWeight'), 'recommend sorting should combine sales and rating');
