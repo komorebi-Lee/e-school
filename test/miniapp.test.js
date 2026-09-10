@@ -550,6 +550,8 @@ test('merchant notifications deep-link into workspace focus areas', () => {
   assert.ok(js.includes('merchant-delist-'), 'delist notifications should focus the rectification card');
   assert.ok(js.includes('merchant-score-case-'), 'case notifications should focus the score case card');
   assert.ok(wxml.includes('merchant-qualification-card'), 'qualification notifications should have an anchor');
+  assert.ok(wxml.includes('merchant-payout-card'), 'payout notifications should have an anchor');
+  assert.ok(js.includes("focusValue === 'merchant-payout'"), 'payout notifications should focus the settlement card');
 });
 
 test('merchant reviews surface negative review reply deadlines', () => {

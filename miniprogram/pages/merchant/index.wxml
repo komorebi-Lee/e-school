@@ -223,7 +223,7 @@
       </view>
     </view>
     <view class="section-title">资金账户</view>
-    <view class="settle-panel card">
+    <view id="merchant-payout-card" class="settle-panel card">
       <view class="settle-head">
         <view><view class="strong">可结算余额</view><view class="muted">服务费率 {{metrics.settlementMetrics.commissionRatePercent}}% · 账期 {{metrics.settlementMetrics.settlementPeriodDays}} 天</view></view>
         <view class="settle-amount">¥{{metrics.settlementMetrics.payableInCents / 100}}</view>

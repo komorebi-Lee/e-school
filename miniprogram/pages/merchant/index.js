@@ -373,6 +373,11 @@ Page({
         wx.pageScrollTo({ selector: '#merchant-score-card', offsetTop: 90, duration: 320 });
       });
     }
+    if (focusValue === 'merchant-payout') {
+      return wx.nextTick(() => {
+        wx.pageScrollTo({ selector: '#merchant-payout-card', offsetTop: 90, duration: 320 });
+      });
+    }
     if (focusValue.startsWith('merchant-delist-')) {
       const productId = focusValue.replace('merchant-delist-', '');
       const productIndex = this.data.delistedProducts.findIndex((item) => item.id === productId);
