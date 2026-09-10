@@ -539,6 +539,8 @@ test('merchant workspace surfaces latest platform risk urging', () => {
   assert.ok(wxml.includes('risk-urge-banner'), 'platform urging should be visible');
   assert.ok(wxml.includes('平台已催办'), 'platform urging should use plain wording');
   assert.ok(wxss.includes('.risk-urge-banner'), 'platform urging should have warning styling');
+  assert.ok(js.includes("pendingFocusId === 'merchant-score'"), 'workspace should focus the score card from notification links');
+  assert.ok(wxml.includes('merchant-score-card'), 'score card should expose the focus anchor');
 });
 
 test('merchant reviews surface negative review reply deadlines', () => {

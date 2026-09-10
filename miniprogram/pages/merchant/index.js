@@ -218,6 +218,9 @@ Page({
     payoutMinimumText: '100.00', payableText: '0.00', canRequestPayout: false, payoutHint: '', payoutSubmitting: false,
     statement: null, statementMonth: new Date().toISOString().slice(0, 7), statementSaving: false
   },
+  onLoad(options) {
+    this.pendingFocusId = options?.focusId ? decodeURIComponent(options.focusId) : '';
+  },
   onShow() {
     this.load();
   },
@@ -327,6 +330,12 @@ Page({
         payoutHint: this.buildPayoutHint(data.merchant, settlementMetrics, payableInCents, minimumInCents),
         loading: false
       });
+      if (this.pendingFocusId === 'merchant-score') {
+        this.pendingFocusId = '';
+        wx.nextTick(() => {
+          wx.pageScrollTo({ selector: '#merchant-score-card', offsetTop: 90, duration: 320 });
+        });
+      }
       const notificationTask = this.request('/api/merchant/notifications').then(({ data: items }) => {
         const notifications = (items || []).slice(0, 5).map((item) => ({
           ...item,

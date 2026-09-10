@@ -52,7 +52,7 @@
       <view class="risk-urge-content">{{latestRiskUrge.note}}</view>
       <view class="risk-urge-meta">{{latestRiskUrge.operator}} · {{latestRiskUrge.timeText}}</view>
     </view>
-    <view class="score card" wx:if="{{serviceScore}}">
+    <view id="merchant-score-card" class="score card" wx:if="{{serviceScore}}">
       <view class="score-head">
         <view>
           <view class="strong">店铺服务分</view>
