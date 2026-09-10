@@ -900,4 +900,10 @@ test('merchant workbench opens with an operations dashboard', () => {
   assert.ok(js.includes('goFinance()'), 'finance quick access should scroll to the settlement panel');
   assert.ok(js.includes('openQualificationPanel()'), 'qualification quick access should reveal the form');
   assert.ok(css.includes('.workbench-metrics'), 'operations dashboard should have visible layout styles');
+  assert.ok(wxml.includes('class="workbench-tabs"'), 'workbench details should be grouped by fixed tabs');
+  assert.ok(wxml.includes("activeWorkbenchTab === 'risk'"), 'risk operations should be isolated from daily operations');
+  assert.ok(wxml.includes("activeWorkbenchTab === 'finance'"), 'finance records should have a dedicated tab');
+  assert.ok(wxml.includes("activeWorkbenchTab === 'messages'"), 'merchant notices should have a dedicated tab');
+  assert.ok(js.includes('setWorkbenchTab(event)'), 'workbench tabs should switch on tap');
+  assert.ok(js.includes("hasUrgentRisk ? 'risk' : 'overview'"), 'urgent risk should open the risk tab by default');
 });

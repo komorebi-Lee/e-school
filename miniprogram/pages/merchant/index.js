@@ -214,6 +214,7 @@ Page({
     qualificationRenewals: [], renewalLicenseNo: '', renewalLicenseExpireDate: '', renewalNote: '',
     renewalEvidence: [], uploadingRenewalEvidence: false, renewalSubmitting: false,
     delistedProducts: [], watchingProducts: [], rectifyProductIndex: 0, showQualificationPanel: false,
+    activeWorkbenchTab: 'overview',
     scoreCaseType: 'APPEAL', scoreCaseReasonTypeIndex: 0, appealReasons,
     payoutMinimumText: '100.00', payableText: '0.00', canRequestPayout: false, payoutHint: '', payoutSubmitting: false,
     statement: null, statementMonth: new Date().toISOString().slice(0, 7), statementSaving: false
@@ -256,6 +257,17 @@ Page({
       const payableInCents = Number(settlementMetrics.payableInCents || 0);
       const minimumInCents = Number(settlementMetrics.payoutMinimumInCents || 0);
       const pendingRequest = settlementMetrics.pendingPayoutRequest;
+      const hasUrgentRisk = Boolean(data.latestRiskUrge
+        || data.riskTasks?.length
+        || data.slaAlerts?.length
+        || data.pendingPublishProducts?.length
+        || (data.products || []).some((item) => ['LOW_QUALITY', 'SERVICE_RISK'].includes(item.autoDelistRule)));
+      if (!this.workbenchTabInitialized) {
+        this.nextWorkbenchTab = hasUrgentRisk ? 'risk' : 'overview';
+      } else {
+        this.nextWorkbenchTab = this.data.activeWorkbenchTab;
+      }
+      this.workbenchTabInitialized = true;
       this.setData({
         merchant: data.merchant,
         metrics: data.metrics,
@@ -345,6 +357,7 @@ Page({
         }),
         rectifyProductIndex: 0,
         showQualificationPanel: !data.merchant?.licenseExpireDate,
+        activeWorkbenchTab: this.nextWorkbenchTab || this.data.activeWorkbenchTab,
         payableText: (payableInCents / 100).toFixed(2),
         payoutMinimumText: (minimumInCents / 100).toFixed(2),
         canRequestPayout: Boolean(data.merchant?.settlementAccountReady) && !pendingRequest && payableInCents >= minimumInCents && payableInCents > 0,
@@ -383,18 +396,27 @@ Page({
   goApply() {
     wx.redirectTo({ url: '/pages/merchant/apply' });
   },
+  setWorkbenchTab(event) {
+    const tab = event.currentTarget.dataset.tab;
+    if (['overview', 'risk', 'finance', 'messages'].includes(tab)) {
+      this.setData({ activeWorkbenchTab: tab });
+    }
+  },
   applyNotificationFocus(focusValue) {
     if (focusValue === 'merchant-qualification') {
+      this.setData({ activeWorkbenchTab: 'overview', showQualificationPanel: true });
       return wx.nextTick(() => {
         wx.pageScrollTo({ selector: '#merchant-qualification-card', offsetTop: 90, duration: 320 });
       });
     }
     if (focusValue === 'merchant-score') {
+      this.setData({ activeWorkbenchTab: 'risk' });
       return wx.nextTick(() => {
         wx.pageScrollTo({ selector: '#merchant-score-card', offsetTop: 90, duration: 320 });
       });
     }
     if (focusValue === 'merchant-payout') {
+      this.setData({ activeWorkbenchTab: 'finance' });
       return wx.nextTick(() => {
         wx.pageScrollTo({ selector: '#merchant-payout-card', offsetTop: 90, duration: 320 });
       });
@@ -405,13 +427,13 @@ Page({
       if (productIndex >= 0) {
         this.setData({ scoreCaseType: 'RECTIFY', rectifyProductIndex: productIndex });
       }
-      this.setData({ focusId: productId });
+      this.setData({ activeWorkbenchTab: 'risk', focusId: productId });
       return wx.nextTick(() => {
         wx.pageScrollTo({ selector: `#merchant-delist-${productId}`, offsetTop: 90, duration: 320 });
       });
     }
     if (focusValue && !focusValue.startsWith('merchant-')) {
-      this.setData({ focusId: focusValue });
+      this.setData({ activeWorkbenchTab: 'risk', focusId: focusValue });
       return wx.nextTick(() => {
         wx.pageScrollTo({ selector: `#merchant-score-case-${focusValue}`, offsetTop: 90, duration: 320 });
       });
@@ -432,7 +454,7 @@ Page({
     this.load();
   },
   openQualificationPanel() {
-    this.setData({ showQualificationPanel: true });
+    this.setData({ activeWorkbenchTab: 'overview', showQualificationPanel: true });
     wx.nextTick(() => {
       wx.pageScrollTo({ selector: '#merchant-qualification-card', offsetTop: 90, duration: 320 });
     });
@@ -441,6 +463,7 @@ Page({
     this.setData({ showQualificationPanel: !this.data.showQualificationPanel });
   },
   goFinance() {
+    this.setData({ activeWorkbenchTab: 'finance' });
     wx.nextTick(() => {
       wx.pageScrollTo({ selector: '#merchant-payout-card', offsetTop: 90, duration: 320 });
     });

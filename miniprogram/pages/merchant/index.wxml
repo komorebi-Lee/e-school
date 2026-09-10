@@ -31,8 +31,14 @@
         <view class="quick-action" bindtap="goFinance"><view class="quick-icon">资金</view><view class="strong">资金账户</view><text>可结算 / 提现</text></view>
         <view class="quick-action" bindtap="subscribeScoreNotice"><view class="quick-icon">提醒</view><view class="strong">{{scoreNoticeSubscribed ? '提醒已开' : '开启提醒'}}</view><text>风险不遗漏</text></view>
       </view>
+      <view class="workbench-tabs">
+        <view class="workbench-tab {{activeWorkbenchTab === 'overview' ? 'active' : ''}}" data-tab="overview" bindtap="setWorkbenchTab">经营</view>
+        <view class="workbench-tab {{activeWorkbenchTab === 'risk' ? 'active' : ''}}" data-tab="risk" bindtap="setWorkbenchTab">风险</view>
+        <view class="workbench-tab {{activeWorkbenchTab === 'finance' ? 'active' : ''}}" data-tab="finance" bindtap="setWorkbenchTab">资金</view>
+        <view class="workbench-tab {{activeWorkbenchTab === 'messages' ? 'active' : ''}}" data-tab="messages" bindtap="setWorkbenchTab">消息</view>
+      </view>
     </view>
-    <view id="merchant-qualification-card" class="score card" wx:if="{{showQualificationPanel}}">
+    <view id="merchant-qualification-card" class="score card" wx:if="{{showQualificationPanel && activeWorkbenchTab === 'overview'}}">
       <view class="score-head">
         <view>
           <view class="strong">资质管理</view>
@@ -75,6 +81,7 @@
         <view class="muted notice-time">{{item.timeText}}</view>
       </view>
     </view>
+    <block wx:if="{{activeWorkbenchTab === 'risk'}}">
     <view class="risk-urge-banner" wx:if="{{latestRiskUrge}}">
       <view class="risk-urge-title">平台已催办</view>
       <view class="risk-urge-content">{{latestRiskUrge.note}}</view>
@@ -224,6 +231,8 @@
       </view>
       <view class="muted sla-note">超时会影响店铺履约评分，请优先处理已超时事项</view>
     </view>
+    </block>
+    <block wx:if="{{activeWorkbenchTab === 'messages'}}">
     <view class="notification card" wx:if="{{notifications.length}}">
       <view class="notice-head"><view class="strong">商家提醒</view><text class="muted">未读 {{unreadNotificationCount}}</text></view>
       <view class="notice-item {{item.link ? 'notice-action' : ''}}" wx:for="{{notifications}}" wx:key="id" bindtap="openNotification" data-link="{{item.link}}">
@@ -232,6 +241,8 @@
         <view class="muted notice-time">{{item.timeText}}<text wx:if="{{item.link}}" class="notice-link">查看详情</text></view>
       </view>
     </view>
+    </block>
+    <block wx:if="{{activeWorkbenchTab === 'overview'}}">
     <view class="sla card" wx:if="{{promotionSummary.length}}">
       <view class="notice-head"><view class="strong">促销成效</view><text class="muted">{{promotionSummary.length}} 个活动</text></view>
       <view class="sla-item" wx:for="{{promotionSummary}}" wx:key="id">
@@ -253,6 +264,8 @@
         <button size="mini" class="ghost-button" bindtap="goProducts">去补货</button>
       </view>
     </view>
+    </block>
+    <block wx:if="{{activeWorkbenchTab === 'finance'}}">
     <view class="section-title">资金账户</view>
     <view id="merchant-payout-card" class="settle-panel card">
       <view class="settle-head">
@@ -305,6 +318,8 @@
       </view>
     </view>
     <view wx:if="{{!statement}}" class="empty card"><view class="muted">暂无本月对账数据</view></view>
+    </block>
+    <block wx:if="{{activeWorkbenchTab === 'overview'}}">
     <view class="section-title">最近订单</view>
     <view class="card order" wx:for="{{orders}}" wx:key="id">
       <view><view class="strong">{{item.orderNo}}</view><view class="muted">{{item.items[0].name}}{{item.items.length > 1 ? ' 等' : ''}}</view></view>
@@ -317,5 +332,6 @@
       <view class="right"><view class="price">¥{{item.payableAmountInCents / 100}}</view><view class="status-text tone-{{item.stageTone}}">{{item.stageLabel}}</view></view>
     </view>
     <view wx:if="{{!settlements.length}}" class="empty card"><view class="muted">支付成功后生成分账记录</view></view>
+    </block>
   </block>
 </view>

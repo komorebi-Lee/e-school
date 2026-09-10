@@ -20,6 +20,9 @@
 .quick-icon { width: 66rpx; height: 34rpx; line-height: 34rpx; border-radius: 999rpx; background: #eaefff; color: #002fa7; text-align: center; font-size: 19rpx; font-weight: 800; }
 .quick-action .strong { margin-top: 12rpx; font-size: 24rpx; }
 .quick-action text { display: block; margin-top: 5rpx; color: #78849a; font-size: 19rpx; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.workbench-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8rpx; margin-top: 20rpx; padding: 8rpx; border-radius: 18rpx; background: #f1f4fa; }
+.workbench-tab { height: 62rpx; line-height: 62rpx; border-radius: 14rpx; text-align: center; color: #5d6b82; font-size: 24rpx; font-weight: 750; }
+.workbench-tab.active { background: #fff; color: #002fa7; box-shadow: 0 4rpx 14rpx rgba(0, 47, 167, .08); }
 .notice-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10rpx; }
 .notice-item { padding: 16rpx 0; border-bottom: 1rpx solid #edf0f5; }
 .notice-item:last-child { border-bottom: 0; }
