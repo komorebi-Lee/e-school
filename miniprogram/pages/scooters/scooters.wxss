@@ -21,3 +21,9 @@
 .hot-meta text:last-child { color: #78849a; font-weight: 600; }
 .tags { display: flex; gap: 10rpx; margin-top: 16rpx; }
 .tags text { padding: 7rpx 13rpx; border-radius: 999rpx; background: #eaf0ff; color: #002fa7; font-size: 19rpx; font-weight: 700; }
+.signal-row { display: flex; align-items: center; gap: 10rpx; margin-top: 16rpx; flex-wrap: wrap; }
+.signal { display: inline-flex; padding: 7rpx 13rpx; border-radius: 999rpx; background: #f5f7fb; color: #536078; font-size: 19rpx; font-weight: 700; }
+.service-score.score-good { background: #dcf7ea; color: #157552; }
+.service-score.score-watch { background: #fff7cf; color: #9a7200; }
+.service-score.score-new { background: #eaf0ff; color: #002fa7; }
+.stock-signal.urgent { background: #ffe9e6; color: #b42318; }

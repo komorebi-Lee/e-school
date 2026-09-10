@@ -662,6 +662,21 @@ test('profile order reminders respect the WeChat authorization result', () => {
   assert.ok(profileWxml.includes('toggleOrderMessages'), 'profile should expose the reminder toggle');
 });
 
+test('scooter list shows service score and commerce signals', () => {
+  const js = readMiniappFile(path.join('pages', 'scooters', 'scooters.js'));
+  const wxml = readMiniappFile(path.join('pages', 'scooters', 'scooters.wxml'));
+  const wxss = readMiniappFile(path.join('pages', 'scooters', 'scooters.wxss'));
+
+  assert.ok(js.includes('item.merchantScore?.score'), 'product cards should expose the merchant service score');
+  assert.ok(js.includes('salesText'), 'product cards should expose verified sales volume');
+  assert.ok(js.includes('promoText'), 'active campaigns should be visible in the list');
+  assert.ok(js.includes('recommendWeight'), 'recommend sorting should combine sales and rating');
+  assert.ok(wxml.includes('service-score'), 'service score should have a visible label');
+  assert.ok(wxml.includes('item.promoText'), 'active campaigns should render in the list');
+  assert.ok(wxml.includes('item.salesText'), 'sales evidence should render in the list');
+  assert.ok(wxss.includes('.signal-row'), 'commerce signals should be visually grouped');
+});
+
 test('user orders surface consultation response progress', () => {
   const orderJs = readMiniappFile(path.join('pages', 'orders', 'orders.js'));
   const orderWxml = readMiniappFile(path.join('pages', 'orders', 'orders.wxml'));

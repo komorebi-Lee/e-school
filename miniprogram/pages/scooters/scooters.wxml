@@ -31,6 +31,11 @@
         <text class="sales">{{item.salesText}}</text>
       </view>
       <view class="specs"><text>续航 {{item.range}}</text><text>限速 {{item.speed}}</text></view>
+      <view class="signal-row">
+        <text class="signal service-score score-{{item.scoreTone}}">服务 {{item.scoreText}}</text>
+        <text class="signal sales-signal">{{item.salesText}}</text>
+        <text class="signal stock-signal {{item.urgent ? 'urgent' : ''}}">{{item.stockText}}</text>
+      </view>
       <view class="tags"><text>校内配送</text><text>牌照辅助</text></view>
       <view class="promo-row" wx:if="{{item.promoText}}"><text class="promo-badge">{{item.promoText}}</text></view>
       <view class="bottom">

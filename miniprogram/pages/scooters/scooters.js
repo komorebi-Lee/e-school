@@ -17,10 +17,13 @@ function normalizeProduct(item) {
     color: item.color || '#eaf0ff',
     ratingText: item.ratingSummary?.count ? item.ratingSummary.average.toFixed(1) : '',
     ratingCountText: item.ratingSummary?.count ? `${item.ratingSummary.count}条已购评价` : '暂无已购评价',
+    scoreText: item.merchantScore?.score ? `${item.merchantScore.score}分` : '新店',
+    scoreTone: item.merchantScore?.score >= 80 ? 'good' : item.merchantScore ? 'watch' : 'new',
+    salesText: item.salesCount > 0 ? `已售 ${item.salesCount}` : '新品上架',
+    promoText: item.promotion?.statusText || '',
     sellableStock,
     urgent: sellableStock > 0 && sellableStock < 5,
-    stockText: sellableStock > 0 ? (sellableStock < 5 ? `仅剩 ${sellableStock} 件` : `库存 ${sellableStock}`) : '已售罄',
-    salesText: item.salesCount > 0 ? `已售 ${item.salesCount}` : '新品上架'
+    stockText: sellableStock > 0 ? (sellableStock < 5 ? `仅剩 ${sellableStock} 件` : `库存 ${sellableStock}`) : '已售罄'
   };
 }
 
@@ -65,11 +68,15 @@ Page({
       range: (a, b) => rangeValue(b.range) - rangeValue(a.range),
       stock: (a, b) => b.sellableStock - a.sellableStock
     };
+    if (sortKey === 'recommend') return filtered.sort((a, b) => this.recommendWeight(b) - this.recommendWeight(a));
     return sorters[sortKey] ? filtered.sort(sorters[sortKey]) : filtered;
   },
   ratingWeight(item) {
     const score = Number(item.ratingSummary?.average || 0.1) * 100;
     return score + Math.min(Number(item.salesCount || 0), 50);
+  },
+  recommendWeight(item) {
+    return this.ratingWeight(item);
   },
   refreshHotProducts(scooters) {
     const hotProducts = scooters.filter(item => item.sellableStock > 0)
