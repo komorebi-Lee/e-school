@@ -674,6 +674,8 @@ test('scooter list shows service score and commerce signals', () => {
   assert.ok(js.includes('salesText'), 'product cards should expose verified sales volume');
   assert.ok(js.includes('promoText'), 'active campaigns should be visible in the list');
   assert.ok(js.includes('recommendWeight'), 'recommend sorting should combine sales and rating');
+  assert.ok(js.includes("key: 'sales'"), 'product list should offer sales sorting');
+  assert.ok(js.includes('sales: (a, b) => b.salesCount - a.salesCount'), 'sales sorting should use verified sales count');
   assert.ok(wxml.includes('service-score'), 'service score should have a visible label');
   assert.ok(wxml.includes('item.promoText'), 'active campaigns should render in the list');
   assert.ok(wxml.includes('item.salesText'), 'sales evidence should render in the list');

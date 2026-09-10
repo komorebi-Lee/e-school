@@ -35,6 +35,7 @@ Page({
   data: { scooters: [], filtered: [], hotProducts: [], query: '', sortKey: 'recommend', sortOptions: [
     { key: 'recommend', label: '综合推荐' },
     { key: 'rating', label: '评分优先' },
+    { key: 'sales', label: '销量优先' },
     { key: 'price', label: '价格优先' },
     { key: 'range', label: '续航优先' },
     { key: 'stock', label: '库存优先' }
@@ -68,6 +69,7 @@ Page({
     const rangeValue = value => Number(String(value || '').replace(/[^\d.]/g, '')) || 0;
     const sorters = {
       rating: (a, b) => this.ratingWeight(b) - this.ratingWeight(a),
+      sales: (a, b) => b.salesCount - a.salesCount,
       price: (a, b) => a.price - b.price,
       range: (a, b) => rangeValue(b.range) - rangeValue(a.range),
       stock: (a, b) => b.sellableStock - a.sellableStock
