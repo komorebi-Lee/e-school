@@ -544,6 +544,17 @@ test('merchant workspace surfaces latest platform risk urging', () => {
   assert.ok(wxml.includes('merchant-score-card'), 'score card should expose the focus anchor');
 });
 
+test('merchant workbench surfaces pending platform review on the dashboard', () => {
+  const js = readMiniappFile(path.join('pages', 'merchant', 'index.js'));
+  const wxml = readMiniappFile(path.join('pages', 'merchant', 'index.wxml'));
+  const wxss = readMiniappFile(path.join('pages', 'merchant', 'index.wxss'));
+
+  assert.ok(wxml.includes('pending-banner'), 'pending review banner should appear on the dashboard');
+  assert.ok(wxml.includes('待平台复核商品'), 'pending review section should stay in the risk tab');
+  assert.ok(js.includes('pendingPublishProducts: data.pendingPublishProducts'), 'workspace should load pending review products');
+  assert.ok(wxss.includes('.pending-banner'), 'pending review banner should have distinct styling');
+});
+
 test('merchant notifications deep-link into workspace focus areas', () => {
   const js = readMiniappFile(path.join('pages', 'merchant', 'index.js'));
   const wxml = readMiniappFile(path.join('pages', 'merchant', 'index.wxml'));

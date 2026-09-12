@@ -220,7 +220,7 @@
     </view>
     <view class="score card" wx:if="{{pendingPublishProducts.length}}">
       <view class="notice-head"><view class="strong">待平台复核商品</view><text class="muted">{{pendingPublishProducts.length}} 件</text></view>
-      <view class="sla-item" wx:for="{{pendingPublishProducts}}" wx:key="id">
+      <view class="sla-item" wx:for="{{pendingPublishProducts}}" wx:key="id" bindtap="goProducts">
         <view class="sla-main">
           <view class="strong">{{item.name}}</view>
           <view class="muted">{{item.publishReviewNote}}</view>
@@ -252,6 +252,10 @@
     <view wx:if="{{!notifications.length}}" class="empty card"><view class="muted">暂无商家提醒</view></view>
     </block>
     <block wx:if="{{activeWorkbenchTab === 'overview'}}">
+    <view class="risk-urge-banner pending-banner" wx:if="{{pendingPublishProducts.length}}" bindtap="goProducts">
+      <view class="risk-urge-title">待平台复核</view>
+      <view class="risk-urge-content">{{pendingPublishProducts.length}} 件商品等待平台复核通过后上架，点击前往商品管理</view>
+    </view>
     <view class="sla card" wx:if="{{promotionSummary.length}}">
       <view class="notice-head"><view class="strong">促销成效</view><text class="muted">{{promotionSummary.length}} 个活动</text></view>
       <view class="sla-item" wx:for="{{promotionSummary}}" wx:key="id">
