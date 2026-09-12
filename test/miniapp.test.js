@@ -567,6 +567,16 @@ test('merchant workbench orders expose a status-aware action', () => {
   assert.ok(wxml.includes('{{item.actionText}}'), 'recent orders should render the status-aware action');
 });
 
+test('merchant workbench links orders and settlements to detail queues', () => {
+  const js = readMiniappFile(path.join('pages', 'merchant', 'index.js'));
+  const wxml = readMiniappFile(path.join('pages', 'merchant', 'index.wxml'));
+
+  assert.ok(wxml.includes('section-more'), 'overview sections should expose quick links');
+  assert.ok(wxml.includes('bindtap="goOrders"'), 'recent orders should link to the full order queue');
+  assert.ok(wxml.includes('bindtap="goFinance"'), 'recent settlements should link to the finance tab');
+  assert.ok(js.includes('goFinance()'), 'settlement links should switch to the finance tab');
+});
+
 test('merchant notifications deep-link into workspace focus areas', () => {
   const js = readMiniappFile(path.join('pages', 'merchant', 'index.js'));
   const wxml = readMiniappFile(path.join('pages', 'merchant', 'index.wxml'));

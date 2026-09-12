@@ -38,6 +38,8 @@
 .metric text { color: #78849a; font-size: 22rpx; }
 .metric strong { font-size: 36rpx; font-weight: 900; color: #002fa7; }
 .order { display: flex; justify-content: space-between; align-items: center; padding: 26rpx; margin-top: 18rpx; }
+.section-row { display: flex; align-items: center; justify-content: space-between; }
+.section-more { font-size: 24rpx; color: #2563eb; font-weight: 600; }
 .workbench-order { position: relative; }
 .order-link { margin-top: 6rpx; font-size: 24rpx; color: #2563eb; }
 .strong { font-weight: 800; }
