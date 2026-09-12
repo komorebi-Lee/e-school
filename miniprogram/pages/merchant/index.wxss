@@ -11,6 +11,10 @@
 .workbench-metric strong { font-size: 38rpx; font-weight: 900; line-height: 1.1; }
 .workbench-metric.metric-link { position: relative; }
 .metric-go { color: rgba(255, 255, 255, .85); font-size: 20rpx; }
+.workbench-today { display: grid; grid-template-columns: 1fr 1fr; gap: 12rpx; margin-top: 12rpx; }
+.today-item { padding: 14rpx 16rpx; border: 1rpx solid #e3e9f5; border-radius: 16rpx; background: #f8fafc; text-align: center; }
+.today-item text { display: block; color: #78849a; font-size: 20rpx; }
+.today-item strong { display: block; margin-top: 4rpx; color: #1f2733; font-size: 30rpx; font-weight: 900; }
 .workbench-alerts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12rpx; margin-top: 16rpx; }
 .workbench-alert { padding: 16rpx 10rpx; border: 1rpx solid #e3e9f5; border-radius: 16rpx; background: #f8fafc; text-align: center; }
 .workbench-alert text { display: block; color: #78849a; font-size: 20rpx; line-height: 1.3; }

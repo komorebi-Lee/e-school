@@ -587,6 +587,16 @@ test('merchant workbench metrics drill into finance and orders', () => {
   assert.ok(js.includes('goOrders()'), 'metric links should reuse the order navigation');
 });
 
+test('merchant workbench surfaces a today overview', () => {
+  const js = readMiniappFile(path.join('pages', 'merchant', 'index.js'));
+  const wxml = readMiniappFile(path.join('pages', 'merchant', 'index.wxml'));
+
+  assert.ok(wxml.includes('workbench-today'), 'dashboard should show a today overview strip');
+  assert.ok(wxml.includes('{{metrics.today.orderCount}}'), 'today overview should show today order count');
+  assert.ok(wxml.includes('{{metrics.today.revenueInCents / 100}}'), 'today overview should show today revenue');
+  assert.ok(js.includes('metrics: data.metrics'), 'workspace should load the today metrics from the server payload');
+});
+
 test('merchant notifications deep-link into workspace focus areas', () => {
   const js = readMiniappFile(path.join('pages', 'merchant', 'index.js'));
   const wxml = readMiniappFile(path.join('pages', 'merchant', 'index.wxml'));
