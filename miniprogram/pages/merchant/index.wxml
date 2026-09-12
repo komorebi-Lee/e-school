@@ -336,7 +336,7 @@
     <view class="section-title">最近订单</view>
     <view class="card order workbench-order" wx:for="{{orders}}" wx:key="id" bindtap="goWorkbenchOrder" data-id="{{item.id}}" data-status="{{item.status}}">
       <view><view class="strong">{{item.orderNo}}</view><view class="muted">{{item.items[0].name}}{{item.items.length > 1 ? ' 等' : ''}}</view></view>
-      <view class="right"><view class="price">¥{{item.totalInCents / 100}}</view><view class="muted status-text">{{item.statusLabel}}</view><view class="order-link">去处理</view></view>
+      <view class="right"><view class="price">¥{{item.totalInCents / 100}}</view><view class="muted status-text">{{item.statusLabel}}</view><view class="order-link">{{item.actionText}}</view></view>
     </view>
     <view wx:if="{{!orders.length}}" class="empty card"><view class="muted">暂无商家订单</view></view>
     <view class="section-title">最近分账</view>

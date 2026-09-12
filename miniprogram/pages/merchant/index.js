@@ -6,7 +6,17 @@ const orderStatusLabels = {
   FULFILLING: '履约中',
   COMPLETED: '已完成',
   CANCELLED: '已取消',
-  AFTER_SALE: '售后中'
+  AFTER_SALE: '售后中',
+  PARTIALLY_REFUNDED: '部分退款'
+};
+const orderActionLabels = {
+  PENDING_PAYMENT: '等待支付',
+  PAID: '去发货',
+  FULFILLING: '核验收货',
+  AFTER_SALE: '处理售后',
+  PARTIALLY_REFUNDED: '处理售后',
+  COMPLETED: '查看详情',
+  CANCELLED: '查看'
 };
 
 function statementMoney(value) {
@@ -252,7 +262,8 @@ Page({
     })).then(({ data }) => {
       const orders = (data.orders || []).slice(0, 5).map((order) => ({
         ...order,
-        statusLabel: orderStatusLabels[order.status] || order.status
+        statusLabel: orderStatusLabels[order.status] || order.status,
+        actionText: orderActionLabels[order.status] || '查看'
       }));
       const settlementMetrics = data.metrics?.settlementMetrics || {};
       const payableInCents = Number(settlementMetrics.payableInCents || 0);

@@ -555,6 +555,18 @@ test('merchant workbench surfaces pending platform review on the dashboard', () 
   assert.ok(wxss.includes('.pending-banner'), 'pending review banner should have distinct styling');
 });
 
+test('merchant workbench orders expose a status-aware action', () => {
+  const js = readMiniappFile(path.join('pages', 'merchant', 'index.js'));
+  const wxml = readMiniappFile(path.join('pages', 'merchant', 'index.wxml'));
+
+  assert.ok(js.includes('orderActionLabels'), 'workbench should map orders to explicit actions');
+  assert.ok(js.includes("PAID: '去发货'"), 'fulfillment orders should prompt shipping');
+  assert.ok(js.includes("AFTER_SALE: '处理售后'"), 'after-sale orders should prompt handling');
+  assert.ok(js.includes("COMPLETED: '查看详情'"), 'completed orders should prompt review');
+  assert.ok(js.includes("PARTIALLY_REFUNDED: '部分退款'"), 'partial refunds should have a clear label');
+  assert.ok(wxml.includes('{{item.actionText}}'), 'recent orders should render the status-aware action');
+});
+
 test('merchant notifications deep-link into workspace focus areas', () => {
   const js = readMiniappFile(path.join('pages', 'merchant', 'index.js'));
   const wxml = readMiniappFile(path.join('pages', 'merchant', 'index.wxml'));
