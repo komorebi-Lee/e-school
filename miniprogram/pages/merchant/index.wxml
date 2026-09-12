@@ -14,8 +14,8 @@
         <button size="mini" class="ghost-button" bindtap="refreshWorkbench">刷新</button>
       </view>
       <view class="workbench-metrics">
-        <view class="workbench-metric"><text>已支付营收（元）</text><strong>{{metrics.revenueInCents / 100}}</strong></view>
-        <view class="workbench-metric"><text>订单</text><strong>{{metrics.orderCount}}</strong></view>
+        <view class="workbench-metric metric-link" bindtap="goFinance"><text>已支付营收（元）</text><strong>{{metrics.revenueInCents / 100}}</strong><text class="metric-go">资金 ›</text></view>
+        <view class="workbench-metric metric-link" bindtap="goOrders"><text>订单</text><strong>{{metrics.orderCount}}</strong><text class="metric-go">订单 ›</text></view>
       </view>
       <view class="workbench-alerts">
         <view class="workbench-alert {{metrics.pendingCount ? 'attention' : ''}}" bindtap="goOrders"><text>待履约</text><strong>{{metrics.pendingCount}}</strong></view>

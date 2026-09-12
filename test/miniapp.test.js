@@ -577,6 +577,16 @@ test('merchant workbench links orders and settlements to detail queues', () => {
   assert.ok(js.includes('goFinance()'), 'settlement links should switch to the finance tab');
 });
 
+test('merchant workbench metrics drill into finance and orders', () => {
+  const js = readMiniappFile(path.join('pages', 'merchant', 'index.js'));
+  const wxml = readMiniappFile(path.join('pages', 'merchant', 'index.wxml'));
+
+  assert.ok(wxml.includes('metric-link'), 'dashboard metrics should be tappable');
+  assert.ok(wxml.includes('bindtap="goFinance"'), 'revenue metric should open the finance tab');
+  assert.ok(wxml.includes('bindtap="goOrders"'), 'order metric should open the order queue');
+  assert.ok(js.includes('goOrders()'), 'metric links should reuse the order navigation');
+});
+
 test('merchant notifications deep-link into workspace focus areas', () => {
   const js = readMiniappFile(path.join('pages', 'merchant', 'index.js'));
   const wxml = readMiniappFile(path.join('pages', 'merchant', 'index.wxml'));
