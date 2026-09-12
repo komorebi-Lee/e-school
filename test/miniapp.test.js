@@ -597,6 +597,16 @@ test('merchant workbench surfaces a today overview', () => {
   assert.ok(js.includes('metrics: data.metrics'), 'workspace should load the today metrics from the server payload');
 });
 
+test('merchant workbench surfaces a store health snapshot on the overview', () => {
+  const js = readMiniappFile(path.join('pages', 'merchant', 'index.js'));
+  const wxml = readMiniappFile(path.join('pages', 'merchant', 'index.wxml'));
+
+  assert.ok(wxml.includes('class="health card"'), 'overview should show a store health card');
+  assert.ok(wxml.includes('{{serviceScore.score}}'), 'health card should show the service score');
+  assert.ok(wxml.includes('data-tab="risk"'), 'health card should drill into the risk tab');
+  assert.ok(js.includes('setWorkbenchTab(event)'), 'health card should reuse the tab switch handler');
+});
+
 test('merchant notifications deep-link into workspace focus areas', () => {
   const js = readMiniappFile(path.join('pages', 'merchant', 'index.js'));
   const wxml = readMiniappFile(path.join('pages', 'merchant', 'index.wxml'));

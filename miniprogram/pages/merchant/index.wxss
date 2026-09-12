@@ -48,6 +48,12 @@
 .section-more { font-size: 24rpx; color: #2563eb; font-weight: 600; }
 .workbench-order { position: relative; }
 .order-link { margin-top: 6rpx; font-size: 24rpx; color: #2563eb; }
+.health { display: flex; align-items: center; gap: 20rpx; margin-top: 18rpx; }
+.health-score { display: flex; flex-direction: column; align-items: center; min-width: 132rpx; padding: 10rpx 16rpx; border-radius: 16rpx; background: #f1f5ff; }
+.health-number { font-size: 44rpx; font-weight: 900; line-height: 1.1; color: #002fa7; }
+.health-score .status-text { font-size: 20rpx; margin-top: 4rpx; }
+.health-main { flex: 1; }
+.health-go { font-size: 24rpx; color: #2563eb; font-weight: 600; }
 .strong { font-weight: 800; }
 .right { text-align: right; }
 .settle-main { flex: 1; padding-right: 18rpx; }

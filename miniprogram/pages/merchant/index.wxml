@@ -260,6 +260,15 @@
       <view class="risk-urge-title">待平台复核</view>
       <view class="risk-urge-content">{{pendingPublishProducts.length}} 件商品等待平台复核通过后上架，点击前往商品管理</view>
     </view>
+    <view class="health card" wx:if="{{serviceScore}}" bindtap="setWorkbenchTab" data-tab="risk">
+      <view class="health-score"><text class="health-number">{{serviceScore.score}}</text><text class="status-text tone-{{serviceScore.stageTone}}">{{serviceScore.stageLabel}}</text></view>
+      <view class="health-main">
+        <view class="strong">店铺健康度</view>
+        <view class="muted">按时交付 {{serviceScore.onTimeRateText}} · 已购评价 {{serviceScore.metrics.reviewCount}} 条</view>
+        <view class="muted" wx:if="{{serviceScore.weakestText}}">最需改进：{{serviceScore.weakestText}}</view>
+      </view>
+      <view class="health-go">风险 ›</view>
+    </view>
     <view class="sla card" wx:if="{{promotionSummary.length}}">
       <view class="notice-head"><view class="strong">促销成效</view><text class="muted">{{promotionSummary.length}} 个活动</text></view>
       <view class="sla-item" wx:for="{{promotionSummary}}" wx:key="id">
