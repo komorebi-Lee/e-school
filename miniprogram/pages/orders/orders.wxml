@@ -60,6 +60,13 @@
     <view class="collab" wx:if="{{item.collaboration}}">
       <view class="collab-row"><text class="muted">商家</text><text>{{item.merchantName || '平台自营'}}</text></view>
       <view class="collab-row"><text class="muted">下一步</text><text>{{item.nextStep}}</text></view>
+      <view class="platform-result" wx:if="{{item.platformResult}}">
+        <text class="platform-result-label">平台处理结果</text>
+        <view class="platform-result-copy">
+          <view>{{item.platformResult.note}}</view>
+          <view class="muted platform-result-time" wx:if="{{item.platformResult.timeText}}">{{item.platformResult.timeText}}</view>
+        </view>
+      </view>
       <view class="timeline" wx:if="{{item.timeline.length}}">
         <view class="timeline-title">履约轨迹</view>
         <view class="timeline-item" wx:for="{{item.timeline}}" wx:for-item="event" wx:key="id"><text class="timeline-dot"></text><view><view><text class="timeline-role">{{event.roleLabel}}</text><text class="timeline-note">{{event.note}}</text></view><view class="muted timeline-time">{{event.timeText}}</view></view></view>

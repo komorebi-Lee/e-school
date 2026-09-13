@@ -176,6 +176,18 @@ test('aftersales surface platform resolution results to users', () => {
   assert.ok(styles.includes('.platform-result-title') && styles.includes('.platform-result-copy'), 'platform result card should be styled');
 });
 
+test('orders surface platform resolution results to users', () => {
+  const source = readMiniappFile(path.join('pages', 'orders', 'orders.js'));
+  const markup = readMiniappFile(path.join('pages', 'orders', 'orders.wxml'));
+  const styles = readMiniappFile(path.join('pages', 'orders', 'orders.wxss'));
+
+  assert.ok(source.includes("item.collaboration?.intervention?.status === 'RESOLVED'"), 'orders should read resolved platform intervention');
+  assert.ok(source.includes('platformResult'), 'orders should derive platform resolution state');
+  assert.ok(markup.includes('platform-result-label'), 'orders should render the platform result card');
+  assert.ok(markup.includes('item.platformResult.note'), 'orders should bind the platform resolution note');
+  assert.ok(styles.includes('.platform-result-label') && styles.includes('.platform-result-copy'), 'platform result card should be styled');
+});
+
 test('merchant storefront is reachable from product detail', () => {
   const appConfig = JSON.parse(readMiniappFile('app.json'));
   assert.ok(appConfig.pages.includes('pages/store/store'), 'merchant storefront should be a registered page');

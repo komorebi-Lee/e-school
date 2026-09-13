@@ -73,6 +73,10 @@
 .role-MERCHANT { background: #fff2d9; color: #9a5b00; }
 .role-PLATFORM { background: #e6f7f0; color: #157552; }
 .alert { margin-top: 10rpx; color: #b42318; background: #ffe9e6; border-radius: 12rpx; padding: 10rpx; font-size: 21rpx; font-weight: 700; }
+.platform-result { display: flex; gap: 14rpx; margin: 16rpx 0 10rpx; padding: 16rpx; border-radius: 14rpx; background: #eaf6ff; color: #002fa7; font-size: 21rpx; line-height: 1.5; }
+.platform-result-label { flex: 0 0 auto; font-weight: 900; }
+.platform-result-copy { flex: 1; min-width: 0; }
+.platform-result-time { margin-top: 6rpx; font-size: 19rpx; color: #78849a; }
 .timeline { margin-top: 16rpx; padding: 16rpx; background: #fff; border: 1rpx solid #e3e9f5; border-radius: 16rpx; }
 .timeline-title { font-size: 23rpx; font-weight: 800; color: #172033; margin-bottom: 14rpx; }
 .timeline-item { display: flex; gap: 14rpx; margin-bottom: 16rpx; }

@@ -240,6 +240,12 @@ function card(item) {
     journey: isEbike ? ((activeAfterSale && activeAfterSale.status !== 'CLOSED' ? afterSaleJourney[activeAfterSale.status] : ebikeJourney[item.status]) || []) : [],
     nextStep: isEbike && item.status === 'FULFILLING' ? '向商家出示交付码完成配送' : item.collaboration?.roleActions?.MERCHANT?.length ? '商家确认履约' : item.collaboration?.roleActions?.PLATFORM?.length ? '平台介入处理' : item.status === 'COMPLETED' ? '可评价本次服务' : '等待履约更新',
     intervention:item.collaboration?.intervention?.status === 'REQUESTED',
+    platformResult:item.collaboration?.intervention?.status === 'RESOLVED' && item.collaboration?.intervention?.note
+      ? {
+        note: item.collaboration.intervention.note,
+        timeText: String(item.collaboration.intervention.updatedAt || item.collaboration.intervention.createdAt || '').replace('T',' ').slice(5,16)
+      }
+      : null,
     messages:(item.collaboration?.messages || []).slice(0,2),
     timeline:(item.collaboration?.handoffs || []).slice(0,4).map((handoff, index) => ({
       id:index,
