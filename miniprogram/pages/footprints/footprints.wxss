@@ -1,0 +1,13 @@
+.page { padding: 20rpx 24rpx; }
+.summary { padding: 22rpx; color: #536078; font-size: 22rpx; margin-bottom: 18rpx; }
+.footprint-card { display: flex; align-items: center; padding: 22rpx; margin-bottom: 15rpx; }
+.product-type { width: 94rpx; padding: 18rpx 8rpx; border-radius: 15rpx; text-align: center; font-size: 20rpx; font-weight: 900; }
+.scooter-type { background: #fff1b8; color: #7c5c00; }
+.product-main { flex: 1; margin-left: 18rpx; min-width: 0; }
+.product-name { font-size: 27rpx; font-weight: 900; }
+.product-desc { font-size: 20rpx; margin-top: 5rpx; }
+.promo-badge { display: inline-flex; margin-top: 8rpx; color: #002fa7; background: #eaf0ff; border-radius: 999rpx; padding: 5rpx 14rpx; font-size: 19rpx; font-weight: 800; }
+.price-group { text-align: right; }
+.original-price { display: block; color: #78849a; font-size: 18rpx; text-decoration: line-through; }
+.product-price { color: #002fa7; font-size: 29rpx; font-weight: 900; }
+.empty { padding: 40rpx 24rpx; }

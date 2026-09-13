@@ -1,0 +1,19 @@
+<view class="page">
+  <view wx:if="{{loading}}" class="empty card"><view class="muted">正在加载足迹…</view></view>
+  <view wx:elif="{{!footprints.length}}" class="empty card"><view class="muted">暂无浏览记录，逛逛商品详情页就会出现在这里</view></view>
+  <block wx:else>
+    <view class="summary card">最近看过 {{footprints.length}} 件商品</view>
+    <view class="footprint-card card" wx:for="{{footprints}}" wx:key="id" bindtap="goDetail" data-id="{{item.id}}">
+      <view class="product-type scooter-type">{{item.categoryLabel}}</view>
+      <view class="product-main">
+        <view class="product-name">{{item.name}}</view>
+        <view class="muted product-desc">{{item.merchantName}} · {{item.stockText}}</view>
+        <view wx:if="{{item.promoText}}" class="promo-badge">{{item.promoText}}</view>
+      </view>
+      <view class="price-group">
+        <text wx:if="{{item.originalPrice}}" class="original-price">¥{{item.originalPrice}}</text>
+        <view class="product-price">¥{{item.price}}</view>
+      </view>
+    </view>
+  </block>
+</view>

@@ -21,6 +21,7 @@
     "pages/recharge/detail"
     ,"pages/store/store"
     ,"pages/favorites/favorites"
+    ,"pages/footprints/footprints"
     ,"pages/reviews/reviews"
     ,"pages/notifications/notifications"
   ],

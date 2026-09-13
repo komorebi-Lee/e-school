@@ -119,6 +119,7 @@ Page({
   goNotifications() { wx.navigateTo({ url: "/pages/notifications/notifications" }); },
   goFavorites() { wx.navigateTo({ url: "/pages/favorites/favorites" }); },
   goMyReviews() { wx.navigateTo({ url: "/pages/reviews/reviews" }); },
+  goFootprints() { wx.navigateTo({ url: "/pages/footprints/footprints" }); },
   goCard() { wx.navigateTo({ url: "/pages/card/card" }); },
   goMerchant() {
     if (this.data.latestApprovedAt) {

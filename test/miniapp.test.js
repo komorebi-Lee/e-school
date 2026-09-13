@@ -512,6 +512,18 @@ test('buy again jumps straight into checkout with the product id', () => {
   assert.ok(ordersJs.includes('/pages/checkout/checkout?id='), 'buy again should open checkout directly');
   assert.ok(checkoutJs.includes('options.id'), 'checkout should accept a product id deep link');
 });
+test('profile links to a browsing footprints page', () => {
+  const appConfig = JSON.parse(readMiniappFile('app.json'));
+  assert.ok(appConfig.pages.includes('pages/footprints/footprints'), 'footprints page should be registered');
+
+  const footprintsSource = readMiniappFile(path.join('pages', 'footprints', 'footprints.js'));
+  assert.ok(footprintsSource.includes('/api/my/footprints'), 'footprints page should load server footprints');
+  const footprintsMarkup = readMiniappFile(path.join('pages', 'footprints', 'footprints.wxml'));
+  assert.ok(footprintsMarkup.includes('goDetail'), 'footprints should navigate to product detail');
+
+  const profileSource = readMiniappFile(path.join('pages', 'profile', 'profile.js'));
+  assert.ok(profileSource.includes('/pages/footprints/footprints'), 'profile should link to footprints');
+});
 test('user login falls back to demo login when platform login fails', () => {
   const source = readMiniappFile(path.join('lib', 'cloud-request.js'));
 
