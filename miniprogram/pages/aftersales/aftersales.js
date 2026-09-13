@@ -120,6 +120,18 @@ Page({
       }
     });
   },
+  previewExistingImages(event) {
+    const urls = event.currentTarget.dataset.urls;
+    const current = event.currentTarget.dataset.url;
+    if (!Array.isArray(urls) || !urls.length) return;
+    wx.previewImage({ current: current || urls[0], urls });
+  },
+  previewNewImages(event) {
+    const urls = this.data.images;
+    const current = event.currentTarget.dataset.url;
+    if (!urls.length) return;
+    wx.previewImage({ current: current || urls[0], urls });
+  },
   removeImage(e) {
     const index = Number(e.currentTarget.dataset.index);
     const images = [...this.data.images];

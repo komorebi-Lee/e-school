@@ -135,6 +135,13 @@ function formatDueText(value, prefix) {
   return `${prefix} ${date.toLocaleDateString()} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 }
 
+function previewAfterSaleImages(event) {
+  const urls = event.currentTarget.dataset.urls;
+  const current = event.currentTarget.dataset.url;
+  if (!Array.isArray(urls) || !urls.length) return;
+  wx.previewImage({ current: current || urls[0], urls });
+}
+
 function decorateAfterSale(record) {
   const tone = record.status === 'CLOSED' ? 'done' : record.status === 'REVIEWING' ? 'run' : 'todo';
   return {
@@ -255,6 +262,7 @@ Page({
   },
   onHide(){ this.stopCountdownTimer(); },
   onUnload(){ this.stopCountdownTimer(); },
+  previewAfterSaleImages,
   onLoad(options = {}){
     if (options.focusId) this.focusId = options.focusId;
     if (options.recordType) this.focusRecordType = options.recordType;

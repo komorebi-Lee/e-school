@@ -409,6 +409,20 @@ test('after-sale rejection keeps users and merchants connected', () => {
   assert.ok(afterSaleJs.includes('REJECTED'), 'after-sale detail should show rejection status');
 });
 
+test('after-sale images can be previewed from orders and aftersales', () => {
+  const ordersJs = readMiniappFile(path.join('pages', 'orders', 'orders.js'));
+  const ordersWxml = readMiniappFile(path.join('pages', 'orders', 'orders.wxml'));
+  const aftersalesJs = readMiniappFile(path.join('pages', 'aftersales', 'aftersales.js'));
+  const aftersalesWxml = readMiniappFile(path.join('pages', 'aftersales', 'aftersales.wxml'));
+
+  assert.ok(ordersJs.includes('previewAfterSaleImages'), 'orders should expose after-sale image preview');
+  assert.ok(ordersWxml.includes('previewAfterSaleImages'), 'orders should bind the after-sale image preview');
+  assert.ok(aftersalesJs.includes('previewExistingImages'), 'aftersales should expose existing image preview');
+  assert.ok(aftersalesWxml.includes('previewExistingImages'), 'aftersales should bind existing image preview');
+  assert.ok(aftersalesJs.includes('previewNewImages'), 'aftersales should expose new image preview');
+  assert.ok(aftersalesWxml.includes('previewNewImages'), 'aftersales should bind new image preview');
+});
+
 test('merchant products expose an inventory movement ledger', () => {
   const js = readMiniappFile(path.join('pages', 'merchant', 'products.js'));
   const wxml = readMiniappFile(path.join('pages', 'merchant', 'products.wxml'));

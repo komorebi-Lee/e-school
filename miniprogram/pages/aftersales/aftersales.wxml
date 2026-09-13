@@ -19,7 +19,7 @@
     <view class="existing-copy muted" wx:if="{{existing.dueText}}">预计 {{existing.dueText}} 前响应</view>
     <view class="existing-copy muted" wx:if="{{existing.resolutionNote}}">处理结论：{{existing.resolutionNote}}</view>
     <view class="evidence-grid" wx:if="{{existing.images.length}}">
-      <image wx:for="{{existing.images}}" wx:key="*this" src="{{item}}" mode="aspectFill" />
+      <image wx:for="{{existing.images}}" wx:key="*this" src="{{item}}" mode="aspectFill" data-urls="{{existing.images}}" data-url="{{item}}" bindtap="previewExistingImages" />
     </view>
     <button wx:if="{{existing.images.length < 9}}" size="mini" class="ghost-button" bindtap="chooseImage">补充问题图片</button>
     <button class="ghost-button" open-type="contact">联系客服处理</button>
@@ -61,7 +61,7 @@
         <text class="field-label">问题图片（选填）</text>
         <view class="evidence-grid">
           <view class="evidence-item" wx:for="{{images}}" wx:key="*this">
-            <image src="{{item}}" mode="aspectFill" />
+            <image src="{{item}}" mode="aspectFill" data-url="{{item}}" bindtap="previewNewImages" />
             <text class="evidence-remove" data-index="{{index}}" bindtap="removeImage">×</text>
           </view>
           <view wx:if="{{images.length < 3}}" class="evidence-add" bindtap="chooseImage">＋</view>

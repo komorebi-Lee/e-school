@@ -38,7 +38,7 @@
         <text>处理结果</text><text>{{item.afterSale.resolutionNote}}</text>
       </view>
       <view class="after-sale-images" wx:if="{{item.afterSale.images.length}}">
-        <image wx:for="{{item.afterSale.images}}" wx:key="*this" src="{{item}}" mode="aspectFill" />
+        <image wx:for="{{item.afterSale.images}}" wx:key="*this" src="{{item}}" mode="aspectFill" data-urls="{{item.afterSale.images}}" data-url="{{item}}" bindtap="previewAfterSaleImages" />
       </view>
     </view>
     <view class="delivery-code" wx:if="{{item.deliveryCode}}">
