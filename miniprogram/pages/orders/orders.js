@@ -263,6 +263,11 @@ function buildSessionFrom(record) {
 Page({
   data:{ active:'ALL', records:[], filtered:[], linkage:[], loading:true, consult:null, reviewing:false, serviceContact:'15527111396', responseHours:24, focusId:'' },
   onShow(){
+    const storedFocusId = wx.getStorageSync('campusGoOrderFocusId');
+    if (storedFocusId) {
+      this.focusId = storedFocusId;
+      try { wx.removeStorageSync('campusGoOrderFocusId'); } catch (error) {}
+    }
     this.loadRecords();
     this.startCountdownTimer();
   },

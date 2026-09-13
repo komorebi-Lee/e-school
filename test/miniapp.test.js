@@ -132,6 +132,19 @@ test('completed aftersales remain visible with resolution results', () => {
   assert.ok(styles.includes('.completed .evidence-grid'), 'completed result images should be styled');
 });
 
+test('completed aftersales guide users to review the order', () => {
+  const source = readMiniappFile(path.join('pages', 'aftersales', 'aftersales.js'));
+  const markup = readMiniappFile(path.join('pages', 'aftersales', 'aftersales.wxml'));
+  const ordersSource = readMiniappFile(path.join('pages', 'orders', 'orders.js'));
+
+  assert.ok(source.includes('canReview'), 'aftersales should compute review eligibility from completed orders');
+  assert.ok(source.includes('reviewedKeys'), 'aftersales should exclude already reviewed products');
+  assert.ok(source.includes('goReview'), 'aftersales should provide a review action');
+  assert.ok(source.includes('campusGoOrderFocusId'), 'review action should hand the order focus to the orders page');
+  assert.ok(markup.includes('bindtap="goReview"'), 'completed aftersales should expose the review button');
+  assert.ok(ordersSource.includes('campusGoOrderFocusId'), 'orders page should consume the stored focus id');
+});
+
 test('aftersales status and contact actions stay understandable', () => {
   const source = readMiniappFile(path.join('pages', 'aftersales', 'aftersales.js'));
   const markup = readMiniappFile(path.join('pages', 'aftersales', 'aftersales.wxml'));

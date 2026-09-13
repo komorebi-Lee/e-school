@@ -21,6 +21,7 @@
     <view class="evidence-grid" wx:if="{{completed.images.length}}">
       <image wx:for="{{completed.images}}" wx:key="*this" src="{{item}}" mode="aspectFill" data-urls="{{completed.images}}" data-url="{{item}}" bindtap="previewExistingImages" />
     </view>
+    <button wx:if="{{order.canReview}}" size="mini" class="primary-button" bindtap="goReview">去评价本次服务</button>
   </view>
 
   <view class="platform-result card" wx:if="{{platformResult}}">

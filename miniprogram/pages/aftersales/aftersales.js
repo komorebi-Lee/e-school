@@ -55,8 +55,9 @@ Page({
   loadContext() {
     return Promise.all([
       request('/api/my/orders'),
-      request('/api/after-sales')
-    ]).then(([orderData, afterSaleData]) => {
+      request('/api/after-sales'),
+      request('/api/my/product-reviews').catch(() => ({ data: [] }))
+    ]).then(([orderData, afterSaleData, reviewData]) => {
       const order = (orderData.data?.ebikeOrders || []).find(item => item.id === this.data.orderId) || null;
       const existing = (afterSaleData.data || []).find(item => item.orderId === this.data.orderId && item.status !== 'CLOSED') || null;
       const completed = (afterSaleData.data || [])
@@ -74,13 +75,17 @@ Page({
           resolvedText: formatDate(intervention.updatedAt || intervention.createdAt),
         }
         : null;
+      const reviewedKeys = (reviewData.data || []).map((review) => `${review.orderId}:${review.productId}`);
+      const canReview = order?.status === 'COMPLETED'
+        && (order?.items || []).some((item) => item.productId && !reviewedKeys.includes(`${order.id}:${item.productId}`));
       this.setData({
         order: order ? {
           title: order.items.map(item => `${item.name}${item.quantity > 1 ? ` ×${item.quantity}` : ''}`).join(' + '),
           orderNo: order.orderNo || order.id,
           priceText: order.totalInCents ? `¥${(order.totalInCents / 100).toFixed(2)}` : '',
           merchantName: order.merchantName || '平台自营',
-          statusLabel: order.statusLabel || order.status
+          statusLabel: order.statusLabel || order.status,
+          canReview
         } : null,
         appealRequested: order?.collaboration?.intervention?.status === 'REQUESTED',
         platformResult,
@@ -163,6 +168,11 @@ Page({
   },
   callContact() {
     wx.makePhoneCall({ phoneNumber: this.data.contact || '15527111396' });
+  },
+  goReview() {
+    if (!this.data.orderId) return;
+    try { wx.setStorageSync('campusGoOrderFocusId', this.data.orderId); } catch (error) {}
+    wx.switchTab({ url: '/pages/orders/orders' });
   },
   requestAppeal() {
     if (this.data.appealing) return;
