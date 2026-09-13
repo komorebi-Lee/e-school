@@ -1,5 +1,22 @@
 const { request } = require('../../services/api');
 
+const HISTORY_KEY = 'campusGoSearchHistory';
+
+function loadHistory() {
+  try {
+    const stored = wx.getStorageSync(HISTORY_KEY);
+    return Array.isArray(stored)
+      ? stored.filter((item) => typeof item === 'string' && item.trim()).slice(0, 10)
+      : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function saveHistory(keywords) {
+  try { wx.setStorageSync(HISTORY_KEY, keywords.slice(0, 10)); } catch (error) {}
+}
+
 const typeLabels = {
   E_BIKE_NEW: '电瓶车',
   PHONE_PLAN: '电话卡',
@@ -42,6 +59,8 @@ function decoratePromo(item) {
 Page({
   data: {
     query: '',
+    searchHistory: [],
+    hotKeywords: [],
     products: [],
     filteredProducts: [],
     promos: [],
@@ -52,7 +71,7 @@ Page({
 
   onLoad(options = {}) {
     const query = decodeURIComponent(options.query || '').trim();
-    this.setData({ query });
+    this.setData({ query, searchHistory: loadHistory() });
     this.loadResults();
   },
 
@@ -69,7 +88,11 @@ Page({
       request('/api/products').then(({ data }) => (data || []).map(decorateProduct)),
       request('/api/recharge-promos').then(({ data }) => (data || []).map(decoratePromo))
     ]).then(([products, promos]) => {
-      this.setData({ products, promos, loading: false });
+      const hotKeywords = Array.from(new Set([
+        ...products.slice(0, 4).map((item) => item.name).filter(Boolean),
+        ...promos.slice(0, 2).map((item) => item.title).filter(Boolean)
+      ])).slice(0, 6);
+      this.setData({ products, promos, hotKeywords, loading: false });
       this.applyFilters();
     }).catch(() => {
       this.setData({ products: [], promos: [], loading: false });
@@ -80,6 +103,33 @@ Page({
   setKeyword(event) {
     this.setData({ query: event.detail.value.trim() });
     this.applyFilters();
+  },
+
+  confirmSearch(event) {
+    const query = String(event.detail.value || '').trim();
+    this.setData({ query });
+    this.recordHistory(query);
+    this.applyFilters();
+  },
+
+  recordHistory(query) {
+    if (!query) return;
+    const next = [query, ...this.data.searchHistory.filter((item) => item !== query)].slice(0, 10);
+    saveHistory(next);
+    this.setData({ searchHistory: next });
+  },
+
+  tapKeyword(event) {
+    const keyword = event.currentTarget.dataset.keyword || '';
+    if (!keyword) return;
+    this.setData({ query: keyword });
+    this.recordHistory(keyword);
+    this.applyFilters();
+  },
+
+  clearHistory() {
+    saveHistory([]);
+    this.setData({ searchHistory: [] });
   },
 
   setTab(event) {

@@ -6,8 +6,25 @@
       confirm-type="search"
       value="{{query}}"
       bindinput="setKeyword"
-      bindconfirm="setKeyword"
+      bindconfirm="confirmSearch"
     />
+  </view>
+  <view class="suggest card" wx:if="{{!query && (searchHistory.length || hotKeywords.length)}}">
+    <view class="suggest-row" wx:if="{{searchHistory.length}}">
+      <view class="suggest-head">
+        <text class="suggest-title">搜索历史</text>
+        <text class="suggest-clear" bindtap="clearHistory">清空</text>
+      </view>
+      <view class="suggest-tags">
+        <view class="suggest-tag" wx:for="{{searchHistory}}" wx:key="*this" data-keyword="{{item}}" bindtap="tapKeyword">{{item}}</view>
+      </view>
+    </view>
+    <view class="suggest-row" wx:if="{{hotKeywords.length}}">
+      <view class="suggest-head"><text class="suggest-title">热门搜索</text></view>
+      <view class="suggest-tags">
+        <view class="suggest-tag hot" wx:for="{{hotKeywords}}" wx:key="*this" data-keyword="{{item}}" bindtap="tapKeyword">{{item}}</view>
+      </view>
+    </view>
   </view>
   <view class="tabs">
     <view class="tab {{activeTab === 'ALL' ? 'active' : ''}}" data-tab="ALL" bindtap="setTab">全部</view>

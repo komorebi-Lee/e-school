@@ -690,6 +690,22 @@ test('home search opens a unified commerce search page', () => {
   assert.ok(searchJs.includes('goHome'), 'search should provide a home entry when empty');
   assert.ok(cardJs.includes('options.promoId'), 'card page should accept promo deep links');
 });
+
+test('search page keeps history and hot keyword suggestions', () => {
+  const searchJs = readMiniappFile(path.join('pages', 'search', 'search.js'));
+  const searchWxml = readMiniappFile(path.join('pages', 'search', 'search.wxml'));
+  const searchCss = readMiniappFile(path.join('pages', 'search', 'search.wxss'));
+
+  assert.ok(searchJs.includes('campusGoSearchHistory'), 'search should persist history in local storage');
+  assert.ok(searchJs.includes('recordHistory'), 'confirmed searches should be recorded');
+  assert.ok(searchJs.includes('clearHistory'), 'search history should be clearable');
+  assert.ok(searchJs.includes('hotKeywords'), 'search should suggest hot keywords from loaded results');
+  assert.ok(searchWxml.includes('bindconfirm="confirmSearch"'), 'search confirm should record history');
+  assert.ok(searchWxml.includes('搜索历史'), 'search history should be visible');
+  assert.ok(searchWxml.includes('热门搜索'), 'hot keywords should be visible');
+  assert.ok(searchWxml.includes('bindtap="tapKeyword"'), 'suggested keywords should be tappable');
+  assert.ok(searchCss.includes('.suggest-tag'), 'suggestions should be styled');
+});
 test('product sale campaigns show server-controlled promo pricing', () => {
   const homeJs = readMiniappFile(path.join('pages', 'home', 'home.js'));
   const homeWxml = readMiniappFile(path.join('pages', 'home', 'home.wxml'));
