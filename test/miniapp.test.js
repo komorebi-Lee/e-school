@@ -582,6 +582,8 @@ test('home search opens a unified commerce search page', () => {
   assert.ok(searchWxml.includes('filteredPromos'), 'search should render promo results');
   assert.ok(searchWxml.includes('result-thumb'), 'search should show product artwork');
   assert.ok(searchJs.includes('onShareAppMessage'), 'search should support sharing');
+  assert.ok(searchJs.includes('merchantScore'), 'search should use the server merchant score');
+  assert.ok(searchWxml.includes('service-score'), 'search should surface the service score');
   assert.ok(cardJs.includes('options.promoId'), 'card page should accept promo deep links');
 });
 test('product sale campaigns show server-controlled promo pricing', () => {

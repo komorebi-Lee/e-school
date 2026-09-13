@@ -10,6 +10,7 @@
 .result-title { font-size: 28rpx; font-weight: 900; color: #17233d; }
 .result-desc { margin-top: 8rpx; font-size: 21rpx; line-height: 1.45; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .result-meta { display: flex; flex-wrap: wrap; gap: 14rpx; margin-top: 12rpx; color: #78849a; font-size: 20rpx; }
+.service-score { color: #002fa7; font-weight: 800; }
 .price-group { display: flex; align-items: baseline; gap: 10rpx; flex-shrink: 0; }
 .original-price { color: #98a4b7; font-size: 22rpx; text-decoration: line-through; }
 .price { color: #002fa7; font-size: 30rpx; font-weight: 900; }

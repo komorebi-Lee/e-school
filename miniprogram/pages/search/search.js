@@ -21,7 +21,9 @@ function decorateProduct(item) {
     promoText: item.promotion?.statusText || '',
     stockText: stock > 0 ? (stock < 5 ? `仅剩 ${stock} 件` : `库存 ${stock}`) : '已售罄',
     category: item.category || '',
-    typeText: typeLabels[item.category] || '校园服务'
+    typeText: typeLabels[item.category] || '校园服务',
+    merchantScore: item.merchantScore || null,
+    serviceScoreText: item.merchantScore ? `服务分 ${item.merchantScore.score}` : ''
   };
 }
 

@@ -36,6 +36,7 @@
         <view class="result-meta">
           <text>{{item.typeText}}</text>
           <text>{{item.stockText}}</text>
+          <text class="service-score" wx:if="{{item.merchantScore}}">{{item.serviceScoreText}}</text>
         </view>
       </view>
       <view class="price-group">
