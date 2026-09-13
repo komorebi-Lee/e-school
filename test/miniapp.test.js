@@ -148,6 +148,21 @@ test('aftersales status and contact actions stay understandable', () => {
   assert.ok(styles.includes('.contact-row'), 'contact actions should be styled');
 });
 
+test('rejected aftersales can request platform assistance', () => {
+  const source = readMiniappFile(path.join('pages', 'aftersales', 'aftersales.js'));
+  const markup = readMiniappFile(path.join('pages', 'aftersales', 'aftersales.wxml'));
+  const styles = readMiniappFile(path.join('pages', 'aftersales', 'aftersales.wxss'));
+  const server = readServerFile(path.join('src', 'app.js'));
+
+  assert.ok(source.includes("appealRequested: order?.collaboration?.intervention?.status === 'REQUESTED'"), 'aftersales should read platform intervention state');
+  assert.ok(source.includes("action: 'APPEAL'"), 'aftersales should submit the platform appeal action');
+  assert.ok(source.includes('requestAppeal()'), 'aftersales should expose the appeal action');
+  assert.ok(markup.includes('appealRequested'), 'aftersales should show the appeal request state');
+  assert.ok(markup.includes('bindtap="requestAppeal"'), 'aftersales should expose the platform assistance button');
+  assert.ok(styles.includes('.appeal-state'), 'appeal request state should be styled');
+  assert.ok(server.includes("${item.orderNo} 申请平台协助"), 'order appeals should create platform notifications');
+});
+
 test('merchant storefront is reachable from product detail', () => {
   const appConfig = JSON.parse(readMiniappFile('app.json'));
   assert.ok(appConfig.pages.includes('pages/store/store'), 'merchant storefront should be a registered page');

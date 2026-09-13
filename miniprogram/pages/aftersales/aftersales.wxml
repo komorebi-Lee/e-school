@@ -33,10 +33,12 @@
       <image wx:for="{{existing.images}}" wx:key="*this" src="{{item}}" mode="aspectFill" data-urls="{{existing.images}}" data-url="{{item}}" bindtap="previewExistingImages" />
     </view>
     <button wx:if="{{existing.images.length < 9}}" size="mini" class="ghost-button" bindtap="chooseImage">补充问题图片</button>
+    <view class="appeal-state" wx:if="{{appealRequested}}">已提交平台协助，等待平台处理</view>
     <view class="contact-row">
       <button size="mini" class="ghost-button" open-type="contact">微信客服</button>
       <button size="mini" class="ghost-button" bindtap="callContact">电话客服 {{contact}}</button>
     </view>
+    <button size="mini" class="primary-button" wx:if="{{existing.statusLabel === '未通过' && !appealRequested}}" bindtap="requestAppeal" disabled="{{appealing}}">申请平台协助</button>
   </view>
 
   <block wx:if="{{order && !existing}}">

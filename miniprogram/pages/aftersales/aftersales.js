@@ -40,7 +40,7 @@ function uploadAfterSaleImage(file) {
 Page({
   data: {
     orderId: '', order: null, existing: null, completed: null, typeOptions, selectedType: typeOptions[0], images: [],
-    detail: '', submitting: false, loading: true, dueText: '', quantity: 1, maxQuantity: 1,
+    detail: '', submitting: false, appealing: false, loading: true, dueText: '', quantity: 1, maxQuantity: 1,
     afterSaleResponseHours: 24, afterSaleResolutionHours: 72, contact: ''
   },
   onLoad(options) {
@@ -75,6 +75,7 @@ Page({
           merchantName: order.merchantName || '平台自营',
           statusLabel: order.statusLabel || order.status
         } : null,
+        appealRequested: order?.collaboration?.intervention?.status === 'REQUESTED',
         quantity: 1,
         maxQuantity,
         existing: existing ? {
@@ -154,6 +155,31 @@ Page({
   },
   callContact() {
     wx.makePhoneCall({ phoneNumber: this.data.contact || '15527111396' });
+  },
+  requestAppeal() {
+    if (this.data.appealing) return;
+    wx.showModal({
+      title: '申请平台协助',
+      editable: true,
+      placeholderText: '请说明与商家沟通结果及需要平台协助的问题',
+      success: ({ confirm, content }) => {
+        if (!confirm) return;
+        const note = (content || '').trim();
+        if (!note) return wx.showToast({ title: '请说明具体问题', icon: 'none' });
+        this.setData({ appealing: true });
+        request('/api/order-collab', {
+          method: 'POST',
+          data: { role: 'USER', orderId: this.data.orderId, action: 'APPEAL', note }
+        }).then(() => {
+          wx.showToast({ title: '已提交平台协助' });
+          this.setData({ appealing: false });
+          return this.loadContext();
+        }).catch((error) => {
+          this.setData({ appealing: false });
+          wx.showToast({ title: error.message || '提交失败', icon: 'none' });
+        });
+      }
+    });
   },
   removeImage(e) {
     const index = Number(e.currentTarget.dataset.index);
