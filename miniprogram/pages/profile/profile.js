@@ -118,6 +118,7 @@ Page({
   goOrders() { wx.switchTab({ url: "/pages/orders/orders" }); },
   goNotifications() { wx.navigateTo({ url: "/pages/notifications/notifications" }); },
   goFavorites() { wx.navigateTo({ url: "/pages/favorites/favorites" }); },
+  goMyReviews() { wx.navigateTo({ url: "/pages/reviews/reviews" }); },
   goCard() { wx.navigateTo({ url: "/pages/card/card" }); },
   goMerchant() {
     if (this.data.latestApprovedAt) {

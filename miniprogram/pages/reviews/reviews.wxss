@@ -1,0 +1,15 @@
+.page { padding: 20rpx 24rpx; }
+.summary { padding: 22rpx; color: #536078; font-size: 22rpx; margin-bottom: 18rpx; }
+.review { padding: 24rpx; margin-bottom: 18rpx; }
+.head { display: flex; justify-content: space-between; align-items: center; }
+.product { font-size: 27rpx; font-weight: 900; color: #002fa7; }
+.head .muted { font-size: 20rpx; margin-top: 4rpx; }
+.stars { color: #f5a623; font-size: 24rpx; }
+.content { margin-top: 14rpx; color: #2c3648; font-size: 23rpx; line-height: 1.6; }
+.images { display: flex; gap: 12rpx; margin-top: 14rpx; }
+.images image { width: 140rpx; height: 140rpx; border-radius: 12rpx; }
+.hidden-tag { margin-top: 14rpx; color: #9a7c00; background: #fff1b8; border-radius: 10rpx; padding: 10rpx 16rpx; font-size: 20rpx; }
+.reply { margin-top: 16rpx; background: #f4f7ff; border-radius: 14rpx; padding: 16rpx 18rpx; }
+.reply-title { color: #002fa7; font-size: 21rpx; font-weight: 800; }
+.reply-content { color: #2c3648; font-size: 22rpx; line-height: 1.55; margin-top: 6rpx; }
+.empty { padding: 40rpx 24rpx; }

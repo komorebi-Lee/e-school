@@ -493,6 +493,18 @@ test('limited recharge promos run as an availability-controlled campaign', () =>
   assert.ok(adminHtml.includes('promoEndsAt'), 'admin promo form should configure end time');
 });
 
+test('profile links to a my reviews page with merchant replies', () => {
+  const appConfig = JSON.parse(readMiniappFile('app.json'));
+  assert.ok(appConfig.pages.includes('pages/reviews/reviews'), 'my reviews page should be registered');
+
+  const reviewsSource = readMiniappFile(path.join('pages', 'reviews', 'reviews.js'));
+  assert.ok(reviewsSource.includes('/api/my/product-reviews'), 'my reviews page should load server reviews');
+  const reviewsMarkup = readMiniappFile(path.join('pages', 'reviews', 'reviews.wxml'));
+  assert.ok(reviewsMarkup.includes('item.reply'), 'my reviews page should surface merchant replies');
+
+  const profileSource = readMiniappFile(path.join('pages', 'profile', 'profile.js'));
+  assert.ok(profileSource.includes('/pages/reviews/reviews'), 'profile should link to my reviews');
+});
 test('user login falls back to demo login when platform login fails', () => {
   const source = readMiniappFile(path.join('lib', 'cloud-request.js'));
 
