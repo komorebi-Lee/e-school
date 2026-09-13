@@ -132,6 +132,22 @@ test('completed aftersales remain visible with resolution results', () => {
   assert.ok(styles.includes('.completed .evidence-grid'), 'completed result images should be styled');
 });
 
+test('aftersales status and contact actions stay understandable', () => {
+  const source = readMiniappFile(path.join('pages', 'aftersales', 'aftersales.js'));
+  const markup = readMiniappFile(path.join('pages', 'aftersales', 'aftersales.wxml'));
+  const styles = readMiniappFile(path.join('pages', 'aftersales', 'aftersales.wxss'));
+
+  assert.ok(source.includes('statusCopy'), 'aftersales should derive status-aware wording');
+  assert.ok(source.includes("REJECTED: { title: '商家已反馈本次售后'"), 'rejected aftersales should not sound like active work');
+  assert.ok(source.includes('config.servicePhone || config.serviceWechat'), 'aftersales should load configured contact info');
+  assert.ok(source.includes('callContact()'), 'aftersales should expose a phone contact action');
+  assert.ok(markup.includes('{{existing.title}}'), 'aftersales should bind status-aware titles');
+  assert.ok(markup.includes('{{existing.tip}}'), 'aftersales should bind actionable next-step guidance');
+  assert.ok(markup.includes('open-type="contact"'), 'aftersales should expose WeChat customer service');
+  assert.ok(markup.includes('bindtap="callContact"'), 'aftersales should expose phone customer service');
+  assert.ok(styles.includes('.contact-row'), 'contact actions should be styled');
+});
+
 test('merchant storefront is reachable from product detail', () => {
   const appConfig = JSON.parse(readMiniappFile('app.json'));
   assert.ok(appConfig.pages.includes('pages/store/store'), 'merchant storefront should be a registered page');

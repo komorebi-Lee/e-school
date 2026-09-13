@@ -7,6 +7,13 @@ const typeOptions = [
   { key:'REPAIR', label:'维修', copy:'校内使用异常，优先协调售后处理', reasons:['车辆无法正常启动','刹车或续航异常，需要检修','配送后无法正常骑行'] }
 ];
 
+const statusCopy = {
+  SUBMITTED: { title: '该订单已有售后工单', tip: '商家和平台已同步，可继续补充图片。' },
+  REVIEWING: { title: '该订单正在处理', tip: '可继续补充问题照片和说明。' },
+  REJECTED: { title: '商家已反馈本次售后', tip: '如仍有异议，可联系平台协助。' },
+  CLOSED: { title: '该订单已有售后结果', tip: '可查看处理结论和凭证。' }
+};
+
 function formatDate(value) {
   if (!value) return '';
   const date = new Date(value);
@@ -34,13 +41,14 @@ Page({
   data: {
     orderId: '', order: null, existing: null, completed: null, typeOptions, selectedType: typeOptions[0], images: [],
     detail: '', submitting: false, loading: true, dueText: '', quantity: 1, maxQuantity: 1,
-    afterSaleResponseHours: 24, afterSaleResolutionHours: 72
+    afterSaleResponseHours: 24, afterSaleResolutionHours: 72, contact: ''
   },
   onLoad(options) {
     this.setData({ orderId: options.id || '' });
     loadBusinessConfig().then((config) => this.setData({
       afterSaleResponseHours: Number(config.afterSaleResponseHours || 24),
-      afterSaleResolutionHours: Number(config.afterSaleResolutionHours || 72)
+      afterSaleResolutionHours: Number(config.afterSaleResolutionHours || 72),
+      contact: config.servicePhone || config.serviceWechat || ''
     })).catch(() => {});
     this.loadContext();
   },
@@ -71,6 +79,8 @@ Page({
         maxQuantity,
         existing: existing ? {
           id: existing.id,
+          title: (statusCopy[existing.status] || statusCopy.REVIEWING).title,
+          tip: (statusCopy[existing.status] || statusCopy.REVIEWING).tip,
           typeLabel: existing.typeLabel || existing.type,
           statusLabel: { SUBMITTED:'已提交', REVIEWING:'处理中', CLOSED:'已关闭', REJECTED:'未通过' }[existing.status] || existing.status,
           dueText: formatDate(existing.responseDueAt),
@@ -141,6 +151,9 @@ Page({
     const current = event.currentTarget.dataset.url;
     if (!urls.length) return;
     wx.previewImage({ current: current || urls[0], urls });
+  },
+  callContact() {
+    wx.makePhoneCall({ phoneNumber: this.data.contact || '15527111396' });
   },
   removeImage(e) {
     const index = Number(e.currentTarget.dataset.index);

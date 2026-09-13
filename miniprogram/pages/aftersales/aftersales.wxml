@@ -24,15 +24,19 @@
   </view>
 
   <view class="existing card" wx:if="{{existing}}">
-    <view class="existing-title">该订单已有处理中的售后</view>
+    <view class="existing-title">{{existing.title}}</view>
     <view class="existing-copy muted">{{existing.typeLabel}} · {{existing.statusLabel}}</view>
+    <view class="existing-copy muted">{{existing.tip}}</view>
     <view class="existing-copy muted" wx:if="{{existing.dueText}}">预计 {{existing.dueText}} 前响应</view>
     <view class="existing-copy muted" wx:if="{{existing.resolutionNote}}">处理结论：{{existing.resolutionNote}}</view>
     <view class="evidence-grid" wx:if="{{existing.images.length}}">
       <image wx:for="{{existing.images}}" wx:key="*this" src="{{item}}" mode="aspectFill" data-urls="{{existing.images}}" data-url="{{item}}" bindtap="previewExistingImages" />
     </view>
     <button wx:if="{{existing.images.length < 9}}" size="mini" class="ghost-button" bindtap="chooseImage">补充问题图片</button>
-    <button class="ghost-button" open-type="contact">联系客服处理</button>
+    <view class="contact-row">
+      <button size="mini" class="ghost-button" open-type="contact">微信客服</button>
+      <button size="mini" class="ghost-button" bindtap="callContact">电话客服 {{contact}}</button>
+    </view>
   </view>
 
   <block wx:if="{{order && !existing}}">
