@@ -39,7 +39,7 @@ function uploadAfterSaleImage(file) {
 
 Page({
   data: {
-    orderId: '', order: null, existing: null, completed: null, typeOptions, selectedType: typeOptions[0], images: [],
+    orderId: '', order: null, existing: null, completed: null, platformResult: null, typeOptions, selectedType: typeOptions[0], images: [],
     detail: '', submitting: false, appealing: false, loading: true, dueText: '', quantity: 1, maxQuantity: 1,
     afterSaleResponseHours: 24, afterSaleResolutionHours: 72, contact: ''
   },
@@ -67,6 +67,13 @@ Page({
         .filter(item => item.orderId === this.data.orderId && item.type === 'REFUND' && item.status === 'CLOSED')
         .reduce((sum, item) => sum + Number(item.quantity || 0), 0);
       const maxQuantity = Math.max(0, totalQuantity - refundedQuantity);
+      const intervention = order?.collaboration?.intervention || null;
+      const platformResult = intervention?.status === 'RESOLVED' && intervention.note
+        ? {
+          note: intervention.note,
+          resolvedText: formatDate(intervention.updatedAt || intervention.createdAt),
+        }
+        : null;
       this.setData({
         order: order ? {
           title: order.items.map(item => `${item.name}${item.quantity > 1 ? ` ×${item.quantity}` : ''}`).join(' + '),
@@ -76,6 +83,7 @@ Page({
           statusLabel: order.statusLabel || order.status
         } : null,
         appealRequested: order?.collaboration?.intervention?.status === 'REQUESTED',
+        platformResult,
         quantity: 1,
         maxQuantity,
         existing: existing ? {

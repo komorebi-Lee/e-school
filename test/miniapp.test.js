@@ -163,6 +163,19 @@ test('rejected aftersales can request platform assistance', () => {
   assert.ok(server.includes("${item.orderNo} 申请平台协助"), 'order appeals should create platform notifications');
 });
 
+test('aftersales surface platform resolution results to users', () => {
+  const source = readMiniappFile(path.join('pages', 'aftersales', 'aftersales.js'));
+  const markup = readMiniappFile(path.join('pages', 'aftersales', 'aftersales.wxml'));
+  const styles = readMiniappFile(path.join('pages', 'aftersales', 'aftersales.wxss'));
+
+  assert.ok(source.includes("intervention?.status === 'RESOLVED'"), 'aftersales should read resolved platform intervention');
+  assert.ok(source.includes('platformResult'), 'aftersales should derive platform resolution state');
+  assert.ok(source.includes('formatDate(intervention.updatedAt || intervention.createdAt)'), 'aftersales should show the platform resolution time');
+  assert.ok(markup.includes('platform-result-title'), 'aftersales should render the platform result card');
+  assert.ok(markup.includes('platformResult.note'), 'aftersales should bind the platform resolution note');
+  assert.ok(styles.includes('.platform-result-title') && styles.includes('.platform-result-copy'), 'platform result card should be styled');
+});
+
 test('merchant storefront is reachable from product detail', () => {
   const appConfig = JSON.parse(readMiniappFile('app.json'));
   assert.ok(appConfig.pages.includes('pages/store/store'), 'merchant storefront should be a registered page');

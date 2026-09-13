@@ -23,6 +23,12 @@
     </view>
   </view>
 
+  <view class="platform-result card" wx:if="{{platformResult}}">
+    <view class="platform-result-title">平台处理结果</view>
+    <view class="platform-result-copy muted" wx:if="{{platformResult.resolvedText}}">处理时间：{{platformResult.resolvedText}}</view>
+    <view class="platform-result-copy muted" wx:if="{{platformResult.note}}">处理结论：{{platformResult.note}}</view>
+  </view>
+
   <view class="existing card" wx:if="{{existing}}">
     <view class="existing-title">{{existing.title}}</view>
     <view class="existing-copy muted">{{existing.typeLabel}} · {{existing.statusLabel}}</view>
