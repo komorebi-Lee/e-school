@@ -531,6 +531,12 @@ test('plate page surfaces charging eligibility linked to review status', () => {
   assert.ok(homeWxml.includes('catchtap="goView"'), 'home charging entry should navigate to the plate page');
   assert.ok(homeJs.includes('goView(event)'), 'home should route the charging entry');
 });
+test('detail page records browsing footprints for recommendations', () => {
+  const detailJs = readMiniappFile(path.join('pages', 'detail', 'detail.js'));
+
+  assert.ok(detailJs.includes('/api/my/footprints'), 'detail should record browsing footprints');
+  assert.ok(detailJs.includes('productId: data.id'), 'footprints should reference the viewed product');
+});
 test('home search jumps into the scooter list with a prefilled query', () => {
   const homeJs = readMiniappFile(path.join('pages', 'home', 'home.js'));
   const homeWxml = readMiniappFile(path.join('pages', 'home', 'home.wxml'));

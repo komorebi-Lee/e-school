@@ -156,6 +156,7 @@ Page({
       this.setData({ scooter: normalizeProduct(data, this.data.config || {}, this.data.reviewFilter), loading: false });
       this.loadRestockState(data.id);
       this.loadFavoriteState(data.id);
+      request(`/api/my/footprints`, { method: 'POST', data: { productId: data.id } }).catch(() => {});
     }).catch(() => {
       const cached = getScooter(options.id);
       this.rawProduct = cached;
