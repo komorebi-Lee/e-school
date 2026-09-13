@@ -9,11 +9,11 @@ Page({
     const minDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const profile=wx.getStorageSync('shishanUserProfile')||{};
     this.setData({ minDate, name:profile.name||'', phone:profile.phone||'', date: this.data.date || minDate });
+    this.loadAddresses();
   },
   onLoad(options) {
     const id = options.id || '';
     this.setData({ payToken: `ebike-${id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` });
-    this.loadAddresses();
     request(`/api/products/${encodeURIComponent(id)}`).then(({ data }) => {
       const sellableStock = Number(data.availableStock ?? (data.stock || 0));
       this.setData({ maxQuantity: Math.max(1, Math.min(sellableStock, 5)), scooter: {
