@@ -98,9 +98,8 @@
 
 - 19 个小程序页面路由无重复且页面四件套齐全
 - 22 个 JSON 配置文件、28 个 JavaScript 文件语法检查通过
-- server 的 109 项自动化测试全部通过（`cd server && npm test`）
-- 根仓库的 122 项自动化测试全部通过（`npm test`）
-- 根仓库的 109 项自动化测试全部通过（`npm test`，包含 server 测试）
+- server 的 149 项自动化测试全部通过（`cd server && npm test`）
+- 根仓库的 230 项自动化测试全部通过（`npm test`，包含 server 测试）
 
 ## 华农 Q 版校园地图
 
@@ -110,3 +109,18 @@
 - 每个点位保留 Q 版形象草案与实拍素材建议，宿舍不作为认路定位点。
 - 2D 模式用于快速查看关系，3D 模式用轻量透视增强空间感；后续可把 CSS 示意层替换为设计稿地图底图。
 - 点位参考来源为华中农业大学校园地图服务系统（`http://gis.hzau.edu.cn`），上线前仍建议按最新校方指引复核。
+
+## 正式上线检查清单
+
+从 MVP 演示切到正式运营，按顺序完成以下事项：
+
+1. **小程序主体与类目**：微信公众平台确认小程序为个体工商户/企业主体，电商类目已通过审核；AppID 与 `miniprogram/config/api.js` 的云托管环境保持一致。
+2. **云托管环境变量**（微信云托管 → 服务设置 → 环境变量）：
+   - `WECHAT_APPID` / `WECHAT_APP_SECRET`（订阅消息与登录能力）
+   - `PAYMENT_PROVIDER=wechat` + `WECHAT_PAY_MCHID`、`WECHAT_PAY_SERIAL_NO`、`WECHAT_PAY_PRIVATE_KEY_PATH`、`WECHAT_PAY_APIV3_KEY`、`WECHAT_PAY_NOTIFY_URL`
+   - `MYSQL_HOST/PORT/DATABASE/USERNAME/PASSWORD`（持久化）、`ADMIN_PASSWORD_HASH`（生成方式见上文）
+3. **微信支付商户号**：商户平台申请 JSAPI 支付并绑定 AppID；回调地址使用云托管内网调用路径，`WECHAT_PAY_NOTIFY_URL` 指向该地址；上线前用 1 分钱真实订单走通支付 → 回调 → 对账。
+4. **微信登录**：云托管调用默认注入 openid 头，无需额外证书；若自建域名调用微信接口出现 `self-signed certificate`，需为服务器配置可信证书链，或继续使用云托管默认调用。
+5. **隐私与协议**：小程序后台「用户隐私保护指引」中声明手机号、位置、订单信息用途；协议页内容与实际业务一致。
+6. **模拟数据清理**：删除或下架种子商品/演示订单；管理后台核对商家资质、话费套餐与真实运营商报价一致。
+7. **回归验证**：`cd server && npm test` 全绿；真机体验完整下单 → 支付 → 配送 → 评价 → 售后链路。
