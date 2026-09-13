@@ -266,6 +266,15 @@
     </view>
     </block>
     <block wx:if="{{activeWorkbenchTab === 'messages'}}">
+    <view class="notice-subscription card">
+      <view class="notice-head"><view class="strong">提醒订阅</view><button size="mini" class="ghost-button" bindtap="subscribeScoreNotice">{{scoreNoticeSubscribed ? '关闭提醒' : '开启提醒'}}</button></view>
+      <view class="muted">已配置 {{configuredTemplateCount}}/{{messageTemplates.length}} 个提醒模板，开启后风险、售后与平台事件第一时间推送</view>
+      <view class="template-row" wx:for="{{messageTemplates}}" wx:key="key">
+        <view class="muted">{{item.description}}</view>
+        <view class="status-text {{item.configured ? 'tone-blue' : 'tone-todo'}}">{{item.configured ? '已配置' : '未配置'}}</view>
+      </view>
+    </view>
+    <view class="notification card" wx:if="{{notifications.length}}">
     <view class="notification card" wx:if="{{notifications.length}}">
       <view class="notice-head"><view class="strong">商家提醒</view><text class="muted">未读 {{unreadNotificationCount}}</text></view>
       <view class="notice-item {{item.link ? 'notice-action' : ''}}" wx:for="{{notifications}}" wx:key="id" bindtap="openNotification" data-link="{{item.link}}">

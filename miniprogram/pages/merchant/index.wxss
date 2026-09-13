@@ -164,3 +164,8 @@
 .rev-label { font-size: 19rpx; color: #78849a; margin-top: 4rpx; }
 .rev-label.today { color: #002fa7; font-weight: 600; }
 .rev-empty { padding: 40rpx 0; text-align: center; }
+.notice-subscription { margin-bottom: 16rpx; }
+.notice-subscription .ghost-button { min-width: 148rpx; margin: 0; }
+.notice-subscription .muted { line-height: 1.5; }
+.template-row { display: flex; justify-content: space-between; align-items: center; gap: 16rpx; padding: 12rpx 0; border-bottom: 1rpx solid #edf0f5; }
+.template-row:last-child { border-bottom: 0; }

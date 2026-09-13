@@ -625,6 +625,16 @@ test('merchant workbench surfaces a revenue trend chart', () => {
   assert.ok(js.includes('/api/merchant/revenue-trend'), 'trend chart should load the server trend endpoint');
 });
 
+test('merchant workbench surfaces subscription template configuration', () => {
+  const js = readMiniappFile(path.join('pages', 'merchant', 'index.js'));
+  const wxml = readMiniappFile(path.join('pages', 'merchant', 'index.wxml'));
+
+  assert.ok(js.includes('/api/subscribe-templates'), 'workbench should load template configuration');
+  assert.ok(js.includes("item.audience === 'MERCHANT'"), 'workbench should filter merchant templates');
+  assert.ok(wxml.includes('notice-subscription'), 'messages tab should show the subscription card');
+  assert.ok(wxml.includes('template-row'), 'subscription card should list configured templates');
+  assert.ok(wxml.includes('subscribeScoreNotice'), 'subscription card should expose the toggle');
+});
 test('merchant notifications deep-link into workspace focus areas', () => {
   const js = readMiniappFile(path.join('pages', 'merchant', 'index.js'));
   const wxml = readMiniappFile(path.join('pages', 'merchant', 'index.wxml'));

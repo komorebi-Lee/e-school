@@ -220,7 +220,7 @@ Page({
     lowStockProducts: [], lowStockThreshold: 10,
     slaAlerts: [], riskTasks: [], promotionSummary: [], notifications: [], unreadNotificationCount: 0, loading: true,
     workbenchCounts: { overview: 0, risk: 0, finance: 0, messages: 0 },
-    serviceScore: null, scoreTrend: null, latestRiskUrge: null, pendingPublishProducts: [], scoreCases: [], scoreNoticeSubscribed: false,
+    serviceScore: null, scoreTrend: null, latestRiskUrge: null, pendingPublishProducts: [], scoreCases: [], scoreNoticeSubscribed: false, messageTemplates: [], configuredTemplateCount: 0,
     scoreEvidence: [], uploadingScoreEvidence: false,
     qualificationRenewals: [], renewalLicenseNo: '', renewalLicenseExpireDate: '', renewalNote: '',
     renewalEvidence: [], uploadingRenewalEvidence: false, renewalSubmitting: false,
@@ -407,11 +407,22 @@ Page({
       const subscriptionTask = this.request('/api/merchant/message-subscriptions').then(({ data }) => {
         this.setData({ scoreNoticeSubscribed: data.subscribed === true });
       });
+      const templateTask = this.request('/api/subscribe-templates').then(({ data = [] }) => {
+        const messageTemplates = (data || []).filter((item) => item.audience === 'MERCHANT').map((item) => ({
+          key: item.key,
+          description: item.description,
+          configured: Boolean(item.configuredId)
+        }));
+        this.setData({
+          messageTemplates,
+          configuredTemplateCount: messageTemplates.filter((item) => item.configured).length
+        });
+      }).catch(() => {});
       const trendTask = this.request('/api/merchant/revenue-trend')
         .then(({ data }) => this.setData(this.buildTrend(data)))
         .catch(() => {});
       const statementTask = this.loadStatement();
-      return Promise.all([notificationTask, subscriptionTask, statementTask, trendTask]).catch(() => {});
+      return Promise.all([notificationTask, subscriptionTask, statementTask, trendTask, templateTask]).catch(() => {});
     }).catch(() => {
       this.setData({ loading: false });
       wx.removeStorageSync('campusGoMerchantId');
