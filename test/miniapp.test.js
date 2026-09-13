@@ -505,6 +505,13 @@ test('profile links to a my reviews page with merchant replies', () => {
   const profileSource = readMiniappFile(path.join('pages', 'profile', 'profile.js'));
   assert.ok(profileSource.includes('/pages/reviews/reviews'), 'profile should link to my reviews');
 });
+test('buy again jumps straight into checkout with the product id', () => {
+  const ordersJs = readMiniappFile(path.join('pages', 'orders', 'orders.js'));
+  const checkoutJs = readMiniappFile(path.join('pages', 'checkout', 'checkout.js'));
+
+  assert.ok(ordersJs.includes('/pages/checkout/checkout?id='), 'buy again should open checkout directly');
+  assert.ok(checkoutJs.includes('options.id'), 'checkout should accept a product id deep link');
+});
 test('user login falls back to demo login when platform login fails', () => {
   const source = readMiniappFile(path.join('lib', 'cloud-request.js'));
 

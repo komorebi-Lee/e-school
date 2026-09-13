@@ -352,7 +352,7 @@ Page({
   buyAgain(e){
     const productId=e.currentTarget.dataset.productId;
     if(!productId)return;
-    wx.navigateTo({url:`/pages/detail/detail?id=${encodeURIComponent(productId)}`});
+    wx.navigateTo({url:`/pages/checkout/checkout?id=${encodeURIComponent(productId)}`});
   },
   goStore(e){
     const merchantId=e.currentTarget.dataset.merchantId;
