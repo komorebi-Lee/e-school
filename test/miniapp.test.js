@@ -500,6 +500,18 @@ test('user login falls back to demo login when platform login fails', () => {
   assert.ok(source.includes('/api/auth/demo-login'), 'cloud request should fall back to demo login');
   assert.ok(source.includes('loginWithPlatform().catch'), 'fallback should trigger only after platform login fails');
 });
+test('plate page surfaces charging eligibility linked to review status', () => {
+  const plateJs = readMiniappFile(path.join('pages', 'plate', 'plate.js'));
+  const plateWxml = readMiniappFile(path.join('pages', 'plate', 'plate.wxml'));
+  const homeWxml = readMiniappFile(path.join('pages', 'home', 'home.wxml'));
+  const homeJs = readMiniappFile(path.join('pages', 'home', 'home.js'));
+
+  assert.ok(plateJs.includes('/api/my/charging-eligibility'), 'plate page should load charging eligibility');
+  assert.ok(plateWxml.includes('charging-eligibility'), 'plate page should surface the charging card');
+  assert.ok(plateWxml.includes('{{charging.stateLabel}}'), 'charging card should show eligibility state');
+  assert.ok(homeWxml.includes('catchtap="goView"'), 'home charging entry should navigate to the plate page');
+  assert.ok(homeJs.includes('goView(event)'), 'home should route the charging entry');
+});
 test('home search jumps into the scooter list with a prefilled query', () => {
   const homeJs = readMiniappFile(path.join('pages', 'home', 'home.js'));
   const homeWxml = readMiniappFile(path.join('pages', 'home', 'home.wxml'));

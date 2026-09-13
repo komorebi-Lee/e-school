@@ -20,6 +20,12 @@
     <view class="muted">{{status.vehicleModel}} · {{status.name}} · {{status.fee === 0 ? '购车用户免费' : '已支付服务费 ¥' + status.fee}}</view>
   </view>
 
+    <view class="charging card" id="charging-eligibility">
+    <view class="charging-head">
+      <view class="charging-main"><view class="step-title">充电资格</view><view class="muted">{{charging.detail}}</view></view>
+      <view class="charging-state {{charging.eligible ? 'done' : ''}}">{{charging.stateLabel}}</view>
+    </view>
+  </view>
   <view class="section-title">选择车辆来源</view>
   <view class="source-grid">
     <view class="source-card card {{source === 'platform' ? 'selected' : ''}}" data-source="platform" bindtap="chooseSource">

@@ -79,6 +79,10 @@ Page({
     const keyword = String(this.data.searchKeyword || '').trim();
     wx.navigateTo({ url: keyword ? `/pages/scooters/scooters?query=${encodeURIComponent(keyword)}` : '/pages/scooters/scooters' });
   },
+  goView(event) {
+    const view = event?.currentTarget?.dataset?.view;
+    if (view === 'plate') return this.goPlate();
+  },
   goMap() { wx.navigateTo({ url: "/pages/map/map" }); },
   goPlate() { wx.navigateTo({ url: "/pages/plate/plate" }); },
   goScooters() { wx.navigateTo({ url: "/pages/scooters/scooters" }); },

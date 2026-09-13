@@ -3,8 +3,8 @@ const { loadBusinessConfig } = require('../../services/business');
 const { payPaymentOrder } = require('../../services/payment');
 
 Page({
-  data:{source:'platform',vehicleModel:'',name:'',studentNo:'',phone:'',eligibleOrders:[],selectedOrderIndex:0,serviceFee:49,status:null,submitting:false,serviceContact:'15527111396'},
-  onShow(){this.loadOrders();this.loadStatus()},
+  data:{source:'platform',vehicleModel:'',name:'',studentNo:'',phone:'',eligibleOrders:[],selectedOrderIndex:0,serviceFee:49,status:null,charging:{eligible:false,stateLabel:',detail:'},submitting:false,serviceContact:'15527111396'},
+  onShow(){this.loadOrders();this.loadStatus();this.loadCharging()},
   onLoad(){loadBusinessConfig().then((config) => this.setData({
     serviceFee: Number(config.externalPlateFee ?? 49),
     serviceContact: config.servicePhone || config.serviceWechat || '15527111396'
@@ -25,6 +25,11 @@ Page({
     request('/api/service-records').then(({data})=>{
       const plate=(data?.serviceRecords||[]).find(item=>item.type==='PLATE');
       this.setData({status:plate?{id:plate.id,state:plate.statusLabel,vehicleModel:plate.title,name:'',fee:plate.amountInCents/100}:null});
+    }).catch(()=>{});
+  },
+  loadCharging(){
+    request('/api/my/charging-eligibility').then(({data})=>{
+      this.setData({charging:{eligible:data.eligible===true,stateLabel:data.stateLabel||'',detail:data.detail||''}});
     }).catch(()=>{});
   },
   chooseSource(e){this.setData({source:e.currentTarget.dataset.source})},

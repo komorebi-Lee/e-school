@@ -6,3 +6,9 @@
 .status { padding: 26rpx; margin-top: 22rpx; border-left: 8rpx solid #002fa7; }.status-label { color: #78849a; font-size: 21rpx; }.status-value { font-size: 31rpx; font-weight: 900; margin: 8rpx 0; }
 .source-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18rpx; }.source-card { padding: 24rpx; border: 3rpx solid transparent; position: relative; }.source-card.selected { border-color: #002fa7; background: #f7f9ff; }.source-badge { display: inline-flex; padding: 7rpx 13rpx; border-radius: 999rpx; font-size: 20rpx; font-weight: 900; }.source-badge.free { background: #d9f7ea; color: #157552; }.source-badge.paid { background: #eaf0ff; color: #002fa7; }.source-title { font-size: 28rpx; font-weight: 900; margin: 18rpx 0 10rpx; }.source-copy { color: #78849a; font-size: 21rpx; line-height: 1.55; }.empty-order { background: #fff7cf; color: #6f5a00; padding: 18rpx; border-radius: 14rpx; font-size: 22rpx; line-height: 1.6; }
 .form { padding: 28rpx; }.notice { color: #6f5a00; background: #fff7cf; padding: 22rpx; border-radius: 18rpx; line-height: 1.7; font-size: 22rpx; margin-top: 24rpx; }.service-button { margin-top: 22rpx; }
+.charging { padding: 26rpx; margin-top: 22rpx; border-left: 8rpx solid #d9f7ea; }
+.charging-head { display: flex; justify-content: space-between; align-items: center; gap: 16rpx; }
+.charging-main { flex: 1; min-width: 0; }
+.charging-main .muted { margin-top: 6rpx; line-height: 1.5; font-size: 21rpx; }
+.charging-state { color: #9a7c00; background: #fff1b8; border-radius: 999rpx; padding: 8rpx 18rpx; font-size: 20rpx; font-weight: 800; white-space: nowrap; }
+.charging-state.done { color: #157552; background: #d9f7ea; }
