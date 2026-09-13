@@ -20,6 +20,10 @@
     <view class="muted">稍等一下，马上给你结果。</view>
   </view>
   <block wx:else>
+    <view class="result-summary" wx:if="{{filteredProducts.length || filteredPromos.length}}">
+      <text>{{filteredProducts.length + filteredPromos.length}} 条结果</text>
+      <text class="clear-filter" wx:if="{{query || activeTab !== 'ALL'}}" bindtap="resetFilters">清空筛选</text>
+    </view>
     <view
       class="result card"
       wx:for="{{filteredProducts}}"
@@ -67,6 +71,10 @@
     <view wx:if="{{!filteredProducts.length && !filteredPromos.length}}" class="empty card">
       <view class="empty-title">没有匹配的结果</view>
       <view class="muted">换个关键词，或看看首页推荐。</view>
+      <view class="empty-actions">
+        <button size="mini" class="ghost-button" bindtap="resetFilters">清空筛选</button>
+        <button size="mini" class="primary-button" bindtap="goHome">去逛首页</button>
+      </view>
     </view>
   </block>
 </view>

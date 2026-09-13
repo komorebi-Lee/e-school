@@ -16,3 +16,6 @@
 .price { color: #002fa7; font-size: 30rpx; font-weight: 900; }
 .empty { margin-top: 30rpx; padding: 70rpx 30rpx; text-align: center; }
 .empty-title { font-size: 30rpx; font-weight: 900; color: #17233d; margin-bottom: 8rpx; }
+.result-summary { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16rpx; color: #78849a; font-size: 22rpx; }
+.clear-filter { color: #002fa7; font-weight: 700; }
+.empty-actions { display: flex; justify-content: center; gap: 16rpx; margin-top: 24rpx; }

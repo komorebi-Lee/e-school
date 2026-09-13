@@ -87,6 +87,15 @@ Page({
     this.applyFilters();
   },
 
+  resetFilters() {
+    this.setData({ query: '', activeTab: 'ALL' });
+    this.applyFilters();
+  },
+
+  goHome() {
+    wx.switchTab({ url: '/pages/home/home' });
+  },
+
   applyFilters() {
     const { products, promos, query, activeTab } = this.data;
     const keyword = String(query || '').toLowerCase();

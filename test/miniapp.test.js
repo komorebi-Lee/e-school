@@ -585,6 +585,9 @@ test('home search opens a unified commerce search page', () => {
   assert.ok(searchJs.includes('onShareAppMessage'), 'search should support sharing');
   assert.ok(searchJs.includes('merchantScore'), 'search should use the server merchant score');
   assert.ok(searchWxml.includes('service-score'), 'search should surface the service score');
+  assert.ok(searchWxml.includes('result-summary'), 'search should show the result count');
+  assert.ok(searchWxml.includes('resetFilters'), 'search should support clearing filters');
+  assert.ok(searchJs.includes('goHome'), 'search should provide a home entry when empty');
   assert.ok(cardJs.includes('options.promoId'), 'card page should accept promo deep links');
 });
 test('product sale campaigns show server-controlled promo pricing', () => {
