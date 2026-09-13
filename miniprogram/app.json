@@ -49,9 +49,13 @@
     "borderStyle": "white",
     "list": [
       {
-        "pagePath": "pages/home/home",
-        "text": "首页"
-      },
+    "pagePath": "pages/home/home",
+      "text": "首页"
+    },
+    {
+      "pagePath": "pages/map/map",
+      "text": "地图"
+    },
       {
         "pagePath": "pages/orders/orders",
         "text": "订单"
