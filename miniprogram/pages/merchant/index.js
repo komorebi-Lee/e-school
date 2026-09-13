@@ -226,6 +226,8 @@ Page({
     renewalEvidence: [], uploadingRenewalEvidence: false, renewalSubmitting: false,
     delistedProducts: [], watchingProducts: [], rectifyProductIndex: 0, showQualificationPanel: false,
     activeWorkbenchTab: 'overview',
+    trend: { bars: [], totalRevenueText: '0.00', totalOrders: 0, hasData: false },
+    trendMetric: 'revenue',
     scoreCaseType: 'APPEAL', scoreCaseReasonTypeIndex: 0, appealReasons,
     payoutMinimumText: '100.00', payableText: '0.00', canRequestPayout: false, payoutHint: '', payoutSubmitting: false,
     statement: null, statementMonth: new Date().toISOString().slice(0, 7), statementSaving: false
@@ -405,8 +407,11 @@ Page({
       const subscriptionTask = this.request('/api/merchant/message-subscriptions').then(({ data }) => {
         this.setData({ scoreNoticeSubscribed: data.subscribed === true });
       });
+      const trendTask = this.request('/api/merchant/revenue-trend')
+        .then(({ data }) => this.setData(this.buildTrend(data)))
+        .catch(() => {});
       const statementTask = this.loadStatement();
-      return Promise.all([notificationTask, subscriptionTask, statementTask]).catch(() => {});
+      return Promise.all([notificationTask, subscriptionTask, statementTask, trendTask]).catch(() => {});
     }).catch(() => {
       this.setData({ loading: false });
       wx.removeStorageSync('campusGoMerchantId');
@@ -628,6 +633,40 @@ Page({
   setStatementMonth(event) {
     this.setData({ statementMonth: event.detail.value });
     this.loadStatement();
+  },
+  buildTrend(payload = {}) {
+    const series = payload.series || [];
+    const maxRevenue = Math.max(1, ...series.map((s) => Number(s.revenueInCents || 0)));
+    const maxOrder = Math.max(1, ...series.map((s) => Number(s.orderCount || 0)));
+    const bars = series.map((s, index) => {
+      const revenue = Number(s.revenueInCents || 0);
+      const orders = Number(s.orderCount || 0);
+      return {
+        date: s.date,
+        label: String(s.date || '').slice(5).replace('-', '/'),
+        isToday: index === series.length - 1,
+        revenueText: (revenue / 100).toFixed(2),
+        orderText: String(orders),
+        revenueHeight: revenue > 0 ? Math.max(4, Math.round((revenue / maxRevenue) * 100)) : 0,
+        orderHeight: orders > 0 ? Math.max(4, Math.round((orders / maxOrder) * 100)) : 0
+      };
+    });
+    const totalRevenue = series.reduce((sum, s) => sum + Number(s.revenueInCents || 0), 0);
+    const totalOrders = series.reduce((sum, s) => sum + Number(s.orderCount || 0), 0);
+    return {
+      trend: {
+        bars,
+        totalRevenueText: (totalRevenue / 100).toFixed(2),
+        totalOrders,
+        hasData: bars.some((b) => b.revenueHeight > 0 || b.orderHeight > 0)
+      }
+    };
+  },
+  setTrendMetric(event) {
+    const metric = event.currentTarget.dataset.metric;
+    if (metric === 'revenue' || metric === 'order') {
+      this.setData({ trendMetric: metric });
+    }
   },
   loadStatement() {
     const month = this.data.statementMonth || new Date().toISOString().slice(0, 7);

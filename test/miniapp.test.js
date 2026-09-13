@@ -607,6 +607,17 @@ test('merchant workbench surfaces a store health snapshot on the overview', () =
   assert.ok(js.includes('setWorkbenchTab(event)'), 'health card should reuse the tab switch handler');
 });
 
+test('merchant workbench surfaces a revenue trend chart', () => {
+  const js = readMiniappFile(path.join('pages', 'merchant', 'index.js'));
+  const wxml = readMiniappFile(path.join('pages', 'merchant', 'index.wxml'));
+
+  assert.ok(wxml.includes('rev-bars'), 'dashboard should render a revenue trend chart');
+  assert.ok(wxml.includes('近7日营收 / 订单趋势'), 'trend chart should use plain merchant wording');
+  assert.ok(wxml.includes('bindtap="setTrendMetric"'), 'trend chart should switch between revenue and orders');
+  assert.ok(js.includes('buildTrend('), 'trend chart should normalize the server series');
+  assert.ok(js.includes('/api/merchant/revenue-trend'), 'trend chart should load the server trend endpoint');
+});
+
 test('merchant notifications deep-link into workspace focus areas', () => {
   const js = readMiniappFile(path.join('pages', 'merchant', 'index.js'));
   const wxml = readMiniappFile(path.join('pages', 'merchant', 'index.wxml'));

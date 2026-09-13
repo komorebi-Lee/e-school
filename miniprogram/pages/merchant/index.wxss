@@ -150,3 +150,17 @@
 .evidence-remove { position: absolute; right: 8rpx; top: 8rpx; width: 36rpx; height: 36rpx; line-height: 34rpx; text-align: center; border-radius: 50%; background: rgba(17, 24, 39, .68); color: #fff; font-size: 24rpx; }
 .score-case-head { display: flex; justify-content: space-between; gap: 16rpx; font-size: 23rpx; }
 .score-case .muted { margin-top: 8rpx; font-size: 21rpx; line-height: 1.45; }
+
+.rev-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 18rpx; }
+.rev-toggle { display: flex; background: #f1f3f8; border-radius: 14rpx; padding: 4rpx; flex-shrink: 0; }
+.rev-tab { font-size: 21rpx; color: #78849a; padding: 6rpx 18rpx; border-radius: 11rpx; }
+.rev-tab.active { background: #fff; color: #002fa7; font-weight: 600; box-shadow: 0 2rpx 6rpx rgba(0, 47, 167, .12); }
+.rev-bars { display: flex; align-items: flex-end; justify-content: space-between; gap: 6rpx; padding-top: 6rpx; }
+.rev-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+.rev-bar { width: 30rpx; height: 150rpx; display: flex; align-items: flex-end; }
+.rev-bar-fill { width: 100%; background: linear-gradient(180deg, #335cff, #002fa7); border-radius: 8rpx 8rpx 0 0; min-height: 4rpx; }
+.rev-bar-fill.today { background: linear-gradient(180deg, #ffb547, #ff8a00); }
+.rev-value { font-size: 18rpx; color: #172033; margin-top: 10rpx; }
+.rev-label { font-size: 19rpx; color: #78849a; margin-top: 4rpx; }
+.rev-label.today { color: #002fa7; font-weight: 600; }
+.rev-empty { padding: 40rpx 0; text-align: center; }
