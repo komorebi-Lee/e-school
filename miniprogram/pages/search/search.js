@@ -54,6 +54,14 @@ Page({
     this.loadResults();
   },
 
+  onShareAppMessage() {
+    const query = encodeURIComponent(this.data.query || '');
+    return {
+      title: this.data.query ? `${this.data.query} · 狮山智生活` : '狮山智生活',
+      path: `/pages/search/search?query=${query}`
+    };
+  },
+
   loadResults() {
     Promise.all([
       request('/api/products').then(({ data }) => (data || []).map(decorateProduct)),

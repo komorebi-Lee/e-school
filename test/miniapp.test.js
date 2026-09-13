@@ -580,6 +580,8 @@ test('home search opens a unified commerce search page', () => {
   assert.ok(searchJs.includes('/api/recharge-promos'), 'search should load recharge promotions');
   assert.ok(searchWxml.includes('filteredProducts'), 'search should render product results');
   assert.ok(searchWxml.includes('filteredPromos'), 'search should render promo results');
+  assert.ok(searchWxml.includes('result-thumb'), 'search should show product artwork');
+  assert.ok(searchJs.includes('onShareAppMessage'), 'search should support sharing');
   assert.ok(cardJs.includes('options.promoId'), 'card page should accept promo deep links');
 });
 test('product sale campaigns show server-controlled promo pricing', () => {

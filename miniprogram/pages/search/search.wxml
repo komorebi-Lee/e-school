@@ -29,6 +29,7 @@
       data-category="{{item.category}}"
       bindtap="goItem"
     >
+      <image class="result-thumb" src="{{item.imageUrl}}" mode="aspectFill" wx:if="{{item.imageUrl}}" />
       <view class="result-main">
         <view class="result-title">{{item.name}}</view>
         <view class="muted result-desc">{{item.description}}</view>
