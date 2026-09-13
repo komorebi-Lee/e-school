@@ -44,6 +44,9 @@ Page({
       if (selected) this.applyAddress(selected);
     }).catch(() => this.setData({ addresses: [] }));
   },
+  goAddresses() {
+    wx.navigateTo({ url: '/pages/addresses/addresses' });
+  },
   applyAddress(address) {
     if (!address) return;
     this.setData({

@@ -9,7 +9,10 @@
     </view>
   </view>
   <view class="empty card" wx:if="{{scooter.stockNote}}"><view class="muted">{{scooter.stockNote}}</view></view>
-  <view class="section-title">常用地址</view>
+  <view class="address-head">
+    <text class="address-title">常用地址</text>
+    <text class="manage-address" bindtap="goAddresses">管理地址 ›</text>
+  </view>
   <view class="saved-addresses card" wx:if="{{addresses.length}}">
     <view class="saved-address {{selectedAddressId === item.id ? 'active' : ''}}" wx:for="{{addresses}}" wx:key="id" data-id="{{item.id}}" bindtap="selectAddress">
       <view class="saved-address-main">

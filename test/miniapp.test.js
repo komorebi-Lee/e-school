@@ -67,6 +67,7 @@ test('checkout reuses and saves delivery addresses', () => {
   assert.ok(source.includes('/api/my/addresses'), 'checkout should load and save server addresses');
   assert.ok(source.includes('selectedAddressId'), 'checkout should track the selected address');
   assert.ok(source.includes('saveAddress'), 'checkout should let users save a new address');
+  assert.ok(source.includes('/pages/addresses/addresses'), 'checkout should link to address manager');
 
   const markup = readMiniappFile(path.join('pages', 'checkout', 'checkout.wxml'));
   assert.ok(markup.includes('saved-addresses'), 'checkout should show saved addresses');

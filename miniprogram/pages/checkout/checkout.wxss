@@ -1,4 +1,6 @@
 .saved-addresses { padding: 18rpx; display: flex; gap: 18rpx; overflow-x: auto; }
+.address-head { display: flex; align-items: center; justify-content: space-between; padding: 0 4rpx 12rpx; color: #172033; font-size: 28rpx; font-weight: 900; }
+.manage-address { color: #002fa7; font-size: 22rpx; font-weight: 800; }
 .saved-address { min-width: 380rpx; border: 2rpx solid #dbe3f1; border-radius: 20rpx; padding: 18rpx 20rpx; background: #fff; }
 .saved-address.active { border-color: #002fa7; background: #eef3ff; }
 .saved-address-main { margin-bottom: 12rpx; }
