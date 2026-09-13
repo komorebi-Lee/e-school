@@ -32,7 +32,7 @@ function uploadAfterSaleImage(file) {
 
 Page({
   data: {
-    orderId: '', order: null, existing: null, typeOptions, selectedType: typeOptions[0], images: [],
+    orderId: '', order: null, existing: null, completed: null, typeOptions, selectedType: typeOptions[0], images: [],
     detail: '', submitting: false, loading: true, dueText: '', quantity: 1, maxQuantity: 1,
     afterSaleResponseHours: 24, afterSaleResolutionHours: 72
   },
@@ -51,6 +51,9 @@ Page({
     ]).then(([orderData, afterSaleData]) => {
       const order = (orderData.data?.ebikeOrders || []).find(item => item.id === this.data.orderId) || null;
       const existing = (afterSaleData.data || []).find(item => item.orderId === this.data.orderId && item.status !== 'CLOSED') || null;
+      const completed = (afterSaleData.data || [])
+        .filter(item => item.orderId === this.data.orderId && item.status === 'CLOSED')
+        .sort((a, b) => String(b.updatedAt || b.createdAt).localeCompare(String(a.updatedAt || a.createdAt)))[0] || null;
       const totalQuantity = (order?.items || []).reduce((sum, item) => sum + Number(item.quantity || 0), 0);
       const refundedQuantity = (afterSaleData.data || [])
         .filter(item => item.orderId === this.data.orderId && item.type === 'REFUND' && item.status === 'CLOSED')
@@ -73,6 +76,13 @@ Page({
           dueText: formatDate(existing.responseDueAt),
           images: existing.images || [],
           resolutionNote: existing.resolutionNote || '',
+        } : null,
+        completed: completed ? {
+          typeLabel: completed.typeLabel || completed.type,
+          statusLabel: { CLOSED: '已完成' }[completed.status] || completed.status,
+          resolvedText: formatDate(completed.resolvedAt || completed.updatedAt || completed.createdAt),
+          images: completed.images || [],
+          resolutionNote: completed.resolutionNote || '',
         } : null,
         loading: false
       });

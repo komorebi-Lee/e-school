@@ -115,6 +115,23 @@ test('multi-quantity aftersales supports partial refund selection', () => {
   assert.ok(styles.includes('.quantity-row') && styles.includes('.quantity-control'), 'quantity controls should be styled');
 });
 
+test('completed aftersales remain visible with resolution results', () => {
+  const source = readMiniappFile(path.join('pages', 'aftersales', 'aftersales.js'));
+  const markup = readMiniappFile(path.join('pages', 'aftersales', 'aftersales.wxml'));
+  const styles = readMiniappFile(path.join('pages', 'aftersales', 'aftersales.wxss'));
+
+  assert.ok(source.includes('completed: null'), 'aftersales should initialize completed result state');
+  assert.ok(source.includes("item.status === 'CLOSED'"), 'aftersales should select completed records');
+  assert.ok(source.includes('formatDate(completed.resolvedAt || completed.updatedAt || completed.createdAt)'), 'aftersales should format the completion time');
+  assert.ok(source.includes("CLOSED: '已完成'"), 'completed aftersales should use an operational label');
+  assert.ok(markup.includes('completed-title'), 'aftersales should show the completed result card');
+  assert.ok(markup.includes('completed.resolvedText'), 'aftersales should bind the completion time');
+  assert.ok(markup.includes('completed.resolutionNote'), 'aftersales should bind the merchant resolution note');
+  assert.ok(markup.includes('previewExistingImages'), 'completed aftersales should keep image previews');
+  assert.ok(styles.includes('.completed-title') && styles.includes('.completed-copy'), 'completed result card should be styled');
+  assert.ok(styles.includes('.completed .evidence-grid'), 'completed result images should be styled');
+});
+
 test('merchant storefront is reachable from product detail', () => {
   const appConfig = JSON.parse(readMiniappFile('app.json'));
   assert.ok(appConfig.pages.includes('pages/store/store'), 'merchant storefront should be a registered page');

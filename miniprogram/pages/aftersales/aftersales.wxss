@@ -11,6 +11,10 @@
 .promise-title { font-size: 25rpx; font-weight: 850; color: #202b45; }
 .promise-row .muted { margin-top: 5rpx; font-size: 21rpx; line-height: 1.45; }
 .existing { padding: 30rpx; margin-top: 16rpx; text-align: center; }
+.completed { padding: 30rpx; margin-top: 16rpx; text-align: center; background: #f0fbf5; border: 1rpx solid #d7f0e0; }
+.completed-title { font-size: 30rpx; font-weight: 900; color: #0b7f4e; }
+.completed-copy { margin-top: 12rpx; line-height: 1.45; }
+.completed .evidence-grid { margin: 18rpx 0 6rpx; text-align: left; }
 .existing-title { font-size: 30rpx; font-weight: 900; color: #b42318; }
 .existing-copy { margin-top: 12rpx; line-height: 1.45; }
 .existing button { margin: 28rpx 0 0; }
