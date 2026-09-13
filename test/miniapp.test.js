@@ -524,6 +524,19 @@ test('profile links to a browsing footprints page', () => {
   const profileSource = readMiniappFile(path.join('pages', 'profile', 'profile.js'));
   assert.ok(profileSource.includes('/pages/footprints/footprints'), 'profile should link to footprints');
 });
+test('profile links to a reusable address manager page', () => {
+  const appConfig = JSON.parse(readMiniappFile('app.json'));
+  assert.ok(appConfig.pages.includes('pages/addresses/addresses'), 'address manager page should be registered');
+
+  const addressesSource = readMiniappFile(path.join('pages', 'addresses', 'addresses.js'));
+  assert.ok(addressesSource.includes('/api/my/addresses'), 'address manager should use server addresses');
+  const addressesMarkup = readMiniappFile(path.join('pages', 'addresses', 'addresses.wxml'));
+  assert.ok(addressesMarkup.includes('setDefault'), 'address manager should support setting a default address');
+  assert.ok(addressesMarkup.includes('deleteAddress'), 'address manager should support deleting an address');
+
+  const profileSource = readMiniappFile(path.join('pages', 'profile', 'profile.js'));
+  assert.ok(profileSource.includes('/pages/addresses/addresses'), 'profile should link to address manager');
+});
 test('user login falls back to demo login when platform login fails', () => {
   const source = readMiniappFile(path.join('lib', 'cloud-request.js'));
 

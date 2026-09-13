@@ -8,6 +8,7 @@
     "pages/scooters/scooters",
     "pages/detail/detail",
     "pages/checkout/checkout",
+    "pages/addresses/addresses",
     "pages/orders/orders",
     "pages/profile/profile",
     "pages/aftersales/aftersales",
