@@ -493,6 +493,13 @@ test('limited recharge promos run as an availability-controlled campaign', () =>
   assert.ok(adminHtml.includes('promoEndsAt'), 'admin promo form should configure end time');
 });
 
+test('user login falls back to demo login when platform login fails', () => {
+  const source = readMiniappFile(path.join('lib', 'cloud-request.js'));
+
+  assert.ok(source.includes('/api/auth/login'), 'cloud request should try platform login first');
+  assert.ok(source.includes('/api/auth/demo-login'), 'cloud request should fall back to demo login');
+  assert.ok(source.includes('loginWithPlatform().catch'), 'fallback should trigger only after platform login fails');
+});
 test('home search jumps into the scooter list with a prefilled query', () => {
   const homeJs = readMiniappFile(path.join('pages', 'home', 'home.js'));
   const homeWxml = readMiniappFile(path.join('pages', 'home', 'home.wxml'));

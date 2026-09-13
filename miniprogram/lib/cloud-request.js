@@ -24,7 +24,7 @@ function responseError(response) {
   return error;
 }
 
-function loginWeChat() {
+function loginWithPlatform() {
   return new Promise((resolve, reject) => {
     wx.cloud.callContainer({
       config: { env: cloudConfig.CLOUD_ENV_ID },
@@ -49,6 +49,38 @@ function loginWeChat() {
       fail: (error) => reject(new Error(error.errMsg || '微信登录失败，请稍后重试'))
     });
   });
+}
+
+function demoLogin() {
+  return new Promise((resolve, reject) => {
+    wx.cloud.callContainer({
+      config: { env: cloudConfig.CLOUD_ENV_ID },
+      path: '/api/auth/demo-login',
+      method: 'POST',
+      data: {},
+      header: {
+        'content-type': 'application/json',
+        'X-WX-SERVICE': cloudConfig.CLOUD_SERVICE_NAME
+      },
+      success: (response) => {
+        if (Number(response.statusCode || 0) < 200 || Number(response.statusCode || 0) >= 300) {
+          return reject(responseError(response));
+        }
+        const { token, userId, expiresIn } = response.data?.data || {};
+        if (!token || !userId) return reject(new Error('体验登录失败，请稍后重试'));
+        wx.setStorageSync('campusGoUserToken', token);
+        wx.setStorageSync('campusGoUserId', userId);
+        wx.setStorageSync('campusGoUserTokenExpiresAt', Date.now() + (expiresIn || 604800) * 1000);
+        resolve({ token, userId });
+      },
+      fail: (error) => reject(new Error(error.errMsg || '体验登录失败，请稍后重试'))
+    });
+  });
+}
+
+function loginWeChat() {
+  // 平台登录依赖云托管注入的 openid 头；本地预览或头缺失时退回体验登录
+  return loginWithPlatform().catch(() => demoLogin());
 }
 
 async function getWeChatSession() {
