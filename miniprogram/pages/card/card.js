@@ -5,6 +5,7 @@ Page({
     data:{plans:[],rechargePromos:[],selectedPlan:0,selectedPromo:null,promoIsBuyable:true,activeSection:0,profileName:'',profilePhone:'',companionPhone:'',submitting:false,phoneCardActivationHours:24},
     onLoad(options = {}){
       this.pendingPlanId = options.planId ? decodeURIComponent(options.planId) : '';
+      this.pendingPromoId = options.promoId ? decodeURIComponent(options.promoId) : '';
     const profile=wx.getStorageSync('shishanUserProfile')||{};
     this.setData({profileName:profile.name||'',profilePhone:profile.phone||'',companionPhone:profile.companionPhone||''});
     loadBusinessConfig().then(({ phoneCardActivationHours = 24 }) => this.setData({ phoneCardActivationHours: Number(phoneCardActivationHours || 24) })).catch(() => {});
@@ -50,7 +51,15 @@ Page({
       });
       const selectedPromo=this.data.selectedPromo;
       const promoIsBuyable=selectedPromo===null || rechargePromos[selectedPromo]?.isBuyable !== false;
-      if(rechargePromos.length)this.setData({rechargePromos,promoIsBuyable});
+      if(rechargePromos.length){
+        let nextPromo=this.data.selectedPromo;
+        if(this.pendingPromoId){
+          const focusedPromo=rechargePromos.findIndex(item=>item.id===this.pendingPromoId);
+          if(focusedPromo>=0)nextPromo=focusedPromo;
+          this.pendingPromoId='';
+        }
+        this.setData({rechargePromos,selectedPromo:nextPromo,promoIsBuyable:nextPromo===null || rechargePromos[nextPromo]?.isBuyable !== false});
+      }
     }).catch(()=>{});
   },
   choosePlan(e){this.setData({selectedPlan:Number(e.currentTarget.dataset.index)})},

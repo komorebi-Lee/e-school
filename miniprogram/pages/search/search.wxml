@@ -1,0 +1,70 @@
+<view class="page search-page">
+  <view class="search-bar card">
+    <input
+      class="search-input"
+      placeholder="搜索电瓶车、电话卡、套餐"
+      confirm-type="search"
+      value="{{query}}"
+      bindinput="setKeyword"
+      bindconfirm="setKeyword"
+    />
+  </view>
+  <view class="tabs">
+    <view class="tab {{activeTab === 'ALL' ? 'active' : ''}}" data-tab="ALL" bindtap="setTab">全部</view>
+    <view class="tab {{activeTab === 'E_BIKE_NEW' ? 'active' : ''}}" data-tab="E_BIKE_NEW" bindtap="setTab">电瓶车</view>
+    <view class="tab {{activeTab === 'PHONE_PLAN' ? 'active' : ''}}" data-tab="PHONE_PLAN" bindtap="setTab">电话卡</view>
+    <view class="tab {{activeTab === 'PROMO' ? 'active' : ''}}" data-tab="PROMO" bindtap="setTab">限时权益</view>
+  </view>
+  <view wx:if="{{loading}}" class="empty card">
+    <view class="empty-title">正在搜索…</view>
+    <view class="muted">稍等一下，马上给你结果。</view>
+  </view>
+  <block wx:else>
+    <view
+      class="result card"
+      wx:for="{{filteredProducts}}"
+      wx:key="id"
+      data-kind="product"
+      data-id="{{item.id}}"
+      data-category="{{item.category}}"
+      bindtap="goItem"
+    >
+      <view class="result-main">
+        <view class="result-title">{{item.name}}</view>
+        <view class="muted result-desc">{{item.description}}</view>
+        <view class="result-meta">
+          <text>{{item.typeText}}</text>
+          <text>{{item.stockText}}</text>
+        </view>
+      </view>
+      <view class="price-group">
+        <text wx:if="{{item.originalPrice}}" class="original-price">¥{{item.originalPrice}}</text>
+        <view class="price">¥{{item.price}}</view>
+      </view>
+    </view>
+    <view
+      class="result card"
+      wx:for="{{filteredPromos}}"
+      wx:key="id"
+      data-kind="promo"
+      data-id="{{item.id}}"
+      bindtap="goItem"
+    >
+      <view class="result-main">
+        <view class="result-title">{{item.title}}</view>
+        <view class="muted result-desc">{{item.description}}</view>
+        <view class="result-meta">
+          <text>{{item.badge}}</text>
+          <text>限时权益</text>
+        </view>
+      </view>
+      <view class="price-group">
+        <view class="price">¥{{item.pay}}</view>
+      </view>
+    </view>
+    <view wx:if="{{!filteredProducts.length && !filteredPromos.length}}" class="empty card">
+      <view class="empty-title">没有匹配的结果</view>
+      <view class="muted">换个关键词，或看看首页推荐。</view>
+    </view>
+  </block>
+</view>

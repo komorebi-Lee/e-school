@@ -77,7 +77,7 @@ Page({
   setSearchKeyword(event) { this.setData({ searchKeyword: event.detail.value }); },
   goSearch() {
     const keyword = String(this.data.searchKeyword || '').trim();
-    wx.navigateTo({ url: keyword ? `/pages/scooters/scooters?query=${encodeURIComponent(keyword)}` : '/pages/scooters/scooters' });
+    wx.navigateTo({ url: `/pages/search/search?query=${encodeURIComponent(keyword)}` });
   },
   goView(event) {
     const view = event?.currentTarget?.dataset?.view;

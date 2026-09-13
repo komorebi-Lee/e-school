@@ -549,16 +549,24 @@ test('detail page records browsing footprints for recommendations', () => {
   assert.ok(detailJs.includes('/api/my/footprints'), 'detail should record browsing footprints');
   assert.ok(detailJs.includes('productId: data.id'), 'footprints should reference the viewed product');
 });
-test('home search jumps into the scooter list with a prefilled query', () => {
+test('home search opens a unified commerce search page', () => {
   const homeJs = readMiniappFile(path.join('pages', 'home', 'home.js'));
   const homeWxml = readMiniappFile(path.join('pages', 'home', 'home.wxml'));
-  const scooterJs = readMiniappFile(path.join('pages', 'scooters', 'scooters.js'));
+  const searchJs = readMiniappFile(path.join('pages', 'search', 'search.js'));
+  const searchWxml = readMiniappFile(path.join('pages', 'search', 'search.wxml'));
+  const cardJs = readMiniappFile(path.join('pages', 'card', 'card.js'));
+  const appConfig = JSON.parse(readMiniappFile('app.json'));
 
   assert.ok(homeWxml.includes('search-bar'), 'home should expose a search entry');
   assert.ok(homeWxml.includes('bindconfirm="goSearch"'), 'home search should submit on confirm');
-  assert.ok(homeJs.includes('goSearch'), 'home should navigate to the scooter list');
-  assert.ok(homeJs.includes('/pages/scooters/scooters?query='), 'home search should pass the keyword');
-  assert.ok(scooterJs.includes('options.query'), 'scooter list should prefill the query from deep link');
+  assert.ok(homeJs.includes('goSearch'), 'home should navigate to the unified search page');
+  assert.ok(homeJs.includes('/pages/search/search?query='), 'home search should pass the keyword');
+  assert.ok(appConfig.pages.includes('pages/search/search'), 'unified search page should be registered');
+  assert.ok(searchJs.includes('/api/products'), 'search should load commerce products');
+  assert.ok(searchJs.includes('/api/recharge-promos'), 'search should load recharge promotions');
+  assert.ok(searchWxml.includes('filteredProducts'), 'search should render product results');
+  assert.ok(searchWxml.includes('filteredPromos'), 'search should render promo results');
+  assert.ok(cardJs.includes('options.promoId'), 'card page should accept promo deep links');
 });
 test('product sale campaigns show server-controlled promo pricing', () => {
   const homeJs = readMiniappFile(path.join('pages', 'home', 'home.js'));
