@@ -24,12 +24,14 @@ Page({
     scootersLoading: true,
     phonePlansLoading: true,
     favorites: [],
+    recommendations: [],
     config: null,
     responseHours: 24
   },
   onShow() {
     this.setData({ scooters: getScooters().slice(0, 1) });
     this.loadFavorites();
+    this.loadRecommendations();
     loadBusinessConfig().then((config) => this.setData({
       config,
       school: config.schoolName,
@@ -91,6 +93,25 @@ Page({
       });
       this.setData({ favorites });
     }).catch(() => this.setData({ favorites: [] }));
+  },
+  loadRecommendations() {
+    request('/api/my/recommendations?limit=4').then(({ data }) => {
+      const recommendations = (data || []).map((item) => {
+        const stock = Number(item.availableStock ?? (item.stock || 0));
+        return {
+          id: item.id,
+          categoryLabel: item.category === 'PHONE_PLAN' ? '电话卡' : '电动车',
+          name: item.name,
+          merchantName: item.merchantName || '平台自营',
+          stockText: stock > 0 ? (stock < 5 ? `仅剩 ${stock} 件` : `库存 ${stock}`) : '已售罄',
+          price: (Number(item.effectivePriceInCents ?? (item.priceInCents || 0)) / 100).toFixed(2),
+          originalPrice: item.promotion?.originalPriceInCents
+            ? (Number(item.promotion.originalPriceInCents) / 100).toFixed(2) : '',
+          promoText: item.promotion?.statusText || ''
+        };
+      });
+      this.setData({ recommendations });
+    }).catch(() => this.setData({ recommendations: [] }));
   },
   goFavorites() { wx.navigateTo({ url: "/pages/favorites/favorites" }); },
   goDetail(e) { wx.navigateTo({ url: `/pages/detail/detail?id=${e.currentTarget.dataset.id}` }); }

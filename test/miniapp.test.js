@@ -188,6 +188,13 @@ test('users can favorite products and revisit favorites', () => {
   assert.ok(favoritesMarkup.includes('promo-badge'), 'favorites should surface active promotions');
   assert.ok(favoritesMarkup.includes('original-price'), 'favorites should compare original and sale prices');
 
+  const homeSource = readMiniappFile(path.join('pages', 'home', 'home.js'));
+  assert.ok(homeSource.includes('/api/my/recommendations'), 'home should load personalized recommendations');
+  assert.ok(homeSource.includes('loadRecommendations'), 'home should refresh recommendations on show');
+  const homeMarkup = readMiniappFile(path.join('pages', 'home', 'home.wxml'));
+  assert.ok(homeMarkup.includes('recommendations.length'), 'home should surface recommendations section');
+  assert.ok(homeMarkup.includes('goDetail'), 'recommendations should navigate to product detail');
+
   const profileSource = readMiniappFile(path.join('pages', 'profile', 'profile.js'));
   assert.ok(profileSource.includes('/pages/favorites/favorites'), 'profile should link to favorites');
   assert.ok(profileSource.includes('openNotification'), 'profile should support notification navigation');
