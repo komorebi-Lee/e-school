@@ -652,6 +652,17 @@ test('home phone plans deep-link into the card page selection', () => {
   assert.ok(cardJs.includes('pendingPlanId'), 'card page should focus the requested plan');
 });
 
+test('home surfaces the user favorites section', () => {
+  const homeJs = readMiniappFile(path.join('pages', 'home', 'home.js'));
+  const homeWxml = readMiniappFile(path.join('pages', 'home', 'home.wxml'));
+
+  assert.ok(homeWxml.includes('我的收藏'), 'home should show a favorites section');
+  assert.ok(homeWxml.includes('bindtap="goFavorites"'), 'favorites section should link to the favorites manager');
+  assert.ok(homeWxml.includes('wx:for="{{favorites}}"'), 'favorites section should render saved products');
+  assert.ok(homeJs.includes('/api/my/favorites'), 'home should load favorites from the server');
+  assert.ok(homeJs.includes('goFavorites()'), 'home should expose the favorites manager entry');
+});
+
 test('favorites support removing a single item', () => {
   const js = readMiniappFile(path.join('pages', 'favorites', 'favorites.js'));
   const wxml = readMiniappFile(path.join('pages', 'favorites', 'favorites.wxml'));

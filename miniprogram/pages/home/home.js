@@ -1,5 +1,6 @@
 const { getScooters } = require("../../services/store");
 const { loadBusinessConfig } = require("../../services/business");
+const { request } = require("../../services/api");
 
 function displayPrice(product) {
   return Math.round(Number(product.effectivePriceInCents ?? (product.priceInCents || 0)) / 100);
@@ -22,12 +23,13 @@ Page({
     phonePlans: [],
     scootersLoading: true,
     phonePlansLoading: true,
+    favorites: [],
     config: null,
     responseHours: 24
   },
   onShow() {
     this.setData({ scooters: getScooters().slice(0, 1) });
-    const { request } = require("../../services/api");
+    this.loadFavorites();
     loadBusinessConfig().then((config) => this.setData({
       config,
       school: config.schoolName,
@@ -72,5 +74,24 @@ Page({
   goMap() { wx.navigateTo({ url: "/pages/map/map" }); },
   goPlate() { wx.navigateTo({ url: "/pages/plate/plate" }); },
   goScooters() { wx.navigateTo({ url: "/pages/scooters/scooters" }); },
+  loadFavorites() {
+    request('/api/my/favorites').then(({ data }) => {
+      const favorites = (data || []).map((item) => {
+        const stock = Number(item.availableStock ?? (item.stock || 0));
+        return {
+          id: item.id,
+          name: item.name,
+          merchantName: item.merchantName || '平台自营',
+          stockText: stock > 0 ? (stock < 5 ? `仅剩 ${stock} 件` : `库存 ${stock}`) : '已售罄',
+          price: (Number(item.effectivePriceInCents ?? (item.priceInCents || 0)) / 100).toFixed(2),
+          originalPrice: item.promotion?.originalPriceInCents
+            ? (Number(item.promotion.originalPriceInCents) / 100).toFixed(2) : '',
+          promoText: item.promotion?.statusText || ''
+        };
+      });
+      this.setData({ favorites });
+    }).catch(() => this.setData({ favorites: [] }));
+  },
+  goFavorites() { wx.navigateTo({ url: "/pages/favorites/favorites" }); },
   goDetail(e) { wx.navigateTo({ url: `/pages/detail/detail?id=${e.currentTarget.dataset.id}` }); }
 });
