@@ -3,6 +3,11 @@
     <view><view class="brand">狮山智生活</view><view class="campus">华中农业大学 · 狮山校区</view></view>
     <view class="verified">校园服务</view>
   </view>
+  <view class="search-bar card">
+    <view class="search-icon">搜</view>
+    <input class="search-input" placeholder="搜索电动车、电话卡、套餐" confirm-type="search" value="{{searchKeyword}}" bindinput="setSearchKeyword" bindconfirm="goSearch" />
+    <view class="search-action" bindtap="goSearch">搜索</view>
+  </view>
   <view class="hero"><view class="hero-kicker">买车 · 上牌 · 充电 · 通信</view><view class="hero-title">买车办卡，狮山一次办好</view><view class="hero-copy">电动车订单自动联办校园牌照；电话卡订单可推进实名、话费和宽带。</view></view>
   <view class="business-grid">
     <view class="business-card scooter-business" bindtap="goScooters"><view class="business-icon inverse">车</view><view class="business-name light">校园电动车</view><view class="business-slogan light-copy">校内配送 · 自动联办牌照</view><view class="business-price light"><text wx:if="{{scootersLoading}}">加载中</text><text wx:else>¥{{scooters.length ? scooterFromPrice : '1899'}}<text>起</text></text></view><view class="buy-button white">立即购车 ›</view></view>

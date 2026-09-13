@@ -493,6 +493,17 @@ test('limited recharge promos run as an availability-controlled campaign', () =>
   assert.ok(adminHtml.includes('promoEndsAt'), 'admin promo form should configure end time');
 });
 
+test('home search jumps into the scooter list with a prefilled query', () => {
+  const homeJs = readMiniappFile(path.join('pages', 'home', 'home.js'));
+  const homeWxml = readMiniappFile(path.join('pages', 'home', 'home.wxml'));
+  const scooterJs = readMiniappFile(path.join('pages', 'scooters', 'scooters.js'));
+
+  assert.ok(homeWxml.includes('search-bar'), 'home should expose a search entry');
+  assert.ok(homeWxml.includes('bindconfirm="goSearch"'), 'home search should submit on confirm');
+  assert.ok(homeJs.includes('goSearch'), 'home should navigate to the scooter list');
+  assert.ok(homeJs.includes('/pages/scooters/scooters?query='), 'home search should pass the keyword');
+  assert.ok(scooterJs.includes('options.query'), 'scooter list should prefill the query from deep link');
+});
 test('product sale campaigns show server-controlled promo pricing', () => {
   const homeJs = readMiniappFile(path.join('pages', 'home', 'home.js'));
   const homeWxml = readMiniappFile(path.join('pages', 'home', 'home.wxml'));

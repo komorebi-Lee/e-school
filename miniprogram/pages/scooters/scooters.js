@@ -40,7 +40,11 @@ Page({
     { key: 'range', label: '续航优先' },
     { key: 'stock', label: '库存优先' }
   ], loading: true },
-  onLoad() { this.loadProducts(); },
+  onLoad(options = {}) {
+    const query = decodeURIComponent(options.query || '');
+    if (query) this.setData({ query });
+    this.loadProducts();
+  },
   loadProducts() {
     request('/api/products?category=E_BIKE_NEW').then(({ data }) => {
       const scooters = (data || []).map(normalizeProduct);

@@ -25,6 +25,7 @@ Page({
     phonePlansLoading: true,
     favorites: [],
     recommendations: [],
+    searchKeyword: '',
     config: null,
     responseHours: 24
   },
@@ -72,6 +73,11 @@ Page({
   goCard(e) {
     const planId = e?.currentTarget?.dataset?.id;
     wx.navigateTo({ url: planId ? `/pages/card/card?planId=${encodeURIComponent(planId)}` : "/pages/card/card" });
+  },
+  setSearchKeyword(event) { this.setData({ searchKeyword: event.detail.value }); },
+  goSearch() {
+    const keyword = String(this.data.searchKeyword || '').trim();
+    wx.navigateTo({ url: keyword ? `/pages/scooters/scooters?query=${encodeURIComponent(keyword)}` : '/pages/scooters/scooters' });
   },
   goMap() { wx.navigateTo({ url: "/pages/map/map" }); },
   goPlate() { wx.navigateTo({ url: "/pages/plate/plate" }); },
