@@ -1,0 +1,20 @@
+.post-page { padding: 28rpx; }
+.main { padding: 24rpx; margin-bottom: 20rpx; }
+.post-head { display: flex; align-items: center; gap: 14rpx; margin-bottom: 14rpx; }
+.board-tag { padding: 6rpx 14rpx; border-radius: 999rpx; background: #eaf0ff; color: #002fa7; font-size: 19rpx; font-weight: 800; }
+.title { font-size: 32rpx; font-weight: 900; color: #17233d; }
+.content { margin-top: 14rpx; color: #33456b; font-size: 26rpx; line-height: 1.7; }
+.images { display: flex; flex-wrap: wrap; gap: 12rpx; margin-top: 16rpx; }
+.post-image { width: 200rpx; height: 200rpx; border-radius: 18rpx; background: #f5f7fb; }
+.actions { display: flex; align-items: center; gap: 20rpx; margin-top: 20rpx; }
+.ghost-button.liked { background: #ffeef0; color: #d6455f; }
+.section-title { font-size: 26rpx; font-weight: 900; color: #17233d; margin-bottom: 14rpx; }
+.comment { padding: 20rpx; margin-bottom: 14rpx; }
+.comment-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8rpx; }
+.comment-author { font-size: 22rpx; font-weight: 900; color: #002fa7; }
+.comment-content { color: #33456b; font-size: 24rpx; line-height: 1.6; }
+.safe-space { height: 140rpx; }
+.comment-bar { position: fixed; right: 0; bottom: 0; left: 0; display: flex; align-items: center; gap: 16rpx; padding: 20rpx 28rpx; background: #fff; box-shadow: 0 -8rpx 24rpx rgba(0, 47, 167, .08); }
+.comment-input { flex: 1; background: #f5f7fb; border-radius: 999rpx; padding: 18rpx 26rpx; }
+.empty { margin-top: 20rpx; padding: 60rpx 30rpx; text-align: center; }
+.empty-title { font-size: 30rpx; font-weight: 900; color: #17233d; margin-bottom: 16rpx; }

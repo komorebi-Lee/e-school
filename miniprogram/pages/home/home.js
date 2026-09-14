@@ -85,6 +85,7 @@ Page({
   },
   goMap() { wx.navigateTo({ url: "/pages/map/map" }); },
   goPlate() { wx.navigateTo({ url: "/pages/plate/plate" }); },
+  goMarket() { wx.navigateTo({ url: "/pages/market/market" }); },
   goScooters() { wx.navigateTo({ url: "/pages/scooters/scooters" }); },
   loadFavorites() {
     request('/api/my/favorites').then(({ data }) => {

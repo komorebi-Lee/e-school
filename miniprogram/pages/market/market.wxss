@@ -1,0 +1,23 @@
+.market-page { padding: 28rpx; }
+.head { display: flex; align-items: center; justify-content: space-between; padding: 24rpx; margin-bottom: 20rpx; }
+.head-title { font-size: 30rpx; font-weight: 900; color: #17233d; }
+.head-actions { display: flex; align-items: center; }
+.head-actions .ghost-button { margin-right: 12rpx; }
+.search-bar { padding: 18rpx; margin-bottom: 20rpx; }
+.search-input { background: #f5f7fb; border-radius: 18rpx; padding: 22rpx; }
+.chips { margin-bottom: 20rpx; white-space: nowrap; }
+.chip-inner { display: inline-block; }
+.chip { display: inline-block; margin-right: 12rpx; padding: 12rpx 22rpx; border-radius: 999rpx; background: #f5f7fb; color: #536078; font-size: 22rpx; font-weight: 700; }
+.chip.active { background: #002fa7; color: #fff; }
+.item { display: flex; gap: 20rpx; padding: 20rpx; margin-bottom: 18rpx; }
+.item-cover { width: 160rpx; height: 160rpx; border-radius: 20rpx; background: #f5f7fb; flex-shrink: 0; }
+.item-main { min-width: 0; flex: 1; }
+.item-title { font-size: 28rpx; font-weight: 900; color: #17233d; }
+.item-desc { margin-top: 8rpx; line-height: 1.45; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.item-meta { display: flex; flex-wrap: wrap; gap: 12rpx; margin-top: 12rpx; }
+.tag { padding: 6rpx 14rpx; border-radius: 999rpx; background: #eaf0ff; color: #002fa7; font-size: 19rpx; font-weight: 800; }
+.item-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 14rpx; }
+.price { color: #002fa7; font-size: 30rpx; font-weight: 900; }
+.empty { margin-top: 20rpx; padding: 70rpx 30rpx; text-align: center; }
+.empty-title { font-size: 30rpx; font-weight: 900; color: #17233d; margin-bottom: 8rpx; }
+.empty-actions { display: flex; justify-content: center; gap: 16rpx; margin-top: 24rpx; }

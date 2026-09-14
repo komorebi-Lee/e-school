@@ -1,0 +1,39 @@
+<view class="page post-page">
+  <view wx:if="{{loading}}" class="empty card"><view class="muted">正在加载帖子…</view></view>
+  <view wx:elif="{{!post}}" class="empty card">
+    <view class="empty-title">帖子不存在或已隐藏</view>
+    <button size="mini" class="primary-button" bindtap="goForum">回论坛</button>
+  </view>
+  <block wx:else>
+    <view class="main card">
+      <view class="post-head">
+        <text class="board-tag">{{post.boardText}}</text>
+        <text class="muted small">{{post.authorName}} · {{post.createdAt}}</text>
+      </view>
+      <view class="title">{{post.title}}</view>
+      <view class="content">{{post.content}}</view>
+      <view class="images" wx:if="{{post.images.length}}">
+        <image wx:for="{{post.images}}" wx:key="*this" class="post-image" src="{{item}}" mode="aspectFill" data-urls="{{post.images}}" data-url="{{item}}" bindtap="previewImages" />
+      </view>
+      <view class="actions">
+        <button size="mini" class="ghost-button {{post.liked ? 'liked' : ''}}" bindtap="toggleLike">{{post.liked ? '♥' : '♡'}} {{post.likes}}</button>
+        <text class="muted small">💬 {{post.commentCount}} 条评论</text>
+      </view>
+    </view>
+
+    <view class="section-title">评论</view>
+    <view class="comments">
+      <view class="comment card" wx:for="{{post.comments}}" wx:key="id">
+        <view class="comment-head"><text class="comment-author">{{item.authorName}}</text><text class="muted small">{{item.createdAt}}</text></view>
+        <view class="comment-content">{{item.content}}</view>
+      </view>
+      <view wx:if="{{!post.comments.length}}" class="empty card"><view class="muted">还没有评论，来抢沙发。</view></view>
+    </view>
+
+    <view class="safe-space"></view>
+    <view class="comment-bar">
+      <input class="comment-input" placeholder="友善评论…" value="{{comment}}" bindinput="setComment" confirm-type="send" bindconfirm="submitComment" maxlength="300" />
+      <button size="mini" class="primary-button" bindtap="submitComment" disabled="{{submitting}}">发送</button>
+    </view>
+  </block>
+</view>

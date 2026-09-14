@@ -1,0 +1,16 @@
+.publish-page { padding: 28rpx; }
+.section-title { font-size: 30rpx; font-weight: 900; color: #17233d; margin-bottom: 16rpx; }
+.form { padding: 24rpx; }
+.field { margin-bottom: 24rpx; }
+.field-label { display: block; margin-bottom: 12rpx; font-size: 22rpx; font-weight: 800; color: #536078; }
+.input { background: #f5f7fb; border-radius: 18rpx; padding: 20rpx; }
+.textarea { min-height: 160rpx; line-height: 1.5; }
+.option-grid { display: flex; flex-wrap: wrap; gap: 12rpx; }
+.option { padding: 12rpx 22rpx; border-radius: 999rpx; background: #f5f7fb; color: #536078; font-size: 22rpx; font-weight: 700; }
+.option.active { background: #002fa7; color: #fff; }
+.evidence-grid { display: flex; flex-wrap: wrap; gap: 14rpx; }
+.evidence-item { position: relative; }
+.evidence-item image { width: 140rpx; height: 140rpx; border-radius: 14rpx; background: #f5f7fb; }
+.evidence-remove { position: absolute; top: -10rpx; right: -10rpx; display: flex; align-items: center; justify-content: center; width: 36rpx; height: 36rpx; border-radius: 50%; background: #17233d; color: #fff; font-size: 22rpx; }
+.evidence-add { display: flex; align-items: center; justify-content: center; width: 140rpx; height: 140rpx; border-radius: 14rpx; background: #f5f7fb; color: #98a4b7; font-size: 44rpx; }
+.privacy { margin-top: 16rpx; font-size: 20rpx; line-height: 1.5; }

@@ -1,0 +1,37 @@
+<view class="page item-page">
+  <view wx:if="{{loading}}" class="empty card"><view class="muted">正在加载闲置详情…</view></view>
+  <view wx:elif="{{!item}}" class="empty card">
+    <view class="empty-title">商品不存在或已下架</view>
+    <button size="mini" class="primary-button" bindtap="goMarket">回市集逛逛</button>
+  </view>
+  <block wx:else>
+    <view class="gallery card" wx:if="{{item.images.length}}">
+      <image wx:for="{{item.images}}" wx:key="*this" class="gallery-image" src="{{item}}" mode="aspectFill" data-urls="{{item.images}}" data-url="{{item}}" bindtap="previewImages" />
+    </view>
+    <view class="main card">
+      <view class="price-line"><text class="price">{{item.priceText}}</text><text class="tag">{{item.conditionText}}</text></view>
+      <view class="title">{{item.title}}</view>
+      <view class="muted desc">{{item.description}}</view>
+      <view class="meta">
+        <text class="tag">{{item.categoryText}}</text>
+        <text class="tag">{{item.statusText}}</text>
+        <text class="muted small">发布于 {{item.timeText}}</text>
+      </view>
+    </view>
+    <view class="seller card">
+      <view><view class="seller-name">{{item.sellerName}}</view><view class="muted small">狮山校区同学自发布</view></view>
+      <button size="mini" class="ghost-button" bindtap="copyContact">{{item.contact}}</button>
+    </view>
+    <view class="owner card" wx:if="{{isOwner}}">
+      <view class="owner-title">我的闲置管理</view>
+      <view class="owner-actions">
+        <button wx:for="{{statusActions}}" wx:for-item="action" wx:key="key" size="mini" class="ghost-button" data-status="{{action.key}}" bindtap="setStatus" disabled="{{action.key === item.status}}">{{action.key === 'ACTIVE' && item.status === 'ACTIVE' ? '当前在售' : action.label}}</button>
+      </view>
+    </view>
+    <view class="safe-space"></view>
+    <view class="bottom-bar">
+      <view class="muted small">校内自提 · 平台仅提供信息撮合</view>
+      <button size="mini" class="primary-button" bindtap="copyContact">复制联系方式</button>
+    </view>
+  </block>
+</view>

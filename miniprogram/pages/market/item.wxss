@@ -1,0 +1,19 @@
+.item-page { padding: 28rpx; }
+.gallery { display: flex; gap: 12rpx; flex-wrap: wrap; padding: 20rpx; margin-bottom: 20rpx; }
+.gallery-image { width: 200rpx; height: 200rpx; border-radius: 18rpx; background: #f5f7fb; }
+.main { padding: 24rpx; margin-bottom: 20rpx; }
+.price-line { display: flex; align-items: center; gap: 14rpx; }
+.price { color: #002fa7; font-size: 40rpx; font-weight: 900; }
+.tag { padding: 6rpx 14rpx; border-radius: 999rpx; background: #eaf0ff; color: #002fa7; font-size: 19rpx; font-weight: 800; }
+.title { margin-top: 12rpx; font-size: 32rpx; font-weight: 900; color: #17233d; }
+.desc { margin-top: 12rpx; line-height: 1.6; }
+.meta { display: flex; align-items: center; flex-wrap: wrap; gap: 12rpx; margin-top: 16rpx; }
+.seller { display: flex; align-items: center; justify-content: space-between; padding: 24rpx; margin-bottom: 20rpx; }
+.seller-name { font-size: 26rpx; font-weight: 900; color: #17233d; }
+.owner { padding: 24rpx; margin-bottom: 20rpx; }
+.owner-title { font-size: 26rpx; font-weight: 900; color: #17233d; margin-bottom: 16rpx; }
+.owner-actions { display: flex; flex-wrap: wrap; gap: 12rpx; }
+.safe-space { height: 140rpx; }
+.bottom-bar { position: fixed; right: 0; bottom: 0; left: 0; display: flex; align-items: center; justify-content: space-between; padding: 20rpx 28rpx; background: #fff; box-shadow: 0 -8rpx 24rpx rgba(0, 47, 167, .08); }
+.empty { margin-top: 20rpx; padding: 70rpx 30rpx; text-align: center; }
+.empty-title { font-size: 30rpx; font-weight: 900; color: #17233d; margin-bottom: 16rpx; }

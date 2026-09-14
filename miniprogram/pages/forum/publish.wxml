@@ -1,0 +1,31 @@
+<view class="page publish-page">
+  <view class="section-title">发布帖子</view>
+  <view class="form card">
+    <view class="field">
+      <text class="field-label">板块</text>
+      <view class="option-grid">
+        <view wx:for="{{boardOptions}}" wx:key="key" class="option {{selectedBoard.key === item.key ? 'active' : ''}}" data-key="{{item.key}}" bindtap="setBoard">{{item.label}}</view>
+      </view>
+    </view>
+    <view class="field">
+      <text class="field-label">标题</text>
+      <input class="input" placeholder="一句话说清你的帖子" value="{{title}}" bindinput="setTitle" maxlength="60" />
+    </view>
+    <view class="field">
+      <text class="field-label">内容</text>
+      <textarea class="input textarea" placeholder="分享校园生活、求助、失物招领…" value="{{content}}" bindinput="setContent" maxlength="1000"></textarea>
+    </view>
+    <view class="field">
+      <text class="field-label">图片（选填，最多 3 张）</text>
+      <view class="evidence-grid">
+        <view class="evidence-item" wx:for="{{images}}" wx:key="*this">
+          <image src="{{item}}" mode="aspectFill" />
+          <text class="evidence-remove" data-index="{{index}}" bindtap="removeImage">×</text>
+        </view>
+        <view wx:if="{{images.length < 3}}" class="evidence-add" bindtap="chooseImage">＋</view>
+      </view>
+    </view>
+    <button class="primary-button" bindtap="submit" disabled="{{submitting}}">{{submitting ? '正在发布…' : '发布帖子'}}</button>
+    <view class="privacy muted">请遵守社区规范，友善交流；违规内容会被平台隐藏。</view>
+  </view>
+</view>

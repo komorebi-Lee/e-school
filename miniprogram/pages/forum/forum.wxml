@@ -1,0 +1,45 @@
+<view class="page forum-page">
+  <view class="head card">
+    <view class="head-copy">
+      <view class="head-title">狮山论坛</view>
+      <view class="muted small">校园生活 · 互助 · 失物招领</view>
+    </view>
+    <view class="head-actions">
+      <button class="ghost-button" size="mini" bindtap="goMarket">逛市集</button>
+      <button class="primary-button" size="mini" bindtap="goPublish">发帖</button>
+    </view>
+  </view>
+
+  <scroll-view class="chips" scroll-x show-scrollbar="{{false}}">
+    <view class="chip-inner">
+      <view wx:for="{{boardOptions}}" wx:key="key" class="chip {{activeBoard === item.key ? 'active' : ''}}" data-key="{{item.key}}" bindtap="setBoard">{{item.label}}</view>
+    </view>
+  </scroll-view>
+
+  <view wx:if="{{loading}}" class="empty card"><view class="muted">正在加载帖子…</view></view>
+  <block wx:else>
+    <view class="post card" wx:for="{{filtered}}" wx:key="id" data-id="{{item.id}}" bindtap="goPost">
+      <view class="post-head">
+        <text class="board-tag">{{item.boardText}}</text>
+        <text class="muted small">{{item.timeText}}</text>
+      </view>
+      <view class="post-title">{{item.title}}</view>
+      <view class="muted small post-content">{{item.content}}</view>
+      <view class="post-foot">
+        <text class="muted small">{{item.authorName}}</text>
+        <view class="post-stats">
+          <text>♡ {{item.likes}}</text>
+          <text>💬 {{item.commentCount}}</text>
+        </view>
+      </view>
+    </view>
+    <view wx:if="{{!filtered.length}}" class="empty card">
+      <view class="empty-title">这个板块还没有帖子</view>
+      <view class="muted">来发第一帖，和同学交流吧。</view>
+      <view class="empty-actions">
+        <button size="mini" class="ghost-button" bindtap="goMarket">去逛市集</button>
+        <button size="mini" class="primary-button" bindtap="goPublish">发帖</button>
+      </view>
+    </view>
+  </block>
+</view>

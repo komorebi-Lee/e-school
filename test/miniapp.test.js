@@ -691,6 +691,53 @@ test('home search opens a unified commerce search page', () => {
   assert.ok(cardJs.includes('options.promoId'), 'card page should accept promo deep links');
 });
 
+test('market pages expose list, detail, and publish flows', () => {
+  const appConfig = JSON.parse(readMiniappFile('app.json'));
+  const marketJs = readMiniappFile(path.join('pages', 'market', 'market.js'));
+  const marketWxml = readMiniappFile(path.join('pages', 'market', 'market.wxml'));
+  const itemJs = readMiniappFile(path.join('pages', 'market', 'item.js'));
+  const itemWxml = readMiniappFile(path.join('pages', 'market', 'item.wxml'));
+  const publishJs = readMiniappFile(path.join('pages', 'market', 'publish.js'));
+  const homeJs = readMiniappFile(path.join('pages', 'home', 'home.js'));
+
+  assert.ok(appConfig.pages.includes('pages/market/market'), 'market list should be registered');
+  assert.ok(appConfig.pages.includes('pages/market/item'), 'market detail should be registered');
+  assert.ok(appConfig.pages.includes('pages/market/publish'), 'market publish should be registered');
+  assert.ok(marketJs.includes('/api/market/items'), 'market list should load marketplace items');
+  assert.ok(marketWxml.includes('bindtap="goItem"'), 'market list should link item cards to detail');
+  assert.ok(marketWxml.includes('bindtap="goPublish"'), 'market list should expose the publish entry');
+  assert.ok(marketWxml.includes('bindtap="goForum"'), 'market list should link to the forum');
+  assert.ok(itemJs.includes('/api/market/items/'), 'market detail should load a single item');
+  assert.ok(itemJs.includes("data: { status }"), 'market detail should support seller status changes');
+  assert.ok(itemWxml.includes('bindtap="copyContact"'), 'market detail should expose seller contact');
+  assert.ok(publishJs.includes("method: 'POST'") && publishJs.includes('/api/market/items'), 'publish should submit to the marketplace API');
+  assert.ok(publishJs.includes('conditionOptions'), 'publish should collect item condition');
+  assert.ok(homeJs.includes('goMarket'), 'home should route to the marketplace');
+});
+
+test('forum pages expose boards, posts, comments, and likes', () => {
+  const appConfig = JSON.parse(readMiniappFile('app.json'));
+  const forumJs = readMiniappFile(path.join('pages', 'forum', 'forum.js'));
+  const forumWxml = readMiniappFile(path.join('pages', 'forum', 'forum.wxml'));
+  const postJs = readMiniappFile(path.join('pages', 'forum', 'post.js'));
+  const postWxml = readMiniappFile(path.join('pages', 'forum', 'post.wxml'));
+  const publishJs = readMiniappFile(path.join('pages', 'forum', 'publish.js'));
+
+  assert.ok(appConfig.pages.includes('pages/forum/forum'), 'forum list should be registered');
+  assert.ok(appConfig.pages.includes('pages/forum/post'), 'forum post detail should be registered');
+  assert.ok(appConfig.pages.includes('pages/forum/publish'), 'forum publish should be registered');
+  assert.ok(forumJs.includes('/api/forum/posts'), 'forum list should load posts');
+  assert.ok(forumWxml.includes('bindtap="goPost"'), 'forum list should link posts to detail');
+  assert.ok(forumWxml.includes('bindtap="goPublish"'), 'forum list should expose the publish entry');
+  assert.ok(forumWxml.includes('bindtap="goMarket"'), 'forum list should link to the marketplace');
+  assert.ok(postJs.includes('/comments'), 'post detail should load comments');
+  assert.ok(postJs.includes('/like'), 'post detail should support likes');
+  assert.ok(postWxml.includes('bindtap="toggleLike"'), 'post detail should expose the like action');
+  assert.ok(postWxml.includes('submitComment'), 'post detail should expose the comment input');
+  assert.ok(publishJs.includes("method: 'POST'") && publishJs.includes('/api/forum/posts'), 'forum publish should submit posts');
+  assert.ok(publishJs.includes('boardOptions'), 'forum publish should collect the board');
+});
+
 test('search page keeps history and hot keyword suggestions', () => {
   const searchJs = readMiniappFile(path.join('pages', 'search', 'search.js'));
   const searchWxml = readMiniappFile(path.join('pages', 'search', 'search.wxml'));

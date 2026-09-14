@@ -22,6 +22,12 @@
     "pages/agreement/agreement",
     "pages/recharge/detail"
     ,"pages/store/store"
+    ,"pages/market/market"
+    ,"pages/market/item"
+    ,"pages/market/publish"
+    ,"pages/forum/forum"
+    ,"pages/forum/post"
+    ,"pages/forum/publish"
     ,"pages/favorites/favorites"
     ,"pages/footprints/footprints"
     ,"pages/reviews/reviews"

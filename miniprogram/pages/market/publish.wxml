@@ -1,0 +1,45 @@
+<view class="page publish-page">
+  <view class="section-title">发布你的闲置</view>
+  <view class="form card">
+    <view class="field">
+      <text class="field-label">闲置标题</text>
+      <input class="input" placeholder="例如：高等数学教材（第七版）" value="{{title}}" bindinput="setTitle" maxlength="60" />
+    </view>
+    <view class="field">
+      <text class="field-label">分类</text>
+      <view class="option-grid">
+        <view wx:for="{{categoryOptions}}" wx:key="key" class="option {{selectedCategory.key === item.key ? 'active' : ''}}" data-key="{{item.key}}" bindtap="setCategory">{{item.label}}</view>
+      </view>
+    </view>
+    <view class="field">
+      <text class="field-label">成色</text>
+      <view class="option-grid">
+        <view wx:for="{{conditionOptions}}" wx:key="key" class="option {{selectedCondition.key === item.key ? 'active' : ''}}" data-key="{{item.key}}" bindtap="setCondition">{{item.label}}</view>
+      </view>
+    </view>
+    <view class="field">
+      <text class="field-label">价格（元）</text>
+      <input class="input" type="digit" placeholder="0.00" value="{{priceInput}}" bindinput="setPrice" />
+    </view>
+    <view class="field">
+      <text class="field-label">闲置描述</text>
+      <textarea class="input textarea" placeholder="使用时长、瑕疵、自提地点等" value="{{description}}" bindinput="setDescription" maxlength="500"></textarea>
+    </view>
+    <view class="field">
+      <text class="field-label">联系方式（选填）</text>
+      <input class="input" placeholder="微信号 / 手机号，买家可见" value="{{contact}}" bindinput="setContact" maxlength="50" />
+    </view>
+    <view class="field">
+      <text class="field-label">图片（选填，最多 6 张）</text>
+      <view class="evidence-grid">
+        <view class="evidence-item" wx:for="{{images}}" wx:key="*this">
+          <image src="{{item}}" mode="aspectFill" data-url="{{item}}" bindtap="previewImages" />
+          <text class="evidence-remove" data-index="{{index}}" bindtap="removeImage">×</text>
+        </view>
+        <view wx:if="{{images.length < 6}}" class="evidence-add" bindtap="chooseImage">＋</view>
+      </view>
+    </view>
+    <button class="primary-button" bindtap="submit" disabled="{{submitting}}">{{submitting ? '正在发布…' : '发布闲置'}}</button>
+    <view class="privacy muted">发布后全校同学可见，交易由买卖双方线下完成，平台提供信息撮合。</view>
+  </view>
+</view>
