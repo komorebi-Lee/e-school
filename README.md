@@ -121,10 +121,10 @@ npm start
 
 - 32 个小程序页面路由无重复且页面四件套齐全
 - `miniprogram/` 下 42 个 JavaScript 文件全部通过语法检查（`node --check`）
-- server 的 155 项自动化测试全部通过（`cd server && npm test`）
-- 根仓库的 248 项自动化测试全部通过（`npm test`，包含 server 测试）
+- server 的自动化测试全部通过（`cd server && npm test`）
+- 根仓库的自动化测试全部通过（`npm test`，包含 server 测试）
 
-> 以上数字为实测值，会随测试用例增减而变化。文档与实际是否一致，以 `server/test/docs-consistency.test.js` 为准（该测试尚未实现，见本轮未完成项）。
+> 此处**有意不写具体用例数**：该数字会随每次新增测试而失效（本轮就曾两次写错）。如需确认数量，直接运行上述命令查看输出。
 
 ## 华农 Q 版校园地图
 
