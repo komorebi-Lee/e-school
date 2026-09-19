@@ -738,6 +738,21 @@ test('forum pages expose boards, posts, comments, and likes', () => {
   assert.ok(publishJs.includes('boardOptions'), 'forum publish should collect the board');
 });
 
+test('admin console moderates marketplace listings and forum posts', () => {
+  const adminJs = fs.readFileSync(path.join(__dirname, '..', 'server', 'public', 'admin.js'), 'utf8');
+  const adminHtml = fs.readFileSync(path.join(__dirname, '..', 'server', 'public', 'admin.html'), 'utf8');
+
+  assert.ok(adminHtml.includes('data-view="market"'), 'admin sidebar should link to marketplace moderation');
+  assert.ok(adminHtml.includes('data-view="forum"'), 'admin sidebar should link to forum moderation');
+  assert.ok(adminJs.includes('marketView'), 'admin should render the marketplace view');
+  assert.ok(adminJs.includes('forumView'), 'admin should render the forum view');
+  assert.ok(adminJs.includes('/api/admin/market-items/'), 'admin should call the marketplace moderation API');
+  assert.ok(adminJs.includes('/api/admin/forum-posts/'), 'admin should call the forum moderation API');
+  assert.ok(adminJs.includes('.toggle-market'), 'admin should bind marketplace moderation buttons');
+  assert.ok(adminJs.includes('.toggle-forum'), 'admin should bind forum moderation buttons');
+  assert.ok(adminJs.includes("REMOVED: '已下架'"), 'admin should label removed listings');
+});
+
 test('search page keeps history and hot keyword suggestions', () => {
   const searchJs = readMiniappFile(path.join('pages', 'search', 'search.js'));
   const searchWxml = readMiniappFile(path.join('pages', 'search', 'search.wxml'));
