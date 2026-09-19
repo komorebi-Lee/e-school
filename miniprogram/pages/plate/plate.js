@@ -3,7 +3,7 @@ const { loadBusinessConfig } = require('../../services/business');
 const { payPaymentOrder } = require('../../services/payment');
 
 Page({
-  data:{source:'platform',vehicleModel:'',name:'',studentNo:'',phone:'',eligibleOrders:[],selectedOrderIndex:0,serviceFee:49,status:null,charging:{eligible:false,stateLabel:',detail:'},submitting:false,serviceContact:'15527111396'},
+  data:{source:'platform',vehicleModel:'',name:'',studentNo:'',phone:'',eligibleOrders:[],selectedOrderIndex:0,serviceFee:49,status:null,charging:{eligible:false,stateLabel:'',detail:''},submitting:false,serviceContact:'15527111396'},
   onShow(){this.loadOrders();this.loadStatus();this.loadCharging()},
   onLoad(){loadBusinessConfig().then((config) => this.setData({
     serviceFee: Number(config.externalPlateFee ?? 49),
@@ -30,7 +30,10 @@ Page({
   loadCharging(){
     request('/api/my/charging-eligibility').then(({data})=>{
       this.setData({charging:{eligible:data.eligible===true,stateLabel:data.stateLabel||'',detail:data.detail||''}});
-    }).catch(()=>{});
+    }).catch(()=>{
+      // 失败时给出可见提示，避免页面停留在空白状态误导用户。
+      this.setData({charging:{eligible:false,stateLabel:'暂不可查',detail:'充电资格暂时无法获取，请稍后重试'}});
+    });
   },
   chooseSource(e){this.setData({source:e.currentTarget.dataset.source})},
   chooseOrder(e){this.setData({selectedOrderIndex:Number(e.detail.value)})},
