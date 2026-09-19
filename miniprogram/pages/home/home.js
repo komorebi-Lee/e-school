@@ -1,6 +1,7 @@
 const { getScooters } = require("../../services/store");
 const { loadBusinessConfig } = require("../../services/business");
 const { request } = require("../../services/api");
+const { openLink } = require("../../utils/navigation");
 
 function displayPrice(product) {
   return Math.round(Number(product.effectivePriceInCents ?? (product.priceInCents || 0)) / 100);
@@ -83,7 +84,7 @@ Page({
     const view = event?.currentTarget?.dataset?.view;
     if (view === 'plate') return this.goPlate();
   },
-  goMap() { wx.navigateTo({ url: "/pages/map/map" }); },
+  goMap() { openLink("/pages/map/map"); },
   goPlate() { wx.navigateTo({ url: "/pages/plate/plate" }); },
   goMarket() { wx.navigateTo({ url: "/pages/market/market" }); },
   goScooters() { wx.navigateTo({ url: "/pages/scooters/scooters" }); },

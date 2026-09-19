@@ -1297,3 +1297,62 @@ test('merchant workbench opens with an operations dashboard', () => {
   assert.ok(wxml.includes('wx:if="{{workbenchCounts.risk}}"'), 'risk badge should only render when risk work exists');
   assert.ok(css.includes('.tab-badge.alert'), 'active tab badges should use a calm color');
 });
+
+test('navigation utility separates tabBar navigation from page navigation', () => {
+  const source = readMiniappFile('utils/navigation.js');
+
+  assert.ok(source.includes('wx.switchTab'), 'tabBar 页面必须走 switchTab');
+  assert.ok(source.includes('wx.navigateTo'), '非 tabBar 页面仍走 navigateTo');
+  // switchTab 不支持 query，焦点参数只能改用 Storage
+  assert.ok(source.includes('campusGoOrderFocusId'), '焦点参数需经 Storage 传递');
+  // 静默失败会让用户点了没反应，历史上站内通知就是因此完全不可用
+  assert.equal(
+    /fail:\s*\(\s*\)\s*=>\s*\{\s*\}/.test(source),
+    false,
+    '跳转失败不应被空函数吞掉'
+  );
+});
+
+test('navigation tabBar list stays in sync with app.json', () => {
+  const appConfig = JSON.parse(readMiniappFile('app.json'));
+  const source = readMiniappFile('utils/navigation.js');
+  const tabBarPaths = (appConfig.tabBar?.list || []).map((item) => `/${item.pagePath}`);
+
+  assert.ok(tabBarPaths.length > 0, 'app.json 应配置了 tabBar');
+
+  for (const pagePath of tabBarPaths) {
+    assert.ok(
+      source.includes(`'${pagePath}'`),
+      `navigation.js 的 TABBAR_PAGES 缺少 ${pagePath}，与 app.json 不一致`
+    );
+  }
+
+  // 反向检查：不应保留已从 app.json 移除的 tabBar 页面
+  const declared = (source.match(/'(\/pages\/[^']+)'/g) || [])
+    .map((item) => item.slice(1, -1))
+    .filter((item) => tabBarPaths.includes(item));
+  assert.deepEqual(
+    [...new Set(declared)].sort(),
+    [...new Set(tabBarPaths)].sort(),
+    'navigation.js 声明的 tabBar 页面应与 app.json 完全一致'
+  );
+});
+
+test('no navigateTo call targets a tabBar page', () => {
+  const appConfig = JSON.parse(readMiniappFile('app.json'));
+  const tabBarPaths = (appConfig.tabBar?.list || []).map((item) => `/${item.pagePath}`);
+
+  for (const file of listMiniappFiles()) {
+    if (file.endsWith(path.join('utils', 'navigation.js'))) continue;
+    const content = fs.readFileSync(file, 'utf8');
+    for (const pagePath of tabBarPaths) {
+      const escaped = pagePath.replace(/\//g, '\\/');
+      const pattern = new RegExp(`navigateTo\\([^)]*['"\`]${escaped}`);
+      assert.equal(
+        pattern.test(content),
+        false,
+        `${path.relative(miniappDirectory, file)} 使用 navigateTo 跳转 tabBar 页面 ${pagePath}，应改用 openLink`
+      );
+    }
+  }
+});

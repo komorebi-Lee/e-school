@@ -1,6 +1,7 @@
 const { request, userId } = require("../../services/api");
 const { loginWeChat } = require("../../lib/cloud-request");
 const { loadBusinessConfig } = require("../../services/business");
+const { openLink } = require("../../utils/navigation");
 
 function maskUserId(id) {
   if (!id) return "";
@@ -76,7 +77,8 @@ Page({
   openNotification(event) {
     const link = event.currentTarget.dataset.link;
     if (!link) return;
-    wx.navigateTo({ url: link, fail: () => {} });
+    // 通知链接可能指向 tabBar 页面，统一交给 openLink 判定，失败不再静默
+    openLink(link);
   },
   loadOrderMessageState() {
     request("/api/order-message-subscriptions").then(({ data }) => {

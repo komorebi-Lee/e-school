@@ -268,6 +268,12 @@ Page({
       this.focusId = storedFocusId;
       try { wx.removeStorageSync('campusGoOrderFocusId'); } catch (error) {}
     }
+    // tabBar 页面无法携带 query，recordType 同样经 Storage 传入
+    const storedRecordType = wx.getStorageSync('campusGoOrderFocusRecordType');
+    if (storedRecordType) {
+      this.focusRecordType = storedRecordType;
+      try { wx.removeStorageSync('campusGoOrderFocusRecordType'); } catch (error) {}
+    }
     this.loadRecords();
     this.startCountdownTimer();
   },

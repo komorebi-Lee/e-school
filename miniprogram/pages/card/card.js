@@ -1,5 +1,6 @@
 const { loadBusinessConfig } = require('../../services/business');
 const { payPaymentOrder } = require('../../services/payment');
+const { openLink } = require('../../utils/navigation');
 
 Page({
     data:{plans:[],rechargePromos:[],selectedPlan:0,selectedPromo:null,promoIsBuyable:true,activeSection:0,profileName:'',profilePhone:'',companionPhone:'',submitting:false,phoneCardActivationHours:24},
@@ -109,7 +110,7 @@ Page({
     if(!/^1\d{10}$/.test(this.data.companionPhone.trim()))return wx.showToast({title:'请填写同伴手机号',icon:'none'});
     const saved=this.currentProfile();
     request('/api/broadband-applications',{method:'POST',data:{ownerPhone:saved.phone,companionPhone:this.data.companionPhone}})
-      .then(()=>{wx.showToast({title:'宽带资格已提交'});setTimeout(()=>wx.navigateTo({url:'/pages/orders/orders'}),650)})
+      .then(()=>{wx.showToast({title:'宽带资格已提交'});setTimeout(()=>openLink('/pages/orders/orders'),650)})
       .catch((error)=>{wx.showModal({title:'提交失败',content:error.message||'请稍后重试',showCancel:false})});
   },
   currentProfile(){
