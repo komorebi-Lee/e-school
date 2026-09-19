@@ -24,7 +24,7 @@
 后端 `server/` 是独立的 git 仓库，已注册为 git 子模块。**必须带 `--recurse-submodules` 克隆**，否则 `server/` 会是空目录、整个后端拿不到：
 
 ```bash
-git clone --recurse-submodules git@github.com:komorebi-Lee/e-school.git
+git clone --recurse-submodules https://github.com/komorebi-Lee/e-school.git
 cd e-school/server && npm install
 ```
 

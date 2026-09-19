@@ -1,3 +1,3 @@
 [submodule "server"]
 	path = server
-	url = git@github.com:komorebi-Lee/e-school-server.git
+	url = https://github.com/komorebi-Lee/e-school-server.git
