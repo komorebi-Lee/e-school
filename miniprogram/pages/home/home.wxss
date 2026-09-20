@@ -6,3 +6,5 @@
 .market-title{font-size:27rpx;font-weight:900}
 .market-copy{color:#78849a;font-size:20rpx;margin-top:5rpx}
 .market-arrow{color:#2f7a3e;font-size:45rpx}
+.business-price .price-retry{font-size:19rpx;font-weight:600;text-decoration:underline}
+.business-price.light .price-retry{color:#c8d8ff}

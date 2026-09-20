@@ -24,6 +24,11 @@ Page({
     phonePlans: [],
     scootersLoading: true,
     phonePlansLoading: true,
+    // 价格一律来自服务端。加载失败时保持 null，绝不展示编造数字（曾硬编码 1899 / 19，
+    // 而真实最低价是 2399 / 29，会向用户展示一个并不存在的更低价）。
+    scooterFromPrice: null,
+    phoneFromPrice: null,
+    catalogError: false,
     favorites: [],
     recommendations: [],
     searchKeyword: '',
@@ -40,7 +45,11 @@ Page({
       campus: config.campusName,
       responseHours: Number(config.leadResponseHours || 24)
     }));
-    request('/api/products').then(({ data }) => {
+    this.loadCatalog();
+  },
+  loadCatalog() {
+    this.setData({ scootersLoading: true, phonePlansLoading: true, catalogError: false });
+    return request('/api/products').then(({ data }) => {
       const scooters = (data || []).filter((item) => item.category === 'E_BIKE_NEW' && item.active !== false).map((item) => ({
         ...item,
         price: displayPrice(item),
@@ -55,13 +64,22 @@ Page({
       this.setData({
         scooters: scooters.slice(0, 1),
         phonePlans: phonePlans.slice(0, 3),
-        scooterFromPrice: scooters.length ? Math.min(...scooters.map(displayPrice)) : 1899,
-        phoneFromPrice: phonePlans.length ? Math.min(...phonePlans.map((item) => item.price)) : 19,
+        // 接口成功但无数据时同样不编造价格，置 null 交由模板提示「暂无报价」
+        scooterFromPrice: scooters.length ? Math.min(...scooters.map(displayPrice)) : null,
+        phoneFromPrice: phonePlans.length ? Math.min(...phonePlans.map((item) => item.price)) : null,
         scootersLoading: false,
         phonePlansLoading: false
       });
-    }).catch(() => this.setData({ scooterFromPrice: 1899, phoneFromPrice: 19, scootersLoading: false, phonePlansLoading: false }));
+    }).catch(() => this.setData({
+      // 加载失败时不展示任何价格，交由模板给出重试入口
+      scooterFromPrice: null,
+      phoneFromPrice: null,
+      catalogError: true,
+      scootersLoading: false,
+      phonePlansLoading: false
+    }));
   },
+  reloadCatalog() { this.loadCatalog(); },
   onShareAppMessage() {
     return {
       title: "狮山智生活 · 买车办卡办上牌，校内一次办好",
