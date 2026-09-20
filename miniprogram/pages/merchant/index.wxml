@@ -20,6 +20,7 @@
       <view class="workbench-today">
         <view class="today-item metric-link" bindtap="goOrders"><text>今日订单</text><strong>{{metrics.today.orderCount}}</strong></view>
         <view class="today-item metric-link" bindtap="goFinance"><text>今日营收（元）</text><strong>{{metrics.today.revenueInCents / 100}}</strong></view>
+      </view>
       <view class="rev card">
         <view class="rev-head">
           <view>
@@ -274,7 +275,6 @@
         <view class="status-text {{item.configured ? 'tone-blue' : 'tone-todo'}}">{{item.configured ? '已配置' : '未配置'}}</view>
       </view>
     </view>
-    <view class="notification card" wx:if="{{notifications.length}}">
     <view class="notification card" wx:if="{{notifications.length}}">
       <view class="notice-head"><view class="strong">商家提醒</view><text class="muted">未读 {{unreadNotificationCount}}</text></view>
       <view class="notice-item {{item.link ? 'notice-action' : ''}}" wx:for="{{notifications}}" wx:key="id" bindtap="openNotification" data-link="{{item.link}}">

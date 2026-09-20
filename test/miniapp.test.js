@@ -1356,3 +1356,27 @@ test('no navigateTo call targets a tabBar page', () => {
     }
   }
 });
+
+test('every WXML file has balanced view tags', () => {
+  // WXML 结构错误不会让 node --check 报错，只会在真机上渲染异常。
+  // merchant/index.wxml 就曾漏掉一个 </view> 并多出一行重复的 <view>，
+  // 二者恰好互相抵消成「看起来能用」，因此需要显式配平检查。
+  const wxmlFiles = fs.readdirSync(miniappDirectory, { recursive: true })
+    .filter((item) => String(item).endsWith('.wxml'))
+    .map((item) => path.join(miniappDirectory, String(item)));
+
+  assert.ok(wxmlFiles.length >= 30, `应扫描到全部页面模板，实际 ${wxmlFiles.length} 个`);
+
+  for (const file of wxmlFiles) {
+    const source = fs.readFileSync(file, 'utf8');
+    // 兼容两种闭合写法：`</view>` 与换行后接 `>` 的紧凑风格
+    const selfClosing = (source.match(/<view\b[^>]*\/>/g) || []).length;
+    const opened = (source.match(/<view(?=[\s>])/g) || []).length - selfClosing;
+    const closed = (source.match(/<\/view(?=[\s>])/g) || []).length;
+    assert.equal(
+      opened,
+      closed,
+      `${path.relative(miniappDirectory, file)} 的 <view> 与 </view> 不配平：开启 ${opened} / 闭合 ${closed}`
+    );
+  }
+});
