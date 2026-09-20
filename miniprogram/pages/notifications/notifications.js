@@ -1,4 +1,5 @@
 const { request } = require("../../services/api");
+const { openLink } = require("../../utils/navigation");
 
 function decorateNotification(item) {
   const type = item.type || "ORDER";
@@ -80,7 +81,9 @@ Page({
       wx.showToast({ title: "该消息暂无详情页", icon: "none" });
       return;
     }
-    wx.navigateTo({ url: link, fail: () => wx.showToast({ title: "详情页暂不可用", icon: "none" }) });
+    // 通知链接可能指向 tabBar 页面（如 /pages/orders/orders?focusId=...），
+    // navigateTo 必然失败，必须统一走 openLink 由它决定 switchTab 还是 navigateTo。
+    openLink(link, { fail: () => wx.showToast({ title: "详情页暂不可用", icon: "none" }) });
   },
   markAllRead() {
     if (!this.data.unreadCount) return;

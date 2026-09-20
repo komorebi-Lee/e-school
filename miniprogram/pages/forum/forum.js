@@ -1,4 +1,5 @@
 const { request } = require('../../services/api');
+const { openLink } = require('../../utils/navigation');
 
 const boardOptions = [
   { key: '', label: '全部' },
@@ -76,6 +77,8 @@ Page({
   },
 
   goMarket() {
-    wx.navigateTo({ url: '/pages/market/market' });
+    // 市集当前不是 tabBar 页，openLink 会走 navigateTo；
+    // 待市集提为 tabBar 页后 openLink 自动改走 switchTab，避免此处静默失效。
+    openLink('/pages/market/market');
   }
 });
