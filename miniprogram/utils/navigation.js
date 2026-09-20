@@ -56,25 +56,56 @@ function defaultFail(error) {
   console.error('[navigation] 跳转失败', error);
 }
 
+/**
+ * 回滚本次跳转写入的焦点参数。
+ *
+ * 焦点参数是「先写 Storage 再 switchTab」传递的：orders 页的 onShow 会读取并删除它们。
+ * 一旦 switchTab 失败，就没有任何页面会去消费这些值，残留的 focusId 会在用户
+ * 下次因其他原因进入订单 tab 时被 onShow 当作本次意图，从而错误定位到别的订单。
+ * 因此失败路径必须把刚写入的键清掉。
+ */
+function rollbackFocusParams(keys) {
+  for (const key of keys) {
+    try {
+      wx.removeStorageSync(key);
+    } catch (error) {
+      console.error('[navigation] 回滚焦点参数失败', error);
+    }
+  }
+}
+
 function openLink(url, options = {}) {
   const target = splitTarget(url);
   if (!target) return;
-  const fail = typeof options.fail === 'function' ? options.fail : defaultFail;
+  const handleFail = typeof options.fail === 'function' ? options.fail : defaultFail;
 
   if (isTabBarPath(target.path)) {
     const params = parseQuery(target.query);
+    const writtenKeys = [];
     try {
-      if (params.focusId) wx.setStorageSync(FOCUS_STORAGE_KEY, params.focusId);
-      if (params.recordType) wx.setStorageSync(FOCUS_RECORD_TYPE_KEY, params.recordType);
+      if (params.focusId) {
+        wx.setStorageSync(FOCUS_STORAGE_KEY, params.focusId);
+        writtenKeys.push(FOCUS_STORAGE_KEY);
+      }
+      if (params.recordType) {
+        wx.setStorageSync(FOCUS_RECORD_TYPE_KEY, params.recordType);
+        writtenKeys.push(FOCUS_RECORD_TYPE_KEY);
+      }
     } catch (error) {
       console.error('[navigation] 写入焦点参数失败', error);
     }
-    wx.switchTab({ url: target.path, fail });
+    wx.switchTab({
+      url: target.path,
+      fail(error) {
+        rollbackFocusParams(writtenKeys);
+        handleFail(error);
+      }
+    });
     return;
   }
 
   const suffix = target.query ? `?${target.query}` : '';
-  wx.navigateTo({ url: `${target.path}${suffix}`, fail });
+  wx.navigateTo({ url: `${target.path}${suffix}`, fail: handleFail });
 }
 
 module.exports = {

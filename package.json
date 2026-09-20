@@ -4,7 +4,8 @@
   "private": true,
   "description": "Shishan Life WeChat mini program source checks",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "test:miniapp-runtime": "node --test test/miniapp-runtime.test.js"
   },
   "engines": {
     "node": ">=18"
