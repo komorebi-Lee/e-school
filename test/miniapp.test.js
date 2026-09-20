@@ -20,6 +20,20 @@ function readServerFile(relativePath) {
   return fs.readFileSync(path.join(serverDirectory, relativePath), 'utf8');
 }
 
+/**
+ * 读取 server/src 下全部源码并拼接后返回。
+ *
+ * 这些断言要校验的是「服务端源码中存在这段逻辑」，而非「这段逻辑恰好写在 app.js 里」。
+ * 采用拼接读法后，模块拆分与路由迁移不会让文本断言成片失效。
+ */
+function readServerSource() {
+  const root = path.join(serverDirectory, 'src');
+  const files = fs.readdirSync(root, { recursive: true })
+    .filter((item) => String(item).endsWith('.js'))
+    .map((item) => path.join(root, String(item)));
+  return files.map((file) => fs.readFileSync(file, 'utf8')).join('\n');
+}
+
 test('miniapp JavaScript parses without syntax errors', () => {
   const { execFileSync } = require('node:child_process');
   for (const file of listMiniappFiles()) {
@@ -165,7 +179,7 @@ test('rejected aftersales can request platform assistance', () => {
   const source = readMiniappFile(path.join('pages', 'aftersales', 'aftersales.js'));
   const markup = readMiniappFile(path.join('pages', 'aftersales', 'aftersales.wxml'));
   const styles = readMiniappFile(path.join('pages', 'aftersales', 'aftersales.wxss'));
-  const server = readServerFile(path.join('src', 'app.js'));
+  const server = readServerSource();
 
   assert.ok(source.includes("appealRequested: order?.collaboration?.intervention?.status === 'REQUESTED'"), 'aftersales should read platform intervention state');
   assert.ok(source.includes("action: 'APPEAL'"), 'aftersales should submit the platform appeal action');
@@ -248,7 +262,7 @@ test('admin dashboard links fulfillment queues to order operations', () => {
 });
 
 test('service collaboration tracks response state in operations surfaces', () => {
-  const serverSource = readServerFile(path.join('src', 'app.js'));
+  const serverSource = readServerSource();
   const admin = readServerFile(path.join('public', 'admin.js'));
 
   assert.ok(serverSource.includes('unrepliedMessage = { action, text: note, createdAt: time }'), 'service records should persist the latest unreplied user message');
@@ -1170,7 +1184,7 @@ test('appointment form keeps the originating service record', () => {
 });
 
 test('admin lead follow-ups keep accountable operators', () => {
-  const app = readServerFile(path.join('src', 'app.js'));
+  const app = readServerSource();
   const admin = readServerFile(path.join('public', 'admin.js'));
 
   assert.ok(app.includes("const actor = requireAdmin(request, 'ORDER_MANAGE')"), 'lead follow-ups should require an admin session');
@@ -1180,7 +1194,7 @@ test('admin lead follow-ups keep accountable operators', () => {
 });
 
 test('overdue leads keep owner accountability', () => {
-  const app = readServerFile(path.join('src', 'app.js'));
+  const app = readServerSource();
   const admin = readServerFile(path.join('public', 'admin.js'));
 
   assert.ok(app.includes('ownerId: record.assigneeId ||'), 'lead patrol targets should carry the assigned operator');
@@ -1190,7 +1204,7 @@ test('overdue leads keep owner accountability', () => {
 });
 
 test('sla alerts surface owner workload and filtering', () => {
-  const app = readServerFile(path.join('src', 'app.js'));
+  const app = readServerSource();
   const admin = readServerFile(path.join('public', 'admin.js'));
 
   assert.ok(app.includes('slaOwnerTasks(data.slaAlerts'), 'overview should aggregate owner workload');
@@ -1245,7 +1259,7 @@ test('completed order reviews support image evidence and text-only submission', 
 });
 
 test('manual compliance review keeps products visible during the observation window', () => {
-  const app = readServerFile(path.join('src', 'app.js'));
+  const app = readServerSource();
   const admin = readServerFile(path.join('public', 'admin.js'));
   const merchantJs = readMiniappFile(path.join('pages', 'merchant', 'index.js'));
   const merchantMarkup = readMiniappFile(path.join('pages', 'merchant', 'index.wxml'));
