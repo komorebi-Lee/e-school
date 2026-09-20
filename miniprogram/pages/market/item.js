@@ -2,7 +2,7 @@ const { request, userId } = require('../../services/api');
 const { openLink } = require('../../utils/navigation');
 
 const statusActions = [
-  { key: 'RESERVED', label: '标记已预�?' },
+  { key: 'RESERVED', label: '标记已预留' },
   { key: 'ACTIVE', label: '重新上架' },
   { key: 'SOLD', label: '标记已出' }
 ];
@@ -43,7 +43,7 @@ Page({
       });
     }).catch(() => {
       this.setData({ item: null, loading: false });
-      wx.showToast({ title: '商品不存在或已下�?', icon: 'none' });
+      wx.showToast({ title: '商品不存在或已下架', icon: 'none' });
     });
   },
 
@@ -82,11 +82,11 @@ Page({
   copyContact() {
     const contact = this.data.item?.contact;
     if (!contact) return;
-    wx.setClipboardData({ data: contact, success: () => wx.showToast({ title: '联系方式已复�?', icon: 'none' }) });
+    wx.setClipboardData({ data: contact, success: () => wx.showToast({ title: '联系方式已复制', icon: 'none' }) });
   },
 
   goMarket() {
-    // 正常情况下应返回上一页；仅当没有上一页（直接进入详情）时才兜底跳市集�?
+    // 正常情况下应返回上一页；仅当没有上一页（直接进入详情）时才兜底跳市集。
     wx.navigateBack({ fail: () => openLink('/pages/market/market') });
   }
 });
