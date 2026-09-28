@@ -35,6 +35,28 @@ function readServerSource() {
   return files.map((file) => fs.readFileSync(file, 'utf8')).join('\n');
 }
 
+/**
+ * 读取「商品列表页 + 它委托的展示层模块」源码并拼接后返回。
+ *
+ * 与 readServerSource() 同型：断言要校验的是「列表页这套代码里有服务端折算价」，
+ * 而不是「这段逻辑恰好写在 scooters.js 里」。
+ *
+ * T37 把售卖 / 租赁的展示映射抽到 `miniprogram/utils/product-view.js`（纯函数，
+ * 可被 test/miniapp-runtime.test.js 真实加载断言）后，单读页面文件会让断言退化成
+ * 「注释里恰好有该字符串」的假阳性 —— 那正是本文件要防的一类空断言。
+ *
+ * ⚠️ 本函数返回的是**含注释的原始文本**，所以用它的断言必须匹配「只可能出现在代码里」
+ * 的记号（带括号的调用 / 字段读取），不能匹配一个名词本身 —— 否则一句解释性注释
+ * 就能让断言恒真。改名等重构会让这类断言转红，这是本文件既有文本断言的固有代价
+ * （如 `recommendWeight`），行为层面的保证由 test/miniapp-runtime.test.js 承担。
+ */
+function readProductListViewSource() {
+  return [
+    readMiniappFile(path.join('pages', 'scooters', 'scooters.js')),
+    readMiniappFile(path.join('utils', 'product-view.js'))
+  ].join('\n');
+}
+
 test('miniapp JavaScript parses without syntax errors', () => {
   for (const file of listMiniappFiles()) {
     const source = fs.readFileSync(file, 'utf8');
@@ -792,7 +814,7 @@ test('search page keeps history and hot keyword suggestions', () => {
 test('product sale campaigns show server-controlled promo pricing', () => {
   const homeJs = readMiniappFile(path.join('pages', 'home', 'home.js'));
   const homeWxml = readMiniappFile(path.join('pages', 'home', 'home.wxml'));
-  const scooterJs = readMiniappFile(path.join('pages', 'scooters', 'scooters.js'));
+  const scooterJs = readProductListViewSource();
   const scooterWxml = readMiniappFile(path.join('pages', 'scooters', 'scooters.wxml'));
   const detailJs = readMiniappFile(path.join('pages', 'detail', 'detail.js'));
   const detailWxml = readMiniappFile(path.join('pages', 'detail', 'detail.wxml'));
@@ -811,7 +833,7 @@ test('product sale campaigns show server-controlled promo pricing', () => {
   assert.ok(checkoutWxml.includes('originalPrice'), 'checkout should show the crossed-out original price');
   assert.ok(homeJs.includes('effectivePriceInCents'), 'home should use server effective pricing');
   assert.ok(homeWxml.includes('originalPrice'), 'home should show crossed-out original prices');
-  assert.ok(scooterJs.includes('effectivePriceInCents'), 'scooter list should use server effective pricing');
+  assert.ok(scooterJs.includes('effectivePriceInCentsOf('), 'scooter list should use server effective pricing');
   assert.ok(scooterWxml.includes('promo-badge'), 'scooter list should surface promotions');
   assert.ok(scooterWxml.includes('original-price'), 'scooter list should compare original and sale prices');
   assert.ok(checkoutWxml.includes('paymentTimeoutText'), 'checkout should show the configured payment timeout');
