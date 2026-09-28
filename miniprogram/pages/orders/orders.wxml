@@ -23,6 +23,12 @@
     <view class="record-head"><view class="record-type"><text class="record-icon">{{item.icon}}</text>{{item.typeLabel}}</view><text class="status tone-{{item.tone}}">{{item.statusLabel}}</text></view>
     <view class="record-title">{{item.title}}</view>
     <view class="{{item.paymentStatus === 'PARTIALLY_REFUNDED' ? 'partial-refund' : 'status-note'}}" wx:if="{{item.statusNote}}">{{item.statusNote}}</view>
+    <view class="rental-panel" wx:if="{{item.isRental}}">
+      <view class="rental-panel-row"><text class="muted">租金</text><text class="rental-strong">{{item.rentalPriceText}}<text class="muted" wx:if="{{item.rentalTermText}}"> · {{item.rentalTermText}}</text></text></view>
+      <view class="rental-panel-row"><text class="muted">押金</text><text class="rental-strong">{{item.rentalDepositText}}</text></view>
+      <view class="rental-panel-row" wx:if="{{item.rentalDueAtText}}"><text class="muted">应还时间</text><text>{{item.rentalDueAtText}}</text></view>
+      <view class="rental-countdown {{item.rentalOverdue ? 'overdue' : ''}}" wx:if="{{item.rentalCountdownText}}">{{item.rentalCountdownText}}</view>
+    </view>
     <view class="after-sale-panel" wx:if="{{item.afterSale}}">
       <view class="after-sale-head">
         <view>
@@ -42,7 +48,7 @@
       </view>
     </view>
     <view class="delivery-code" wx:if="{{item.deliveryCode}}">
-      <view class="code-meta"><text class="code-label">{{item.status === 'COMPLETED' ? '已核验交付码' : '交付码'}}</text><text class="code-hint">{{item.status === 'FULFILLING' ? '配送时向商家出示' : '已核验，可留存备查'}}</text></view>
+      <view class="code-meta"><text class="code-label">{{item.status === 'COMPLETED' ? '已核验交付码' : '交付码'}}</text><text class="code-hint">{{item.status === 'FULFILLING' ? (item.isRental ? '到校内取车点出示取车' : '配送时向商家出示') : '已核验，可留存备查'}}</text></view>
       <view class="code-value">{{item.deliveryCode}}</view>
       <button class="code-copy" data-code="{{item.deliveryCode}}" bindtap="copyDeliveryCode">复制</button>
     </view>
@@ -75,7 +81,7 @@
     <view class="alert" wx:if="{{item.intervention}}">已提交平台协助</view>
     <view class="after-sale-overdue top-alert" wx:elif="{{item.afterSaleOverdue}}">该订单售后已超时，平台正在催办</view>
     </view>
-    <view class="record-bottom"><text class="price" wx:if="{{item.priceText}}">{{item.priceText}}</text><text class="muted" wx:else>金额确认后展示</text><view class="record-actions"><block wx:for="{{item.actions}}" wx:for-item="action" wx:key="key"><button size="mini" class="{{action.disabled ? 'ghost-button disabled' : 'ghost-button'}}" data-id="{{item.id}}" data-action="{{action.action}}" data-business="{{action.business}}" data-interest="{{item.title}}" data-product-id="{{action.productId}}" data-recharge-id="{{item.rechargeId}}" data-merchant-id="{{action.merchantId}}" bindtap="{{action.key === 'pay' ? 'runPayment' : (action.key === 'cancel' ? 'cancelOrder' : (action.key === 'edit' ? 'editOrder' : (action.key === 'aftersale' ? 'afterSales' : (action.key === 'consult' ? 'runConsult' : (action.key === 'materials' ? 'uploadMaterials' : (action.key === 'collab' || action.key === 'appeal' ? 'sendCollab' : (action.key === 'buyAgain' ? 'buyAgain' : (action.key === 'store' ? 'goStore' : (action.type === 'review' ? 'openReview' : (action.action ? 'runAction' : (action.filter ? 'goLinkage' : (action.rechargeId ? 'goRechargeDetail' : 'runConsult'))))))))))))}}" disabled="{{action.disabled}}">{{action.text}}</button></block></view></view>
+    <view class="record-bottom"><text class="price" wx:if="{{item.priceText}}">{{item.priceText}}</text><text class="muted" wx:else>金额确认后展示</text><view class="record-actions"><block wx:for="{{item.actions}}" wx:for-item="action" wx:key="key"><button size="mini" class="{{action.disabled ? 'ghost-button disabled' : 'ghost-button'}}" data-id="{{item.id}}" data-action="{{action.action}}" data-business="{{action.business}}" data-interest="{{item.title}}" data-product-id="{{action.productId}}" data-recharge-id="{{item.rechargeId}}" data-merchant-id="{{action.merchantId}}" bindtap="{{action.key === 'pay' ? 'runPayment' : (action.key === 'cancel' ? 'cancelOrder' : (action.key === 'edit' ? 'editOrder' : (action.key === 'aftersale' ? 'afterSales' : (action.key === 'consult' ? 'runConsult' : (action.key === 'materials' ? 'uploadMaterials' : (action.key === 'collab' || action.key === 'appeal' ? 'sendCollab' : (action.key === 'buyAgain' ? 'buyAgain' : (action.key === 'store' ? 'goStore' : (action.type === 'review' ? 'openReview' : (action.action ? 'runAction' : (action.filter ? 'goLinkage' : (action.rechargeId ? 'goRechargeDetail' : 'runConsult'))))))))))))}}" disabled="{{action.disabled}}">{{action.text}}</button></block><button wx:if="{{item.canReturnRequest}}" size="mini" class="ghost-button return-button" data-id="{{item.id}}" bindtap="requestReturn">申请归还</button></view></view>
     <view class="action-tip muted" wx:if="{{item.actions.length === 1 && item.actions[0].disabled}}">{{item.actions[0].reason}}</view>
   </view>
   <view class="consult-mask" wx:if="{{consult}}" bindtap="closeConsult" catchtouchmove="keepConsultOpen">

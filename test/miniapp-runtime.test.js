@@ -28,6 +28,8 @@ const navigation = require(path.join(miniprogramDirectory, 'utils', 'navigation.
 const cloudRequest = require(path.join(miniprogramDirectory, 'lib', 'cloud-request.js'));
 // 商品展示层映射：纯函数模块，不访问 wx / Page，因此可以在 Node 中真实加载并断言。
 const productView = require(path.join(miniprogramDirectory, 'utils', 'product-view.js'));
+// 租赁订单展示层（进度条 / 应还倒计时 / 卡片文案）：同样是纯函数模块。
+const rentalJourney = require(path.join(miniprogramDirectory, 'utils', 'rental-journey.js'));
 
 const ORDER_FOCUS_KEY = 'campusGoOrderFocusId';
 const ORDER_RECORD_TYPE_KEY = 'campusGoOrderFocusRecordType';
@@ -1101,4 +1103,246 @@ test('computeRentalFees 按小时计费（单位与押金精度同时校验）',
   assert.equal(fees.totalInCents, 10900);
   assert.equal(fees.rentText, '¥10');
   assert.equal(fees.depositText, '¥99.00', '按小时租的押金同样两位小数');
+});
+
+// ===========================================================================
+// 十一、utils/rental-journey —— 租赁订单页（进度条 / 应还倒计时 / 归还入口）
+// ===========================================================================
+//
+// 背景：`orders.js` 把所有订单硬编码成 `type: 'E_BIKE'`，进度条因此走 `ebikeJourney`，
+// 租赁单会显示「校内配送 / 凭交付码收车」这类售卖文案。这些分支现在住在纯函数里，
+// 可以在这里真实调用、真实断言 —— 而不是对页面做源码文本断言。
+
+/** 租赁订单（`/api/my/orders` 的 `ebikeOrders[]` 元素形态）。 */
+const RENTAL_ORDER = {
+  id: 'ord_rent_1',
+  orderKind: 'RENTAL',
+  type: 'E_BIKE',
+  status: 'FULFILLING',
+  rental: {
+    status: 'RENTING',
+    units: 3,
+    unit: 'DAY',
+    rentAmountInCents: 4500,
+    depositInCents: 29900,
+    dueAt: '2026-09-23T10:00:00'
+  }
+};
+
+/** 售卖订单（无 `orderKind`，存量形态）。 */
+const SALE_ORDER = { id: 'ord_sale_1', type: 'E_BIKE', status: 'FULFILLING' };
+
+test('buildRentalJourney：RENTING → 第 2 步为当前步，第 1 步已完成', () => {
+  const journey = rentalJourney.buildRentalJourney(RENTAL_ORDER);
+
+  assert.equal(journey.length, 4, '租赁进度条固定 4 步');
+  assert.deepEqual(
+    journey.map((step) => step.title),
+    ['已支付待取车', '租期中', '申请归还', '归还完成'],
+    '文案必须是租赁语义，不得出现「校内配送 / 凭交付码收车」'
+  );
+  assert.deepEqual(journey.map((step) => step.done), [true, false, false, false], '仅第 1 步完成');
+  assert.deepEqual(journey.map((step) => step.current), [false, true, false, false], '第 2 步为当前步');
+});
+
+test('buildRentalJourney：RETURN_REQUESTED → 第 3 步为当前步', () => {
+  const journey = rentalJourney.buildRentalJourney({
+    ...RENTAL_ORDER,
+    rental: { ...RENTAL_ORDER.rental, status: 'RETURN_REQUESTED' }
+  });
+
+  assert.deepEqual(journey.map((step) => step.done), [true, true, false, false]);
+  assert.deepEqual(journey.map((step) => step.current), [false, false, true, false]);
+});
+
+test('buildRentalJourney：RETURNED → 第 4 步为当前步，前 3 步均已完成', () => {
+  const journey = rentalJourney.buildRentalJourney({
+    ...RENTAL_ORDER,
+    rental: { ...RENTAL_ORDER.rental, status: 'RETURNED' }
+  });
+
+  assert.deepEqual(journey.map((step) => step.done), [true, true, true, false], '前 3 步完成');
+  assert.deepEqual(journey.map((step) => step.current), [false, false, false, true], '第 4 步为当前步');
+});
+
+test('rentalCountdownText：距应还 2 天 3 小时', () => {
+  const now = new Date('2026-09-20T07:00:00');
+  const text = rentalJourney.rentalCountdownText('2026-09-22T10:00:00', now);
+
+  assert.ok(text.includes('2 天'), `应含「2 天」，实际：${text}`);
+  assert.ok(text.includes('3 小时'), `应含「3 小时」，实际：${text}`);
+  assert.ok(text.includes('还有'), '未逾期应说「还有」');
+});
+
+test('rentalCountdownText：已逾期时出现「逾期」且不出现「还有」', () => {
+  const now = new Date('2026-09-20T07:00:00');
+  const text = rentalJourney.rentalCountdownText('2026-09-19T10:00:00', now);
+
+  assert.ok(text.includes('逾期'), `应含「逾期」，实际：${text}`);
+  assert.equal(text.includes('还有'), false, '逾期不得说「还有」');
+});
+
+test('rentalCardText：押金两位小数、单位租金报价精度（精度不得用反）', () => {
+  const card = rentalJourney.rentalCardText(RENTAL_ORDER);
+
+  assert.equal(card.priceText, '¥15/天', '单位租金是报价，取整去尾零');
+  assert.notEqual(card.priceText, '¥15.00/天', '单位租金不得带两位小数（精度用反要能抓住）');
+  assert.equal(card.depositText, '¥299.00', '押金是可退还金额，固定两位小数');
+  assert.notEqual(card.depositText, '¥299', '押金不得去尾零');
+  assert.equal(card.termText, '共 3 天', '租期文案应含单位与数量');
+  assert.ok(card.dueAtText.includes('前归还'), '应给出应还时点');
+
+  // 已归还后不再展示「应还时间」：车已还、账已结，再显示「…前归还」会误导。
+  const returned = rentalJourney.rentalCardText({ ...RENTAL_ORDER, rental: { ...RENTAL_ORDER.rental, status: 'RETURNED' } });
+  assert.equal(returned.dueAtText, '', '已归还的订单不得再展示应还时间');
+  assert.equal(returned.depositText, '¥299.00', '已归还后押金金额仍需展示（待退回）');
+});
+
+test('buildRentalJourney：售卖订单返回空数组（防误用）', () => {
+  assert.deepEqual(rentalJourney.buildRentalJourney(SALE_ORDER), []);
+  assert.deepEqual(
+    rentalJourney.buildRentalJourney({ orderKind: 'SALE', rental: RENTAL_ORDER.rental }),
+    [],
+    '声明 SALE 的订单即使带 rental 也不得走租赁进度条'
+  );
+});
+
+test('selectOrderJourney：售卖订单仍走 ebikeJourney（回归护栏）', () => {
+  const ebikeJourney = { FULFILLING: [{ title: '校内配送中' }, { title: '交付核验' }] };
+  const afterSaleJourney = { REVIEWING: [{ title: '售后处理中' }] };
+
+  assert.deepEqual(
+    rentalJourney.selectOrderJourney({
+      order: SALE_ORDER, isEbike: true, status: 'FULFILLING', activeAfterSale: null, ebikeJourney, afterSaleJourney
+    }),
+    ebikeJourney.FULFILLING,
+    '售卖单必须仍取 ebikeJourney'
+  );
+  assert.deepEqual(
+    rentalJourney.selectOrderJourney({
+      order: SALE_ORDER, isEbike: true, status: 'FULFILLING',
+      activeAfterSale: { status: 'REVIEWING' }, ebikeJourney, afterSaleJourney
+    }),
+    afterSaleJourney.REVIEWING,
+    '进行中的售后仍优先于订单进度条'
+  );
+
+  const rental = rentalJourney.selectOrderJourney({
+    order: RENTAL_ORDER, isEbike: true, status: 'FULFILLING', activeAfterSale: null, ebikeJourney, afterSaleJourney
+  });
+  assert.equal(rental.length, 4, '租赁单必须走 4 步租赁进度条');
+  assert.notEqual(rental[0].title, '校内配送中', '租赁单绝不能落到售卖进度条');
+
+  assert.deepEqual(
+    rentalJourney.selectOrderJourney({ order: { type: 'PLATE' }, isEbike: false, status: 'MATERIAL_PENDING', ebikeJourney, afterSaleJourney }),
+    [],
+    '非电瓶车服务单保持空进度条'
+  );
+});
+
+test('buildRentalJourney：rental.status 未知时不抛错且降级为空数组', () => {
+  assert.doesNotThrow(() => rentalJourney.buildRentalJourney({ orderKind: 'RENTAL', rental: { status: 'WEIRD' } }));
+  assert.deepEqual(rentalJourney.buildRentalJourney({ orderKind: 'RENTAL', rental: { status: 'WEIRD' } }), [], '未知状态不得猜');
+  assert.deepEqual(rentalJourney.buildRentalJourney({ orderKind: 'RENTAL' }), [], '缺 rental 时降级');
+  assert.deepEqual(rentalJourney.buildRentalJourney({ orderKind: 'RENTAL', rental: null }), []);
+  assert.deepEqual(rentalJourney.buildRentalJourney(null), []);
+  assert.deepEqual(rentalJourney.buildRentalJourney(), []);
+});
+
+test('canRequestReturn：仅租赁单且 RENTING 才可申请归还', () => {
+  assert.equal(rentalJourney.canRequestReturn(RENTAL_ORDER), true);
+  assert.equal(
+    rentalJourney.canRequestReturn({ ...RENTAL_ORDER, rental: { ...RENTAL_ORDER.rental, status: 'RETURN_REQUESTED' } }),
+    false,
+    '已申请归还不可重复申请'
+  );
+  assert.equal(
+    rentalJourney.canRequestReturn({ ...RENTAL_ORDER, rental: { ...RENTAL_ORDER.rental, status: 'RETURNED' } }),
+    false,
+    '已归还不能申请'
+  );
+  assert.equal(rentalJourney.canRequestReturn(SALE_ORDER), false, '售卖单没有归还入口');
+  assert.equal(rentalJourney.canRequestReturn({}), false);
+  assert.equal(rentalJourney.canRequestReturn(null), false);
+});
+
+test('shouldRefreshCountdown：无待支付订单但有租赁单时仍须刷新', () => {
+  assert.equal(rentalJourney.shouldRefreshCountdown([RENTAL_ORDER]), true, '租赁应还倒计时需要走秒');
+  assert.equal(
+    rentalJourney.shouldRefreshCountdown([{ status: 'PENDING_PAYMENT', paymentExpiresAt: '2026-09-20T08:00:00' }]),
+    true,
+    '待支付倒计时需要走秒'
+  );
+  assert.equal(
+    rentalJourney.shouldRefreshCountdown([RENTAL_ORDER, { status: 'PENDING_PAYMENT', paymentExpiresAt: '2026-09-20T08:00:00' }]),
+    true,
+    '两类倒计时并存时同样刷新'
+  );
+  assert.equal(rentalJourney.shouldRefreshCountdown([{ orderKind: 'SALE', status: 'COMPLETED' }]), false, '无倒计时来源时不必刷新');
+  assert.equal(
+    rentalJourney.shouldRefreshCountdown([{ ...RENTAL_ORDER, rental: { ...RENTAL_ORDER.rental, status: 'RETURNED' } }]),
+    false,
+    '已归还不必再走秒'
+  );
+  assert.equal(rentalJourney.shouldRefreshCountdown([]), false);
+  assert.equal(rentalJourney.shouldRefreshCountdown(), false);
+});
+
+test('orderKind 缺失时一律视为售卖（存量订单向后兼容）', () => {
+  const legacy = { id: 'ord_old', type: 'E_BIKE', status: 'FULFILLING' };
+
+  assert.equal(rentalJourney.isRentalOrder(legacy), false);
+  assert.deepEqual(rentalJourney.buildRentalJourney(legacy), []);
+  assert.equal(rentalJourney.rentalCardText(legacy), null);
+  assert.equal(rentalJourney.canRequestReturn(legacy), false);
+  assert.equal(rentalJourney.isRentalOrder({ orderKind: undefined }), false);
+  assert.equal(rentalJourney.isRentalOrder({ orderKind: '' }), false);
+  assert.equal(rentalJourney.isRentalOrder({ orderKind: 'SALE' }), false);
+  assert.equal(rentalJourney.isRentalOrder({ orderKind: 'RENT' }), false, '非 RENTAL 不视为租赁');
+  assert.equal(rentalJourney.isRentalOrder({ orderKind: 'RENTAL' }), true);
+  assert.equal(rentalJourney.isRentalOrder({ orderKind: ' rental ' }), true, '大小写与空格做归一化');
+});
+
+test('rentalCardText / rentalCountdownText 对非法输入安全降级', () => {
+  assert.equal(rentalJourney.rentalCardText(SALE_ORDER), null);
+  assert.equal(rentalJourney.rentalCardText(null), null);
+  assert.equal(rentalJourney.rentalCardText({ orderKind: 'RENTAL' }), null, '缺 rental 时不得抛错');
+  assert.equal(rentalJourney.rentalCountdownText(''), '');
+  assert.equal(rentalJourney.rentalCountdownText('not-a-date'), '');
+  assert.equal(rentalJourney.rentalCountdownText(undefined), '');
+  assert.equal(rentalJourney.rentalCountdownText(null), '');
+  assert.equal(rentalJourney.isRentalOverdue('not-a-date'), false);
+  assert.equal(rentalJourney.isRentalOverdue(''), false);
+});
+
+test('rentalCardText 按小时租：单位与精度同时正确', () => {
+  const hourly = {
+    ...RENTAL_ORDER,
+    rental: { status: 'RENTING', units: 2, unit: 'HOUR', rentAmountInCents: 1000, depositInCents: 9900, dueAt: '2026-09-20T12:00:00' }
+  };
+  const card = rentalJourney.rentalCardText(hourly);
+
+  assert.equal(card.priceText, '¥5/小时');
+  assert.equal(card.termText, '共 2 小时');
+  assert.equal(card.depositText, '¥99.00', '按小时租的押金同样两位小数');
+});
+
+test('已知缺口（待 team-lead 裁决）：未支付租赁单也会被标成「已支付待取车」', () => {
+  // ★ 这条是**特征化断言**（characterization test），不是「正确行为」的断言。
+  //
+  // 真实链路 E2E 实测：下单成功后 `order.status === 'PENDING_PAYMENT'`，但
+  // `rental.status` **已经**是 `'RENTING'`（服务端建单即置位）。因此按 `rental.status`
+  // 推导的进度条会把第 1 步「已支付待取车」标成**已完成**，且 `canRequestReturn` 为 true。
+  //
+  // 服务端 `applyRentalAction` 只校验 `rental.status` 状态机、**不校验是否已支付**，
+  // 所以前端若不禁用按钮，未支付也能提交归还申请（`RENTING → RETURN_REQUESTED`）。
+  //
+  // 把现状钉住，避免「静默修好」或「静默变坏」。修法（加「待支付」步 / 未支付不渲染进度条 /
+  // 归还按钮加支付守卫）属于产品决策，需 team-lead 裁决，故本轮不改。
+  const unpaid = { ...RENTAL_ORDER, status: 'PENDING_PAYMENT' };
+
+  assert.equal(rentalJourney.buildRentalJourney(unpaid).length, 4, '现状：未支付也会渲染 4 步进度条');
+  assert.equal(rentalJourney.buildRentalJourney(unpaid)[0].done, true, '现状：第 1 步「已支付待取车」被标为已完成');
+  assert.equal(rentalJourney.buildRentalJourney(unpaid)[1].current, true, '现状：第 2 步为当前步');
+  assert.equal(rentalJourney.canRequestReturn(unpaid), true, '现状：未支付也允许申请归还');
 });

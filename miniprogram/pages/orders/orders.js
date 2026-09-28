@@ -1,6 +1,9 @@
 const { request, userId } = require('../../services/api');
 const { payPaymentOrderById } = require('../../services/payment');
 const { loadBusinessConfig } = require('../../services/business');
+// 租赁订单展示层：进度条 / 应还倒计时 / 卡片文案 / 归还入口判定。
+// 全部是纯函数，可被 test/miniapp-runtime.test.js 真实加载断言。
+const rentalJourney = require('../../utils/rental-journey');
 
 const DEFAULT_RESPONSE_HOURS = 24;
 
@@ -158,9 +161,31 @@ function decorateAfterSale(record) {
   };
 }
 
+/**
+ * 租赁单的「下一步」文案。
+ *
+ * 绝不能出现「向商家出示交付码完成配送」这类售卖 / 配送措辞 ——
+ * 租赁的真实流程是「取车 → 租期中 → 申请归还 → 归还完成」。
+ *
+ * @param {object} order 订单记录。
+ * @returns {string} 下一步文案。
+ */
+function rentalNextStep(order) {
+  const status = rentalJourney.rentalStatusOf(order);
+  if (status === 'RETURNED') return '归还已完成，等待押金原路退回';
+  if (status === 'RETURN_REQUESTED') return '已提交归还申请，等待商家核验';
+  return '凭交付码到校内取车点取车，按租期归还';
+}
+
 function card(item) {
   const isEbike = item.type === 'E_BIKE';
   const type = item.type;
+  // 租赁单沿用 `type: 'E_BIKE'`（交付码 / 履约 / 数量统计都依赖它），
+  // 但进度条与文案必须按 `orderKind` 分流，否则租赁单会显示「校内配送 / 凭交付码收车」。
+  const isRental = rentalJourney.isRentalOrder(item);
+  const rentalCard = isRental ? rentalJourney.rentalCardText(item) : null;
+  // 归还完成后不再展示应还倒计时：车与钱都已结清，倒计时只会制造无意义焦虑。
+  const rentalDueAt = isRental && item.rental && item.rental.status !== 'RETURNED' ? (item.rental.dueAt || '') : '';
   const orderAfterSales = (item.afterSales || []).map(decorateAfterSale);
   const activeAfterSale = orderAfterSales.find(record => record.status !== 'CLOSED') || orderAfterSales[0] || null;
   const overdueAfterSale = orderAfterSales.find(record => record.isOverdue);
@@ -237,8 +262,19 @@ function card(item) {
         : '',
     afterSale: activeAfterSale,
     afterSaleOverdue: Boolean(overdueAfterSale),
-    journey: isEbike ? ((activeAfterSale && activeAfterSale.status !== 'CLOSED' ? afterSaleJourney[activeAfterSale.status] : ebikeJourney[item.status]) || []) : [],
-    nextStep: isEbike && item.status === 'FULFILLING' ? '向商家出示交付码完成配送' : item.collaboration?.roleActions?.MERCHANT?.length ? '商家确认履约' : item.collaboration?.roleActions?.PLATFORM?.length ? '平台介入处理' : item.status === 'COMPLETED' ? '可评价本次服务' : '等待履约更新',
+    isRental,
+    rentalPriceText: rentalCard ? rentalCard.priceText : '',
+    rentalTermText: rentalCard ? rentalCard.termText : '',
+    rentalDepositText: rentalCard ? rentalCard.depositText : '',
+    rentalDueAtText: rentalCard ? rentalCard.dueAtText : '',
+    rentalCountdownAt: rentalDueAt,
+    rentalCountdownText: rentalDueAt ? rentalJourney.rentalCountdownText(rentalDueAt, new Date()) : '',
+    rentalOverdue: rentalDueAt ? rentalJourney.isRentalOverdue(rentalDueAt, new Date()) : false,
+    // 归还入口：仅租赁单且 `rental.status === 'RENTING'`（纯函数判定，可运行时断言）。
+    canReturnRequest: rentalJourney.canRequestReturn(item),
+    // 进度条的唯一选择点：租赁走租赁进度条，售卖仍走 ebikeJourney（回归不变）。
+    journey: rentalJourney.selectOrderJourney({ order: item, isEbike, status: item.status, activeAfterSale, ebikeJourney, afterSaleJourney }),
+    nextStep: isRental ? rentalNextStep(item) : isEbike && item.status === 'FULFILLING' ? '向商家出示交付码完成配送' : item.collaboration?.roleActions?.MERCHANT?.length ? '商家确认履约' : item.collaboration?.roleActions?.PLATFORM?.length ? '平台介入处理' : item.status === 'COMPLETED' ? '可评价本次服务' : '等待履约更新',
     intervention:item.collaboration?.intervention?.status === 'REQUESTED',
     platformResult:item.collaboration?.intervention?.status === 'RESOLVED' && item.collaboration?.intervention?.note
       ? {
@@ -299,16 +335,28 @@ Page({
   },
   refreshCountdowns(){
     const records = this.data.records || [];
-    if (!records.some((item) => item.status === 'PENDING_PAYMENT' && item.paymentExpiresAt)) return;
+    // 原来只服务「待支付订单」，没有待支付单时直接 return —— 租赁的应还倒计时因此
+    // 永远不会刷新。改由纯函数统一裁决「是否还有需要走秒的记录」。
+    if (!rentalJourney.shouldRefreshCountdown(records)) return;
     if (records.some((item) => item.status === 'PENDING_PAYMENT' && isPaymentExpired(item.paymentExpiresAt))) {
       this.loadRecords();
       return;
     }
-    const nextRecords = records.map((item) => (
-      item.status === 'PENDING_PAYMENT'
-        ? { ...item, countdownText: paymentCountdownText(item.paymentExpiresAt) }
-        : item
-    ));
+    const now = new Date();
+    const nextRecords = records.map((item) => {
+      let next = item;
+      if (item.status === 'PENDING_PAYMENT') {
+        next = { ...next, countdownText: paymentCountdownText(item.paymentExpiresAt) };
+      }
+      if (item.rentalCountdownAt) {
+        next = {
+          ...next,
+          rentalCountdownText: rentalJourney.rentalCountdownText(item.rentalCountdownAt, now),
+          rentalOverdue: rentalJourney.isRentalOverdue(item.rentalCountdownAt, now)
+        };
+      }
+      return next;
+    });
     this.setData({ records: nextRecords, filtered: this.filterRecords(nextRecords, this.data.active) });
   },
   loadRecords(){
@@ -323,6 +371,9 @@ Page({
         id:order.id, recordNo:order.orderNo || order.id, type:'E_BIKE',
         title:order.items.map(item=>`${item.name}${item.quantity>1?` ×${item.quantity}`:''}`).join(' + '),
         status:order.status, amountInCents:order.totalInCents,
+        // 租赁单：`type` 仍是 E_BIKE（交付码 / 履约 / 数量统计依赖它），
+        // 额外透传 orderKind 与 rental，供进度条与文案按形态分流。
+        orderKind:order.orderKind, rental:order.rental || null,
         paymentOrderId:order.paymentOrderId,
         paymentExpiresAt:order.paymentExpiresAt || '',
         fulfillment:order.fulfillment || {},
@@ -507,6 +558,32 @@ Page({
             wx.hideLoading();
             wx.showToast({title:error.message||'上传失败',icon:'none'});
           });
+      }
+    });
+  },
+  /**
+   * 申请归还（租赁）。
+   *
+   * 复用订单协同接口：用户侧动作的鉴权与通知链路这里都已具备，无需新开端点。
+   * 服务端在 `/api/order-collab` 内对 `RETURN_REQUEST` 做了状态机守卫
+   * （仅 RENTING → RETURN_REQUESTED），非法状态返回 409，前端原样提示即可。
+   */
+  requestReturn(e){
+    const id=e.currentTarget.dataset.id;
+    if(!id) return;
+    const record=(this.data.records||[]).find(item=>item.id===id);
+    if(!rentalJourney.canRequestReturn(record)) return wx.showToast({title:'当前状态不能申请归还',icon:'none'});
+    wx.showModal({
+      title:'申请归还',
+      content:'确认归还这台车吗？商家核验通过后，押金将原路退回。',
+      success:({confirm})=>{
+        if(!confirm) return;
+        request('/api/order-collab',{method:'POST',data:{role:'USER',orderId:id,action:'RETURN_REQUEST',note:'用户申请归还'}})
+          .then(()=>{
+            wx.showToast({title:'已提交归还申请',icon:'success'});
+            setTimeout(()=>this.loadRecords(),400);
+          })
+          .catch(error=>wx.showToast({title:error.message||'申请失败',icon:'none'}));
       }
     });
   },

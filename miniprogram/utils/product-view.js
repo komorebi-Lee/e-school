@@ -475,5 +475,6 @@ module.exports = {
   normalizeRentalPlanInput,
   computeRentalFees,
   computeRentalDueAt,
+  formatRentalDueAt,
   stepRentalUnits
 };
