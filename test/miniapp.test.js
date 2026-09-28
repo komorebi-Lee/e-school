@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
+const vm = require('node:vm');
 
 const miniappDirectory = path.join(__dirname, '..', 'miniprogram');
 const serverDirectory = path.join(__dirname, '..', 'server');
@@ -35,9 +36,15 @@ function readServerSource() {
 }
 
 test('miniapp JavaScript parses without syntax errors', () => {
-  const { execFileSync } = require('node:child_process');
   for (const file of listMiniappFiles()) {
-    execFileSync(process.execPath, ['--check', file], { stdio: 'pipe' });
+    const source = fs.readFileSync(file, 'utf8');
+    // 与 `node --check` 等价的语法校验：编译而不执行。
+    // 改用进程内 vm.Script 是因为本环境 node 无法 spawn node（EBUSY），
+    // 原实现为 43 个文件各起一个子进程，全部失败。
+    assert.doesNotThrow(
+      () => new vm.Script(source, { filename: file }),
+      `${path.relative(miniappDirectory, file)} 存在语法错误`
+    );
   }
 });
 
