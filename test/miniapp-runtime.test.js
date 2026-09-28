@@ -1377,3 +1377,277 @@ test('支付成功后（RENTING + dueAt 已写入）恢复正常渲染与归还�
   assert.equal(rentalJourney.rentalCardText(paid).dueAtText, '9月23日 10:00 前归还', '支付后展示应还时间');
   assert.equal(rentalJourney.shouldRefreshCountdown([paid]), true, '支付后应还倒计时需要走秒');
 });
+
+// ===========================================================================
+// T40：商家端租赁动作（核验取车 / 核验归还）
+// ===========================================================================
+//
+// 现状缺口：用户能租、能申请归还，但**商家点不到按钮** —— 用户申请归还后
+// 没人核验，订单永远停在 `RETURN_REQUESTED`。这是租赁在界面上可用的最后一环。
+//
+// 「核验归还」的显示条件必须同时看两件事：`orderKind === 'RENTAL'` **与**
+// `rental.status === 'RETURN_REQUESTED'`，任一不满足都不能出现按钮 ——
+// 只认 `rental.status` 会让带 `rental` 字段的售卖单冒出归还按钮。
+
+/** 租赁单：用户已申请归还（商家应看到「核验归还」）。 */
+const RENTAL_RETURN_REQUESTED = {
+  ...RENTAL_ORDER,
+  status: 'FULFILLING',
+  rental: { ...RENTAL_ORDER.rental, status: 'RETURN_REQUESTED' }
+};
+
+/** 租赁单：用户已归还（按钮必须消失，防重复提交）。 */
+const RENTAL_RETURNED = {
+  ...RENTAL_ORDER,
+  status: 'COMPLETED',
+  rental: { ...RENTAL_ORDER.rental, status: 'RETURNED' }
+};
+
+test('① canVerifyRentalReturn：用户已申请归还的租赁单 → true', () => {
+  assert.equal(
+    rentalJourney.canVerifyRentalReturn({ orderKind: 'RENTAL', rental: { status: 'RETURN_REQUESTED' } }),
+    true,
+    '用户申请归还后商家必须能看到核验入口，否则订单永远停在 RETURN_REQUESTED'
+  );
+  assert.equal(rentalJourney.canVerifyRentalReturn(RENTAL_RETURN_REQUESTED), true);
+});
+
+test('② canVerifyRentalReturn：租期中（RENTING）→ false（用户还没申请归还）', () => {
+  assert.equal(rentalJourney.canVerifyRentalReturn(RENTAL_ORDER), false, 'RENTING 阶段没有东西可核验');
+  assert.equal(
+    rentalJourney.canVerifyRentalReturn({ orderKind: 'RENTAL', rental: { status: 'RENTING' } }),
+    false
+  );
+});
+
+test('③ canVerifyRentalReturn：已归还（RETURNED）→ false（防重复提交）', () => {
+  assert.equal(rentalJourney.canVerifyRentalReturn(RENTAL_RETURNED), false);
+  // 服务端对重复核验回 409 RENTAL_ALREADY_RETURNED，前端不该给出可点入口。
+  assert.equal(
+    rentalJourney.canVerifyRentalReturn({ orderKind: 'RENTAL', rental: { status: 'RETURNED' } }),
+    false
+  );
+});
+
+test('④ ★ canVerifyRentalReturn：售卖单一律 false（绝不出现归还按钮）', () => {
+  assert.equal(rentalJourney.canVerifyRentalReturn(SALE_ORDER), false, '售卖单没有归还概念');
+  // 关键负例：一张声明为 SALE 却恰好带 rental 字段的订单（数据损坏 / 字段复用）。
+  // 只认 `rental.status` 的实现会在这里返回 true，等于在售卖单上开了资损级入口。
+  assert.equal(
+    rentalJourney.canVerifyRentalReturn({ orderKind: 'SALE', rental: { status: 'RETURN_REQUESTED' } }),
+    false,
+    'orderKind 必须参与判定，不能只看 rental.status'
+  );
+});
+
+test('⑤ canVerifyRentalReturn：orderKind 缺失 → false（向后兼容存量订单）', () => {
+  assert.equal(
+    rentalJourney.canVerifyRentalReturn({ rental: { status: 'RETURN_REQUESTED' } }),
+    false,
+    '存量订单没有 orderKind，缺省即售卖'
+  );
+  assert.equal(rentalJourney.canVerifyRentalReturn({}), false);
+  assert.equal(rentalJourney.canVerifyRentalReturn(null), false);
+  assert.equal(rentalJourney.canVerifyRentalReturn(undefined), false);
+});
+
+test('⑨ canVerifyRentalReturn：未知 rental.status → false 且不抛错', () => {
+  assert.equal(
+    rentalJourney.canVerifyRentalReturn({ orderKind: 'RENTAL', rental: { status: 'SOMETHING_NEW' } }),
+    false,
+    '状态未知即降级为「不显示」，绝不猜'
+  );
+  // 形态损坏：声明 RENTAL 但没有 rental 对象 —— 不能抛异常（页面会白屏）。
+  assert.equal(rentalJourney.canVerifyRentalReturn({ orderKind: 'RENTAL' }), false);
+  assert.equal(rentalJourney.canVerifyRentalReturn({ orderKind: 'RENTAL', rental: null }), false);
+});
+
+test('⑥ merchantRentalNextStep：RETURN_REQUESTED 时含「归还」', () => {
+  const text = rentalJourney.merchantRentalNextStep(RENTAL_RETURN_REQUESTED);
+  assert.ok(text.includes('归还'), `归还阶段文案应含「归还」，实际「${text}」`);
+  // 这一阶段商家要做的就是核验，文案必须指向这个动作。
+  assert.ok(text.includes('核验'), `归还阶段文案应含「核验」，实际「${text}」`);
+  assert.equal(text, '用户已申请归还，请核验车辆后确认归还');
+});
+
+test('⑦ ★ 租赁文案绝不出现「配送」（租赁是取车不是配送）', () => {
+  // 改造前商家端所有订单都走 `nextSteps[order.status]`，租赁单在 FULFILLING 时
+  // 显示「核验交付码并完成配送」—— 对租赁是错的。
+  const rentalPhases = [
+    RENTAL_ORDER,                                              // RENTING + FULFILLING
+    { ...RENTAL_ORDER, status: 'PAID' },                       // RENTING + PAID
+    RENTAL_RETURN_REQUESTED,
+    RENTAL_RETURNED,
+    { ...RENTAL_ORDER, status: 'PENDING_PAYMENT', rental: { ...RENTAL_ORDER.rental, status: 'PENDING_PAYMENT', dueAt: null } }
+  ];
+  for (const order of rentalPhases) {
+    const text = rentalJourney.merchantRentalNextStep(order);
+    assert.ok(
+      !String(text).includes('配送'),
+      `租赁单不得出现售卖链路的「配送」措辞，实际「${text}」`
+    );
+    assert.ok(
+      !String(rentalJourney.merchantRentalStatusLabel(order)).includes('配送'),
+      '租赁状态标签同样不得出现「配送」'
+    );
+  }
+
+  // 租赁 FULFILLING 阶段的措辞必须是「取车」语义。
+  const fulfilling = rentalJourney.merchantRentalNextStep(RENTAL_ORDER);
+  assert.ok(fulfilling.includes('取车'), `租赁 FULFILLING 文案应指向取车，实际「${fulfilling}」`);
+  assert.equal(fulfilling, '核验交付码，确认用户已取车');
+});
+
+test('⑧ ★ 反向护栏：售卖单的 nextStep 必须回落到原售卖文案表（逐字一致）', () => {
+  // `merchantRentalNextStep` 对非租赁单返回 **null**，页面据此回落到 `nextSteps`。
+  // 这是「售卖链路一行不改」的结构性保证：只要它返回 null，售卖文案就只能来自原表。
+  assert.equal(rentalJourney.merchantRentalNextStep(SALE_ORDER), null);
+  assert.equal(rentalJourney.merchantRentalNextStep({ orderKind: 'SALE', rental: { status: 'RENTING' } }), null);
+  assert.equal(rentalJourney.merchantRentalNextStep({}), null);
+  assert.equal(rentalJourney.merchantRentalNextStep(null), null);
+  // 售卖单的状态标签也必须回落到原表（不返回租赁标签）。
+  assert.equal(rentalJourney.merchantRentalStatusLabel(SALE_ORDER), null);
+  // 原售卖文案表本身逐字未动（完整表在 test/miniapp.test.js 另有源码断言）。
+  assert.equal(rentalJourney.merchantRentalNextStep({ orderKind: 'RENTAL', rental: { status: '???' } }), '等待更新',
+    '租赁单状态无法识别时给中性文案，**绝不**回落成售卖文案');
+});
+
+test('merchantRentalPhase：RENTING 必须按 order.status 分成「待取车」与「租期中」两阶段', () => {
+  // 只看 rental.status 会把「用户还没来取车」与「车已在用户手上」混成一句话，
+  // 而商家在这两个阶段该做的事完全不同。
+  assert.equal(rentalJourney.merchantRentalPhase({ ...RENTAL_ORDER, status: 'PAID' }), 'RENTING_PAID');
+  assert.equal(rentalJourney.merchantRentalPhase({ ...RENTAL_ORDER, status: 'FULFILLING' }), 'RENTING_FULFILLING');
+  assert.equal(rentalJourney.merchantRentalPhase(RENTAL_ORDER), 'RENTING_FULFILLING');
+
+  assert.equal(rentalJourney.merchantRentalStatusLabel({ ...RENTAL_ORDER, status: 'PAID' }), '待取车');
+  assert.equal(rentalJourney.merchantRentalStatusLabel(RENTAL_ORDER), '租期中');
+  assert.equal(rentalJourney.merchantRentalStatusLabel(RENTAL_RETURN_REQUESTED), '待核验归还');
+  assert.equal(rentalJourney.merchantRentalStatusLabel(RENTAL_RETURNED), '已归还');
+});
+
+test('⑩ E2E：商家端「核验归还」入口 false → true → false（走真实服务端）', async () => {
+  // 把上一轮的临时探针**固化成回归测试**：不再依赖手工跑脚本。
+  // 全程走真实 HTTP + 真实状态机，前端纯函数直接吃接口返回值。
+  const os = require('node:os');
+  const http = require('node:http');
+  const { JsonStore } = require('../server/src/store');
+  const { createApp } = require('../server/src/app');
+
+  const tempDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'campus-go-t40-e2e-'));
+  const store = new JsonStore(path.join(tempDirectory, 'db.json'));
+  const server = http.createServer(createApp({
+    store,
+    wechatAuth: async (code) => ({ openid: `openid_${code}`, userId: `wx_${code}` })
+  }));
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const baseUrl = `http://127.0.0.1:${server.address().port}`;
+  const api = async (pathname, options) => {
+    const response = await fetch(`${baseUrl}${pathname}`, options);
+    return { response, body: await response.json() };
+  };
+  const jsonHeaders = (token) => ({ 'content-type': 'application/json', authorization: `Bearer ${token}` });
+
+  try {
+    // ---- 用户：下单 + 支付 ----
+    const userLogin = await api('/api/auth/login', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ code: 't40_e2e_user' })
+    });
+    const userToken = userLogin.body.data.token;
+    const created = await api('/api/orders', {
+      method: 'POST',
+      headers: jsonHeaders(userToken),
+      body: JSON.stringify({ items: [{ productId: 'prod_ebike_rent_002', quantity: 1, rentalUnits: 3 }] })
+    });
+    assert.equal(created.response.status, 201);
+    assert.equal(created.body.data.orderKind, 'RENTAL');
+    const orderId = created.body.data.id;
+    const paid = await api(`/api/payment-orders/${created.body.paymentOrder.id}/confirm`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${userToken}` }
+    });
+    assert.equal(paid.response.status, 200);
+
+    // ---- 商家：登录 ----
+    const merchantUser = await api('/api/auth/login', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ code: 'merchant_demo' })
+    });
+    const merchantLogin = await api('/api/merchant/login', {
+      method: 'POST',
+      headers: jsonHeaders(merchantUser.body.data.token),
+      body: JSON.stringify({ merchantId: 'merchant_001' })
+    });
+    assert.equal(merchantLogin.response.status, 200);
+    const merchantToken = merchantLogin.body.data.token;
+
+    // 商家视角拉订单 —— 与商家订单页同一条数据源（/api/merchant/overview）。
+    const merchantOrderRow = async () => {
+      const overview = await api('/api/merchant/overview', { headers: { authorization: `Bearer ${merchantToken}` } });
+      const row = (overview.body.data.orders || []).find((item) => item.id === orderId);
+      assert.ok(row, '商家端应能看到这张租赁单');
+      return row;
+    };
+
+    // ---- 阶段 1：已支付、用户未申请归还 → 不该有「核验归还」----
+    let row = await merchantOrderRow();
+    assert.equal(row.orderKind, 'RENTAL', '商家端必须透传 orderKind，否则前端无从分流');
+    assert.equal(row.rental.status, 'RENTING');
+    assert.equal(rentalJourney.canVerifyRentalReturn(row), false, '未申请归还时不得出现「核验归还」');
+
+    // ---- 阶段 2：商家取车核验（复用既有交付码机制，不新开一套）----
+    const accepted = await api('/api/order-collab', {
+      method: 'POST',
+      headers: jsonHeaders(merchantToken),
+      body: JSON.stringify({ role: 'MERCHANT', action: 'ACCEPT', orderId, note: '已备车，用户到店取车' })
+    });
+    assert.equal(accepted.response.status, 200);
+    const deliveryCode = store.read().orders.find((item) => item.id === orderId).deliveryCode;
+    assert.match(deliveryCode, /^\d{6}$/, '取车走既有交付码');
+    const pickedUp = await api('/api/order-collab', {
+      method: 'POST',
+      headers: jsonHeaders(merchantToken),
+      body: JSON.stringify({ role: 'MERCHANT', action: 'COMPLETE', orderId, note: '已核验交付码', deliveryCode })
+    });
+    assert.equal(pickedUp.response.status, 200);
+    assert.equal(pickedUp.body.data.status, 'FULFILLING', '取车核验后车在用户手上，订单停在 FULFILLING');
+
+    row = await merchantOrderRow();
+    assert.equal(rentalJourney.canVerifyRentalReturn(row), false, '租期中不得出现「核验归还」');
+
+    // ---- 阶段 3：用户申请归还 → 商家必须看到「核验归还」----
+    const requested = await api('/api/order-collab', {
+      method: 'POST',
+      headers: jsonHeaders(userToken),
+      body: JSON.stringify({ role: 'USER', action: 'RETURN_REQUEST', orderId, note: '已归还车辆' })
+    });
+    assert.equal(requested.response.status, 200);
+    assert.equal(requested.body.data.rental.status, 'RETURN_REQUESTED');
+
+    row = await merchantOrderRow();
+    assert.equal(row.rental.status, 'RETURN_REQUESTED');
+    assert.equal(
+      rentalJourney.canVerifyRentalReturn(row),
+      true,
+      '★ 用户申请归还后，商家端必须出现「核验归还」入口（本轮修复的核心缺口）'
+    );
+
+    // ---- 阶段 4：商家核验归还 → 入口消失 ----
+    const verified = await api('/api/order-collab', {
+      method: 'POST',
+      headers: jsonHeaders(merchantToken),
+      body: JSON.stringify({ role: 'MERCHANT', action: 'RETURN_VERIFY', orderId, note: '归还核验通过' })
+    });
+    assert.equal(verified.response.status, 200);
+    assert.equal(verified.body.data.rental.status, 'RETURNED');
+    assert.equal(verified.body.data.status, 'COMPLETED', '归还核验是租赁单进入 COMPLETED 的唯一入口');
+
+    row = await merchantOrderRow();
+    assert.equal(rentalJourney.canVerifyRentalReturn(row), false, '已核验后入口必须消失（防重复提交）');
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+    fs.rmSync(tempDirectory, { recursive: true, force: true });
+  }
+});

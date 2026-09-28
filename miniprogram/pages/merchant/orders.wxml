@@ -58,6 +58,7 @@
           <button size="mini" class="ghost-button" data-id="{{item.id}}" data-action="APPEAL" bindtap="collab">请求平台协助</button>
           <button wx:if="{{item.status === 'PAID'}}" size="mini" class="ghost-button" data-id="{{item.id}}" data-status="FULFILLING" bindtap="update">开始履约</button>
           <button wx:if="{{item.status === 'FULFILLING'}}" size="mini" class="primary-button" data-id="{{item.id}}" data-status="COMPLETED" bindtap="update">完成</button>
+          <button wx:if="{{item.canVerifyReturn}}" size="mini" class="primary-button" data-id="{{item.id}}" bindtap="verifyReturn">核验归还</button>
         </view>
       </view>
     </view>

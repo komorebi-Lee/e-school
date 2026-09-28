@@ -78,6 +78,36 @@ const RENTAL_STATUS_STEP_INDEX = Object.freeze({
 const RENTAL_NOT_STARTED_STATUSES = Object.freeze([RENTAL_STATUS.PENDING_PAYMENT]);
 
 /**
+ * 商家端租赁「下一步」文案表（键见 `merchantRentalPhase`）。
+ *
+ * ⚠️ 文案里**不得出现「配送」**：租赁是用户到校内取车点取车。
+ * `RENTING_FULFILLING` 说的是「核验交付码，确认用户已取车」——
+ * 复用既有的交付码机制，但不沿用售卖链路的配送措辞。
+ *
+ * @type {Readonly<Record<string, string>>}
+ */
+const MERCHANT_RENTAL_NEXT_STEPS = Object.freeze({
+  PENDING_PAYMENT: '等待用户支付',
+  RENTING_PAID: '等待用户到店取车',
+  RENTING_FULFILLING: '核验交付码，确认用户已取车',
+  RETURN_REQUESTED: '用户已申请归还，请核验车辆后确认归还',
+  RETURNED: '已归还，等待押金原路退回'
+});
+
+/**
+ * 商家端租赁订单状态标签表（列表右上角徽标，键见 `merchantRentalPhase`）。
+ *
+ * @type {Readonly<Record<string, string>>}
+ */
+const MERCHANT_RENTAL_STATUS_LABELS = Object.freeze({
+  PENDING_PAYMENT: '待支付',
+  RENTING_PAID: '待取车',
+  RENTING_FULFILLING: '租期中',
+  RETURN_REQUESTED: '待核验归还',
+  RETURNED: '已归还'
+});
+
+/**
  * 是否为租赁订单。
  *
  * `orderKind` 缺失（存量订单）或非 `'RENTAL'` 一律视为售卖。
@@ -251,6 +281,82 @@ function canRequestReturn(order) {
 }
 
 /**
+ * 「核验归还」按钮的显示条件（**商家端**）。
+ *
+ * 只有**租赁单**且 `rental.status === 'RETURN_REQUESTED'` 才可核验：
+ * 用户没申请就没得核验（`RENTING`），已核验过再点就是重复提交（`RETURNED`，
+ * 服务端会回 `409 RENTAL_ALREADY_RETURNED`）。
+ *
+ * 判定必须同时要求 `orderKind === 'RENTAL'`：只认 `rental.status` 的话，
+ * 一张声明为 `SALE` 却恰好带 `rental` 字段的订单（数据损坏、或未来复用字段）
+ * 会让售卖单上冒出「核验归还」按钮 —— 那是资损级的误操作入口。
+ *
+ * @param {object|null|undefined} order 订单记录。
+ * @returns {boolean} 是否显示「核验归还」。
+ */
+function canVerifyRentalReturn(order) {
+  return isRentalOrder(order) && rentalStatusOf(order) === RENTAL_STATUS.RETURN_REQUESTED;
+}
+
+/**
+ * 商家端租赁文案：把「订单状态 + 租赁状态」两维信息压成一个租赁阶段键。
+ *
+ * 为什么要两维：`rental.status === 'RENTING'` 在商家视角下有**两个完全不同的阶段** ——
+ * `order.status === 'PAID'` 时用户还没来取车（商家该等），
+ * `order.status === 'FULFILLING'` 时车已在用户手上（商家该核验交付码）。
+ * 只看 `rental.status` 会把这两个阶段混成一句话。
+ *
+ * @param {object|null|undefined} order 订单记录。
+ * @returns {string|null} 阶段键；非租赁或状态无法识别返回 `null`。
+ */
+function merchantRentalPhase(order) {
+  if (!isRentalOrder(order)) return null;
+  const status = rentalStatusOf(order);
+  if (status === RENTAL_STATUS.PENDING_PAYMENT) return 'PENDING_PAYMENT';
+  if (status === RENTAL_STATUS.RETURN_REQUESTED) return 'RETURN_REQUESTED';
+  if (status === RENTAL_STATUS.RETURNED) return 'RETURNED';
+  if (status === RENTAL_STATUS.RENTING) {
+    return order.status === 'FULFILLING' ? 'RENTING_FULFILLING' : 'RENTING_PAID';
+  }
+  return null;
+}
+
+/**
+ * 商家端租赁「下一步」文案。
+ *
+ * ⚠️ **租赁单绝不出现「配送」**：租赁是用户到校内取车点取车，不是配送。
+ * 改造前商家端所有订单都走 `nextSteps[order.status]`，租赁单在 `FULFILLING`
+ * 时显示「核验交付码并完成配送」—— 对租赁是错的（取车 vs 配送）。
+ *
+ * 返回值约定：**非租赁返回 `null`**（调用方回落到既有售卖文案表，保证售卖链路
+ * 逐字不变）；租赁单**永不返回 `null`**，状态无法识别时给「等待更新」——
+ * 这样「租赁单不会显示售卖文案」是结构性保证，而不是靠状态值恰好命中。
+ *
+ * @param {object|null|undefined} order 订单记录。
+ * @returns {string|null} 商家下一步文案；非租赁返回 `null`。
+ */
+function merchantRentalNextStep(order) {
+  if (!isRentalOrder(order)) return null;
+  const phase = merchantRentalPhase(order);
+  return phase ? MERCHANT_RENTAL_NEXT_STEPS[phase] : '等待更新';
+}
+
+/**
+ * 商家端租赁订单状态标签。
+ *
+ * 与 {@link merchantRentalNextStep} 的分工：这个是列表右上角的状态徽标，
+ * 那个是「下一步」提示行。状态无法识别时返回 `null`，让调用方回落到既有的
+ * `statusLabels`（基于 `order.status`，不涉及租赁语义，回落是安全的）。
+ *
+ * @param {object|null|undefined} order 订单记录。
+ * @returns {string|null} 状态标签；非租赁或状态无法识别返回 `null`。
+ */
+function merchantRentalStatusLabel(order) {
+  const phase = merchantRentalPhase(order);
+  return phase ? MERCHANT_RENTAL_STATUS_LABELS[phase] : null;
+}
+
+/**
  * 订单页倒计时定时器是否需要继续刷新。
  *
  * 订单页的定时器原来只服务「待支付订单」，`refreshCountdowns` 在没有待支付订单时
@@ -305,6 +411,8 @@ module.exports = {
   RENTAL_STATUS,
   RENTAL_STEPS,
   RENTAL_NOT_STARTED_STATUSES,
+  MERCHANT_RENTAL_NEXT_STEPS,
+  MERCHANT_RENTAL_STATUS_LABELS,
   isRentalOrder,
   rentalStatusOf,
   buildRentalJourney,
@@ -312,6 +420,10 @@ module.exports = {
   rentalCountdownText,
   rentalCardText,
   canRequestReturn,
+  canVerifyRentalReturn,
+  merchantRentalPhase,
+  merchantRentalNextStep,
+  merchantRentalStatusLabel,
   shouldRefreshCountdown,
   selectOrderJourney
 };

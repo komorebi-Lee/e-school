@@ -1425,3 +1425,64 @@ test('every WXML file has balanced view tags', () => {
     );
   }
 });
+
+test('T40 反向护栏：商家端售卖文案表与售卖按钮逐字未改', () => {
+  // 商家订单页的文案表住在页面脚本里（顶层调用 `Page()`，Node 无法加载），
+  // 所以「售卖链路一行不改」只能用源码断言守。这里的断言刻意**连 `const` 声明
+  // 一起匹配**：只匹配 `{ PAID:'确认履约', ... }` 的话，注释里写一遍也能满足，
+  // 等于用注释喂断言。
+  const pageScript = fs.readFileSync(path.join(miniappDirectory, 'pages', 'merchant', 'orders.js'), 'utf8');
+  const pageTemplate = fs.readFileSync(path.join(miniappDirectory, 'pages', 'merchant', 'orders.wxml'), 'utf8');
+
+  assert.ok(
+    pageScript.includes("const nextSteps = { PAID:'确认履约', FULFILLING:'核验交付码并完成配送', COMPLETED:'已交付', CANCELLED:'已关闭' };"),
+    '售卖「下一步」文案表必须逐字保留'
+  );
+  assert.ok(
+    pageScript.includes("const statusLabels = { PAID: '待发货', FULFILLING: '履约中', COMPLETED: '已完成', CANCELLED: '已取消', AFTER_SALE: '售后中', PARTIALLY_REFUNDED: '部分退款' };"),
+    '售卖状态标签表必须逐字保留'
+  );
+
+  // 两个售卖按钮的条件与文案同样逐字未改。
+  assert.ok(
+    pageTemplate.includes('<button wx:if="{{item.status === \'PAID\'}}" size="mini" class="ghost-button" data-id="{{item.id}}" data-status="FULFILLING" bindtap="update">开始履约</button>'),
+    '售卖「开始履约」按钮必须逐字保留'
+  );
+  assert.ok(
+    pageTemplate.includes('<button wx:if="{{item.status === \'FULFILLING\'}}" size="mini" class="primary-button" data-id="{{item.id}}" data-status="COMPLETED" bindtap="update">完成</button>'),
+    '售卖「完成」按钮必须逐字保留'
+  );
+});
+
+test('T40：商家端「核验归还」入口已接线（条件 / 动作 / 备注兜底）', () => {
+  const pageScript = fs.readFileSync(path.join(miniappDirectory, 'pages', 'merchant', 'orders.js'), 'utf8');
+  const pageTemplate = fs.readFileSync(path.join(miniappDirectory, 'pages', 'merchant', 'orders.wxml'), 'utf8');
+
+  // 模板：按钮由纯函数产出的 `canVerifyReturn` 驱动，不把判定散落在 WXML 里。
+  assert.ok(
+    pageTemplate.includes('<button wx:if="{{item.canVerifyReturn}}" size="mini" class="primary-button" data-id="{{item.id}}" bindtap="verifyReturn">核验归还</button>'),
+    '「核验归还」按钮必须由 canVerifyReturn 驱动'
+  );
+
+  // 脚本：判定与文案都来自纯函数模块（可被运行时断言），不在页面里重写一遍。
+  assert.ok(
+    pageScript.includes('canVerifyReturn: rentalJourney.canVerifyRentalReturn(order),'),
+    '按钮条件必须调用纯函数 canVerifyRentalReturn'
+  );
+  assert.ok(
+    pageScript.includes('nextStep: rentalJourney.merchantRentalNextStep(order) || nextSteps[order.status] || \'等待更新\','),
+    '租赁文案必须来自纯函数，售卖回落到原表'
+  );
+
+  // 动作：走既有协同入口，不新开端点。
+  assert.ok(pageScript.includes("action: 'RETURN_VERIFY'"), '必须提交 RETURN_VERIFY 动作');
+  assert.ok(pageScript.includes("role: 'MERCHANT'"), '必须以商家身份提交');
+  assert.ok(
+    pageScript.includes("const DEFAULT_RETURN_VERIFY_NOTE = '归还核验通过';"),
+    '备注兜底常量必须存在'
+  );
+  assert.ok(
+    pageScript.includes('const note = (res.content || \'\').trim() || DEFAULT_RETURN_VERIFY_NOTE;'),
+    '服务端 requireString(note) 要求非空，留空时必须兜底'
+  );
+});
