@@ -1,17 +1,21 @@
 const { request } = require('../../services/api');
 const { getScooters } = require('../../services/store');
+const { toProductCard } = require('../../utils/product-view');
 
 function normalizeProduct(item) {
   // 可售库存已扣除待支付订单占用，避免展示“有货”却下不了单。
   const sellableStock = Number(item.availableStock !== undefined ? item.availableStock : item.stock || 0);
   const promotion = item.promotion || null;
+  // 形态（售卖 / 租赁）、价格、押金、租期与销量文案统一由 utils/product-view.js 产出。
+  // 该模块是纯函数、不依赖 Page()，因此能被 test/miniapp-runtime.test.js 真实加载并断言；
+  // 写在本文件里则永远只有源码文本断言，租赁文案回归不会被发现。
+  const card = toProductCard(item);
   return {
     ...item,
-    price: Math.round(Number(item.effectivePriceInCents ?? (item.priceInCents || 0)) / 100),
+    ...card,
     originalPrice: promotion?.originalPriceInCents ? Math.round(Number(promotion.originalPriceInCents) / 100) : 0,
     promoText: promotion?.statusText || '',
     subtitle: item.description || '支持校内配送和校园牌照辅助。',
-    range: item.range || (item.id === 'prod_ebike_rent_001' ? '70 km' : '45 km'),
     speed: item.speed || '25 km/h',
     icon: item.icon || '车',
     color: item.color || '#eaf0ff',
@@ -23,8 +27,8 @@ function normalizeProduct(item) {
       : item.merchantScore?.stage === 'LIMITED'
         ? 'watch'
         : item.merchantScore ? 'risk' : 'new',
-    salesText: item.salesCount > 0 ? `已售 ${item.salesCount}` : '新品上架',
-    promoText: item.promotion?.statusText || '',
+    // 销量文案由 toProductCard 统一产出（租赁车为「N 辆在租」），此处显式透出便于阅读与调试。
+    salesText: card.salesText,
     sellableStock,
     urgent: sellableStock > 0 && sellableStock < 5,
     stockText: sellableStock > 0 ? (sellableStock < 5 ? `仅剩 ${sellableStock} 件` : `库存 ${sellableStock}`) : '已售罄'
@@ -74,7 +78,9 @@ Page({
     const sorters = {
       rating: (a, b) => this.ratingWeight(b) - this.ratingWeight(a),
       sales: (a, b) => b.salesCount - a.salesCount,
-      price: (a, b) => a.price - b.price,
+      // 「价格优先」按 sortPriceInCents 比较：售卖车取 effectivePriceInCents（服务端已折算促销价），
+      // 租赁车取 rentalPlan.unitPriceInCents（单位租金）。若直接比较售价，319900 分的租赁车会永远垫底。
+      price: (a, b) => a.sortPriceInCents - b.sortPriceInCents,
       range: (a, b) => rangeValue(b.range) - rangeValue(a.range),
       stock: (a, b) => b.sellableStock - a.sellableStock
     };

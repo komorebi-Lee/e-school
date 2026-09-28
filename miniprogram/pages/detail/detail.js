@@ -1,6 +1,7 @@
 const { request } = require('../../services/api');
 const { getScooter } = require('../../services/store');
 const { loadBusinessConfig } = require('../../services/business');
+const { toDetailView } = require('../../utils/product-view');
 
 function normalizeProduct(product, config = {}, reviewFilter = 'ALL') {
   const description = product.description || '支持校内配送和校园牌照辅助。';
@@ -13,21 +14,24 @@ function normalizeProduct(product, config = {}, reviewFilter = 'ALL') {
   const deliveryHours = Number(config.deliveryResponseHours || 24);
   const plateHours = Number(config.plateResponseHours || 48);
   const afterSaleHours = Number(config.afterSaleResponseHours || 24);
+  // 形态（售卖 / 租赁）、价格、押金、租期与服务承诺文案统一由 utils/product-view.js 产出。
+  // 该模块是纯函数、不依赖 Page()，因此能被 test/miniapp-runtime.test.js 真实加载并断言；
+  // 写在本文件里则永远只有源码文本断言，租赁文案回归不会被发现。
+  const view = toDetailView(product);
+  const { badgeText, deliveryPromiseDetail, platePromiseDetail, ...viewFields } = view;
   return {
     ...product,
+    ...viewFields,
     price: Math.round((product.effectivePriceInCents ?? (product.priceInCents || 0)) / 100),
     promotionPrice: Math.round((product.promotion?.salePriceInCents || 0) / 100),
     originalPrice: Math.round((product.promotion?.originalPriceInCents || 0) / 100),
     promotionStatusText: product.promotion?.statusText || '',
     subtitle: description,
-    badge: product.badge || '校园专享',
-    range: product.range || (product.id === 'prod_ebike_rent_001' ? '70 km' : '45 km'),
+    badge: badgeText,
     speed: product.speed || '25 km/h',
-    policy: product.policy || '支持华中农业大学狮山校区校园牌照辅助申请。',
-    service: product.service || ['校内配送', '平台购车牌照辅助', '售后专人跟进'],
     servicePromises: [
-      { icon: '配', title: `${deliveryHours} 小时内响应`, detail: '确认校内配送安排' },
-      { icon: '牌', title: `${plateHours} 小时内跟进`, detail: '平台购车免费辅助上牌' },
+      { icon: '配', title: `${deliveryHours} 小时内响应`, detail: deliveryPromiseDetail },
+      { icon: '牌', title: `${plateHours} 小时内跟进`, detail: platePromiseDetail },
       { icon: '保', title: `${afterSaleHours} 小时内响应`, detail: '售后工单可请平台协助' }
     ],
     color: product.color || '#eaf0ff',

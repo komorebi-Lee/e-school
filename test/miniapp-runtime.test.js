@@ -26,6 +26,8 @@ const appConfig = JSON.parse(fs.readFileSync(path.join(miniprogramDirectory, 'ap
 // 之后按用例替换 `global.wx` 即可切换桩行为。
 const navigation = require(path.join(miniprogramDirectory, 'utils', 'navigation.js'));
 const cloudRequest = require(path.join(miniprogramDirectory, 'lib', 'cloud-request.js'));
+// 商品展示层映射：纯函数模块，不访问 wx / Page，因此可以在 Node 中真实加载并断言。
+const productView = require(path.join(miniprogramDirectory, 'utils', 'product-view.js'));
 
 const ORDER_FOCUS_KEY = 'campusGoOrderFocusId';
 const ORDER_RECORD_TYPE_KEY = 'campusGoOrderFocusRecordType';
@@ -709,4 +711,212 @@ test('request 透传 method、data 与自定义 header 到云托管调用', asyn
   assert.equal(call.header['x-trace-id'], 'trace_1', '自定义 header 应被透传');
   assert.equal(call.header['content-type'], 'application/json');
   assert.ok(call.header['X-WX-SERVICE'], '应带上云托管服务名');
+});
+
+// ===========================================================================
+// 九、utils/product-view —— 商品展示层映射（售卖 / 租赁）
+// ===========================================================================
+//
+// 背景：租赁后端（下单 / 押金隔离 / 归还归位 / 押金结算）早已就绪并有用例覆盖，
+// 但展示层此前只认识「售价」，租赁车在列表与详情页里被渲染成一台 3199 元的售卖车。
+// 这些映射现在住在纯函数模块里，因此可以在这里真实调用、真实断言。
+//
+// 两个 fixture 直接对齐 `server/src/store.js` 的种子商品：种子改了字段，
+// 这里的断言会立刻反映出来，避免「服务端加了字段、前端却读不到」的静默漂移。
+
+/** 售卖车，对应种子 `prod_ebike_001`。 */
+const SALE_PRODUCT = {
+  id: 'prod_ebike_001',
+  name: '轻风 通勤版',
+  priceInCents: 239900,
+  effectivePriceInCents: 239900,
+  stock: 8,
+  availableStock: 8,
+  range: '45 km',
+  salesCount: 0
+};
+
+/** 租赁车，对应种子 `prod_ebike_rent_002`（日租 1500 分、押金 29900 分、租期 1~30 天）。 */
+const RENTAL_PRODUCT = {
+  id: 'prod_ebike_rent_002',
+  name: '远行 租赁版',
+  priceInCents: 319900,
+  effectivePriceInCents: 319900,
+  stock: 5,
+  availableStock: 5,
+  range: '70 km',
+  salesCount: 0,
+  listingType: 'RENT',
+  rentalPlan: {
+    unit: 'DAY',
+    unitPriceInCents: 1500,
+    minUnits: 1,
+    maxUnits: 30,
+    depositInCents: 29900
+  }
+};
+
+test('product-view 售卖车价格文案与改造前一致，且不出现押金与租期', () => {
+  const card = productView.toProductCard(SALE_PRODUCT);
+
+  assert.equal(card.listingType, 'SALE');
+  assert.equal(card.isRental, false, '售卖车不得被识别为租赁');
+  assert.equal(card.priceText, '¥2399', '售卖车价格应取 effectivePriceInCents');
+  assert.equal(card.depositText, '', '售卖车不应出现押金');
+  assert.equal(card.rentalRangeText, '', '售卖车不应出现租期');
+  assert.equal(card.originalPriceText, '', '售卖车不额外透出「原价」（促销原价走 originalPrice）');
+  assert.equal(card.range, '45 km', '续航应直接来自商品字段');
+});
+
+test('product-view 租赁车按日租金展示，并给出押金与租期', () => {
+  const card = productView.toProductCard(RENTAL_PRODUCT);
+
+  assert.equal(card.listingType, 'RENT');
+  assert.equal(card.isRental, true);
+  assert.equal(card.priceText, '¥15/天', '租赁车价格必须是单位租金而非买断价');
+  assert.equal(card.depositText, '押金 ¥299');
+  assert.ok(card.depositText.includes('299'), '押金文案应含 299');
+  assert.equal(card.rentalRangeText, '可租 1~30 天');
+  assert.ok(card.rentalRangeText.includes('1~30'), '租期文案应含 1~30');
+  assert.equal(card.range, '70 km');
+});
+
+test('product-view 租赁车的排序价是日租金而不是买断售价（护栏）', () => {
+  const rental = productView.toProductCard(RENTAL_PRODUCT);
+  const sale = productView.toProductCard(SALE_PRODUCT);
+
+  assert.equal(rental.sortPriceInCents, 1500, '租赁车排序必须用 rentalPlan.unitPriceInCents');
+  assert.notEqual(rental.sortPriceInCents, 319900, '排序价绝不能落到买断参考价 319900');
+  assert.notEqual(rental.sortPriceInCents, rental.effectivePriceInCents);
+  assert.equal(sale.sortPriceInCents, 239900, '售卖车排序仍用 effectivePriceInCents');
+});
+
+test('product-view 销量文案区分售卖（已售 N）与租赁（N 辆在租）', () => {
+  assert.equal(productView.toProductCard({ ...SALE_PRODUCT, salesCount: 12 }).salesText, '已售 12');
+  assert.equal(productView.toProductCard({ ...SALE_PRODUCT, salesCount: 0 }).salesText, '新品上架');
+  assert.equal(productView.toProductCard({ ...RENTAL_PRODUCT, salesCount: 3 }).salesText, '3 辆在租');
+  assert.equal(productView.toProductCard({ ...RENTAL_PRODUCT, salesCount: 0 }).salesText, '待租');
+});
+
+test('product-view 租赁卡片给「可租赁」角标并额外透出买断参考价', () => {
+  const rental = productView.toProductCard(RENTAL_PRODUCT);
+  const sale = productView.toProductCard(SALE_PRODUCT);
+
+  assert.equal(rental.badgeText, '可租赁');
+  assert.equal(rental.originalPriceText, '原价 ¥3199');
+  assert.equal(rental.priceText.includes('3199'), false, '主价格位不得出现裸买断价 3199');
+  assert.equal(sale.badgeText, '', '售卖车沿用服务端 badge，未下发时保持与改造前一致');
+});
+
+test('product-view 详情页主按钮文案：租赁「立即租赁」，售卖按库存切换', () => {
+  assert.equal(productView.toDetailView(RENTAL_PRODUCT).actionText, '立即租赁');
+  assert.equal(productView.toDetailView(SALE_PRODUCT).actionText, '立即购买');
+  assert.equal(
+    productView.toDetailView({ ...SALE_PRODUCT, availableStock: 0 }).actionText,
+    '暂无可售'
+  );
+  assert.equal(
+    productView.toDetailView({ ...SALE_PRODUCT, availableStock: undefined, stock: 0 }).actionText,
+    '暂无可售',
+    '缺少 availableStock 时应回退到 stock'
+  );
+});
+
+test('product-view 缺省 listingType 一律视为售卖（存量商品向后兼容）', () => {
+  const withoutField = { ...SALE_PRODUCT };
+  delete withoutField.listingType;
+
+  assert.equal(productView.toProductCard(withoutField).listingType, 'SALE');
+  assert.equal(productView.toProductCard(withoutField).isRental, false);
+  assert.equal(productView.toProductCard({ ...SALE_PRODUCT, listingType: undefined }).listingType, 'SALE');
+  assert.equal(productView.toProductCard({ ...SALE_PRODUCT, listingType: null }).listingType, 'SALE');
+  assert.equal(productView.toProductCard({ ...SALE_PRODUCT, listingType: '' }).listingType, 'SALE');
+  assert.equal(productView.toProductCard({ ...SALE_PRODUCT, listingType: 'RENTAL' }).listingType, 'SALE');
+  assert.equal(productView.toProductCard({ ...RENTAL_PRODUCT, listingType: 'rent' }).listingType, 'RENT');
+  assert.equal(productView.toDetailView(withoutField).actionText, '立即购买');
+});
+
+test('product-view 计费单位为小时时展示「小时」', () => {
+  const hourly = {
+    ...RENTAL_PRODUCT,
+    rentalPlan: { unit: 'HOUR', unitPriceInCents: 500, minUnits: 1, maxUnits: 8, depositInCents: 9900 }
+  };
+
+  assert.equal(productView.toProductCard(hourly).priceText, '¥5/小时');
+  assert.equal(productView.toProductCard(hourly).rentalRangeText, '可租 1~8 小时');
+  assert.equal(productView.toDetailView(hourly).rentalUnitLabel, '小时');
+  assert.equal(productView.toDetailView(hourly).headlineText, '校内取还 · 按小时计费');
+  // 服务端只允许 DAY / HOUR，脏单位一律兜底为「天」，不允许出现空白单位。
+  assert.equal(productView.rentalUnitLabel('WEEK'), '天');
+});
+
+test('product-view 「价格优先」排序按单位租金：日租 1500 排在日租 2000 之前（护栏）', () => {
+  // 刻意让「日租便宜的那辆」买断价更贵：只要排序口径退回买断售价，顺序必然反转。
+  const cheaperPerDaySource = {
+    ...RENTAL_PRODUCT,
+    id: 'rent_cheap',
+    priceInCents: 319900,
+    effectivePriceInCents: 319900,
+    rentalPlan: { ...RENTAL_PRODUCT.rentalPlan, unitPriceInCents: 1500 }
+  };
+  const pricierPerDaySource = {
+    ...RENTAL_PRODUCT,
+    id: 'rent_pricey',
+    priceInCents: 199900,
+    effectivePriceInCents: 199900,
+    rentalPlan: { ...RENTAL_PRODUCT.rentalPlan, unitPriceInCents: 2000 }
+  };
+  const cheaperPerDay = productView.toProductCard(cheaperPerDaySource);
+  const pricierPerDay = productView.toProductCard(pricierPerDaySource);
+
+  const byUnitRent = [pricierPerDay, cheaperPerDay].sort((a, b) => a.sortPriceInCents - b.sortPriceInCents);
+  assert.deepEqual(byUnitRent.map((item) => item.sortPriceInCents), [1500, 2000]);
+  assert.deepEqual(byUnitRent.map((item) => item.priceText), ['¥15/天', '¥20/天']);
+
+  // 反证：若沿用改造前的 `item.price`（= effectivePriceInCents / 100）排序，顺序会反过来 ——
+  // 说明这条护栏真的在起作用，而不是恰好两种口径同序。
+  const bySalePrice = [cheaperPerDaySource, pricierPerDaySource]
+    .sort((a, b) => a.effectivePriceInCents - b.effectivePriceInCents);
+  assert.deepEqual(
+    bySalePrice.map((item) => item.effectivePriceInCents),
+    [199900, 319900],
+    '按买断售价排序会得到相反顺序，因此排序口径必须显式区分'
+  );
+});
+
+test('product-view 续航直接来自商品字段，缺省为空且不再按 ID 编造', () => {
+  const withoutRange = { ...SALE_PRODUCT };
+  delete withoutRange.range;
+
+  assert.equal(productView.toProductCard(withoutRange).range, '');
+  assert.equal(productView.toDetailView(withoutRange).range, '');
+  assert.equal(productView.toProductCard({ ...RENTAL_PRODUCT, range: undefined }).range, '');
+  assert.equal(productView.toDetailView({ ...SALE_PRODUCT, range: '60 km' }).range, '60 km');
+});
+
+test('product-view 租赁详情页服务承诺文案不含「购车」', () => {
+  const rental = productView.toDetailView(RENTAL_PRODUCT);
+  const sale = productView.toDetailView(SALE_PRODUCT);
+
+  assert.equal(rental.service.some((item) => item.includes('购车')), false, '租赁服务承诺不得出现「购车」');
+  assert.equal(rental.platePromiseDetail.includes('购车'), false, '租赁牌照承诺不得出现「购车」');
+  assert.equal(rental.policy.includes('购车'), false, '租赁校区适配不得出现「购车」');
+  assert.equal(rental.deliveryPromiseDetail.includes('配送'), false, '租赁车应说「取还」而不是「配送」');
+  // 回归：售卖车的服务承诺保持改造前文案。
+  assert.ok(sale.service.includes('平台购车牌照辅助'));
+  assert.equal(sale.platePromiseDetail, '平台购车免费辅助上牌');
+});
+
+test('product-view 租赁详情页渲染押金、租期与计费单位', () => {
+  const rental = productView.toDetailView(RENTAL_PRODUCT);
+  const sale = productView.toDetailView(SALE_PRODUCT);
+
+  assert.equal(rental.priceText, '¥15/天');
+  assert.ok(rental.depositText.includes('299'), '详情页押金应含 299');
+  assert.equal(rental.rentalRangeText, '可租 1~30 天');
+  assert.equal(rental.rentalUnitLabel, '天');
+  assert.equal(rental.headlineText, '校内取还 · 按天计费');
+  assert.equal(rental.badgeText, '可租赁');
+  assert.equal(sale.headlineText, '校内配送 · 可协助上牌', '售卖车底部栏文案保持改造前一致');
+  assert.equal(sale.badgeText, '校园专享');
 });

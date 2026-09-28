@@ -15,12 +15,12 @@
     <view class="hot-list">
       <view wx:for="{{hotProducts}}" wx:key="id" class="hot-card" data-id="{{item.id}}" bindtap="goDetail">
         <view class="hot-name">{{item.name}}</view>
-        <view class="hot-meta"><text class="hot-price-group"><text wx:if="{{item.originalPrice}}" class="hot-original">¥{{item.originalPrice}}</text>¥{{item.price}}</text><text>{{item.salesText}}</text></view>
+        <view class="hot-meta"><text class="hot-price-group"><text wx:if="{{item.originalPrice}}" class="hot-original">¥{{item.originalPrice}}</text>{{item.priceText}}</text><text>{{item.salesText}}</text></view>
       </view>
     </view>
   </view>
   <view wx:for="{{filtered}}" wx:key="id" class="product card" data-id="{{item.id}}" bindtap="goDetail">
-    <view class="visual" style="background: {{item.color}}"><image wx:if="{{item.imageUrl}}" class="product-image" src="{{item.imageUrl}}" mode="aspectFit" /><text wx:else>{{item.icon}}</text><view class="pill badge">{{item.badge}}</view></view>
+    <view class="visual" style="background: {{item.color}}"><image wx:if="{{item.imageUrl}}" class="product-image" src="{{item.imageUrl}}" mode="aspectFit" /><text wx:else>{{item.icon}}</text><view class="pill badge">{{item.badgeText}}</view></view>
     <view class="body">
       <view class="name">{{item.name}}</view>
       <view class="muted subtitle">{{item.subtitle}}</view>
@@ -30,17 +30,18 @@
         <text class="muted">{{item.ratingCountText}}</text>
         <text class="sales">{{item.salesText}}</text>
       </view>
-      <view class="specs"><text>续航 {{item.range}}</text><text>限速 {{item.speed}}</text></view>
+      <view class="specs"><text wx:if="{{item.range}}">续航 {{item.range}}</text><text>限速 {{item.speed}}</text></view>
       <view class="signal-row">
         <text class="signal service-score score-{{item.scoreTone}}">服务 {{item.scoreText}}</text>
         <text class="signal sales-signal">{{item.salesText}}</text>
         <text class="signal stock-signal {{item.urgent ? 'urgent' : ''}}">{{item.stockText}}</text>
       </view>
       <view class="tags"><text>校内配送</text><text>牌照辅助</text></view>
+      <view class="rental-row" wx:if="{{item.isRental}}"><text class="rental-tag">租赁</text><text class="rental-copy">{{item.depositText}}</text><text class="rental-copy">{{item.rentalRangeText}}</text></view>
       <view class="promo-row" wx:if="{{item.promoText}}"><text class="promo-badge">{{item.promoText}}</text></view>
       <view class="bottom">
         <text class="stock {{item.urgent ? 'urgent' : ''}}">{{item.stockText}}</text>
-        <view class="price-group"><text wx:if="{{item.originalPrice}}" class="original-price">¥{{item.originalPrice}}</text><text class="price">¥{{item.price}}</text></view>
+        <view class="price-group"><text wx:if="{{item.originalPriceText}}" class="original-price">{{item.originalPriceText}}</text><text wx:if="{{item.originalPrice}}" class="original-price">¥{{item.originalPrice}}</text><text class="price">{{item.priceText}}</text></view>
       </view>
     </view>
   </view>

@@ -63,3 +63,11 @@
 .consult-button { margin: 0; padding: 0 22rpx; height: 78rpx; line-height: 78rpx; border-radius: 999rpx; background: #eaf0ff; color: #002fa7; font-size: 23rpx; font-weight: 800; }
 .favorite-button { margin: 0; padding: 0 24rpx; height: 78rpx; line-height: 78rpx; border-radius: 999rpx; background: #f2f5fa; color: #536078; font-size: 23rpx; font-weight: 800; }
 .favorite-button.active { background: #fff7e6; color: #d97706; }
+.rental-line { display: flex; align-items: center; gap: 12rpx; flex-wrap: wrap; margin-top: 16rpx; }
+.rental-tag { padding: 4rpx 12rpx; border-radius: 999rpx; background: #002fa7; color: #fff; font-size: 19rpx; font-weight: 800; }
+.rental-plan { padding: 8rpx 24rpx 20rpx; }
+.rental-plan-row { display: flex; justify-content: space-between; align-items: center; padding: 16rpx 0; border-bottom: 1rpx solid #edf0f5; }
+.rental-plan-row:last-of-type { border-bottom: 0; }
+.rental-plan-label { color: #78849a; font-size: 22rpx; }
+.rental-plan-value { color: #202b45; font-size: 24rpx; font-weight: 800; }
+.rental-plan-note { padding-top: 8rpx; line-height: 1.45; }

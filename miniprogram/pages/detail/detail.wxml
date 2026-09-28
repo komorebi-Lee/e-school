@@ -3,7 +3,7 @@
   <view wx:elif="{{!scooter}}" class="empty card"><view class="muted">车型不存在或已下架</view></view>
   <block wx:else>
   <view class="visual" style="background: {{scooter.color}}"><view class="pill badge">{{scooter.badge}}</view><image wx:if="{{scooter.imageUrl}}" class="product-image" src="{{scooter.imageUrl}}" mode="aspectFit" data-url="{{scooter.imageUrl}}" bindtap="previewProductImage" /><text wx:else>{{scooter.icon}}</text></view>
-  <view class="main card"><view class="name">{{scooter.name}}</view><view class="muted">{{scooter.subtitle}}</view><view class="price-line"><text class="price">¥{{scooter.promotionPrice || scooter.price}}</text><text wx:if="{{scooter.originalPrice}}" class="original">¥{{scooter.originalPrice}}</text><text wx:if="{{scooter.promotionStatusText}}" class="promo">{{scooter.promotionStatusText}}</text></view><view class="seller-line"><text class="seller">{{scooter.merchantName}}</text><text wx:if="{{scooter.merchantRectify}}" class="rectify-badge tone-{{scooter.merchantRectify.toneClass}}">{{scooter.merchantRectify.badgeText}}</text><text class="muted">{{scooter.stockText}}</text></view><view class="muted small" wx:if="{{scooter.stockHint}}">{{scooter.stockHint}}</view></view>
+  <view class="main card"><view class="name">{{scooter.name}}</view><view class="muted">{{scooter.subtitle}}</view><view class="price-line"><text wx:if="{{scooter.isRental}}" class="price">{{scooter.priceText}}</text><text wx:else class="price">¥{{scooter.promotionPrice || scooter.price}}</text><text wx:if="{{scooter.originalPriceText}}" class="original">{{scooter.originalPriceText}}</text><text wx:if="{{scooter.originalPrice}}" class="original">¥{{scooter.originalPrice}}</text><text wx:if="{{scooter.promotionStatusText}}" class="promo">{{scooter.promotionStatusText}}</text></view><view class="rental-line" wx:if="{{scooter.isRental}}"><text class="rental-tag">可租赁</text><text class="muted">{{scooter.depositText}} · {{scooter.rentalRangeText}}</text></view><view class="seller-line"><text class="seller">{{scooter.merchantName}}</text><text wx:if="{{scooter.merchantRectify}}" class="rectify-badge tone-{{scooter.merchantRectify.toneClass}}">{{scooter.merchantRectify.badgeText}}</text><text class="muted">{{scooter.stockText}}</text></view><view class="muted small" wx:if="{{scooter.stockHint}}">{{scooter.stockHint}}</view></view>
   <view class="rectify-banner tone-{{scooter.merchantRectify.toneClass}}" wx:if="{{scooter.merchantRectify}}">
     <view class="rectify-title">{{scooter.merchantRectify.title}}</view>
     <view class="muted small">{{scooter.merchantRectify.detail}}</view>
@@ -43,7 +43,17 @@
     </view>
     <view class="muted small shop-score-note">{{scooter.merchantScoreCard.noteText}}</view>
   </view>
-  <view class="spec-grid"><view class="spec card"><text class="spec-value">{{scooter.range}}</text><text class="muted">参考续航</text></view><view class="spec card"><text class="spec-value">{{scooter.speed}}</text><text class="muted">最高速度</text></view></view>
+  <view class="spec-grid"><view class="spec card" wx:if="{{scooter.range}}"><text class="spec-value">{{scooter.range}}</text><text class="muted">参考续航</text></view><view class="spec card"><text class="spec-value">{{scooter.speed}}</text><text class="muted">最高速度</text></view></view>
+  <block wx:if="{{scooter.isRental}}">
+  <view class="section-title">租赁方案</view>
+  <view class="rental-plan card">
+    <view class="rental-plan-row"><text class="rental-plan-label">计费单位</text><text class="rental-plan-value">按{{scooter.rentalUnitLabel}}计费</text></view>
+    <view class="rental-plan-row"><text class="rental-plan-label">租金</text><text class="rental-plan-value">{{scooter.priceText}}</text></view>
+    <view class="rental-plan-row"><text class="rental-plan-label">押金</text><text class="rental-plan-value">{{scooter.depositText}}</text></view>
+    <view class="rental-plan-row"><text class="rental-plan-label">租期</text><text class="rental-plan-value">{{scooter.rentalRangeText}}</text></view>
+    <view class="muted small rental-plan-note">归还验收通过后结算押金，逾期与损坏按平台规则处理。</view>
+  </view>
+  </block>
   <view class="section-title">校区适配</view><view class="policy card"><text class="check">✓</text>{{scooter.policy}}</view>
   <view class="section-title">服务包含</view><view class="card services"><view wx:for="{{scooter.service}}" wx:key="*this" class="service-item"><text class="check">✓</text>{{item}}</view></view>
 
@@ -82,6 +92,6 @@
   <view class="section-title">买前常问</view>
   <view class="questions card"><view class="question-item" wx:for="{{scooter.questions}}" wx:key="id"><view class="question">{{item.question}}</view><view class="answer">{{item.answer}}</view></view></view>
 
-<view class="safe-space"></view><view class="bottom-bar"><view><view class="muted small">校内配送 · 可协助上牌</view><view class="price">¥{{scooter.promotionPrice || scooter.price}}</view></view><view class="bottom-actions"><button class="favorite-button {{favorited ? 'active' : ''}}" bindtap="toggleFavorite">{{favorited ? '★ 已收藏' : '☆ 收藏'}}</button><button class="consult-button" bindtap="consult">咨询</button><button wx:if="{{!scooter.sellableStock}}" class="restock-button" bindtap="toggleRestockAlert">{{restockSubscribed ? '已登记到货提醒' : '到货提醒我'}}</button><button class="primary-button buy" disabled="{{!scooter.sellableStock}}" bindtap="checkout">{{scooter.sellableStock > 0 ? '立即购买' : '暂无可售'}}</button></view></view>
+<view class="safe-space"></view><view class="bottom-bar"><view><view class="muted small">{{scooter.headlineText}}</view><view class="price">{{scooter.priceText}}</view><view class="muted small" wx:if="{{scooter.isRental}}">{{scooter.depositText}} · {{scooter.rentalRangeText}}</view></view><view class="bottom-actions"><button class="favorite-button {{favorited ? 'active' : ''}}" bindtap="toggleFavorite">{{favorited ? '★ 已收藏' : '☆ 收藏'}}</button><button class="consult-button" bindtap="consult">咨询</button><button wx:if="{{!scooter.sellableStock}}" class="restock-button" bindtap="toggleRestockAlert">{{restockSubscribed ? '已登记到货提醒' : '到货提醒我'}}</button><button class="primary-button buy" disabled="{{!scooter.sellableStock}}" bindtap="checkout">{{scooter.actionText}}</button></view></view>
   </block>
 </view>

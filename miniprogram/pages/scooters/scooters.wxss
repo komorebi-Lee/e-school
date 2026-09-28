@@ -28,3 +28,6 @@
 .service-score.score-risk { background: #ffe9e6; color: #b42318; }
 .service-score.score-new { background: #eaf0ff; color: #002fa7; }
 .stock-signal.urgent { background: #ffe9e6; color: #b42318; }
+.rental-row { display: flex; align-items: center; gap: 12rpx; flex-wrap: wrap; margin-top: 16rpx; padding: 14rpx 18rpx; border-radius: 14rpx; background: #eef6ff; }
+.rental-tag { padding: 4rpx 12rpx; border-radius: 999rpx; background: #002fa7; color: #fff; font-size: 19rpx; font-weight: 800; }
+.rental-copy { color: #33435f; font-size: 21rpx; font-weight: 700; }
