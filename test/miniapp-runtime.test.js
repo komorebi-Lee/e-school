@@ -1327,22 +1327,53 @@ test('rentalCardText 按小时租：单位与精度同时正确', () => {
   assert.equal(card.depositText, '¥99.00', '按小时租的押金同样两位小数');
 });
 
-test('已知缺口（待 team-lead 裁决）：未支付租赁单也会被标成「已支付待取车」', () => {
-  // ★ 这条是**特征化断言**（characterization test），不是「正确行为」的断言。
+test('★ 洞口已关闭：未支付租赁单不点亮任何一步，且不可申请归还', () => {
+  // 本条原先是一条**特征化断言**，把「未支付单被标成已支付待取车」的缺陷钉住，
+  // 等 team-lead 裁决。裁决走「服务端根因」后，服务端已改为：
+  //   建单 ⇒ `rental.status = 'PENDING_PAYMENT'`、`dueAt = null`（占用，不消耗租期）
+  //   支付 ⇒ `startRental()` 置 `'RENTING'` 并按支付时刻起算 `dueAt`
+  // 于是这里翻面：从「记录已知缺口」改为「断言洞口已关闭」。
   //
-  // 真实链路 E2E 实测：下单成功后 `order.status === 'PENDING_PAYMENT'`，但
-  // `rental.status` **已经**是 `'RENTING'`（服务端建单即置位）。因此按 `rental.status`
-  // 推导的进度条会把第 1 步「已支付待取车」标成**已完成**，且 `canRequestReturn` 为 true。
-  //
-  // 服务端 `applyRentalAction` 只校验 `rental.status` 状态机、**不校验是否已支付**，
-  // 所以前端若不禁用按钮，未支付也能提交归还申请（`RENTING → RETURN_REQUESTED`）。
-  //
-  // 把现状钉住，避免「静默修好」或「静默变坏」。修法（加「待支付」步 / 未支付不渲染进度条 /
-  // 归还按钮加支付守卫）属于产品决策，需 team-lead 裁决，故本轮不改。
-  const unpaid = { ...RENTAL_ORDER, status: 'PENDING_PAYMENT' };
+  // 未支付租赁单的**真实形态**（与 server/src/app.js 建单分支逐字对齐）：
+  const unpaid = {
+    ...RENTAL_ORDER,
+    status: 'PENDING_PAYMENT',
+    rental: { ...RENTAL_ORDER.rental, status: 'PENDING_PAYMENT', dueAt: null }
+  };
+  const journey = rentalJourney.buildRentalJourney(unpaid);
 
-  assert.equal(rentalJourney.buildRentalJourney(unpaid).length, 4, '现状：未支付也会渲染 4 步进度条');
-  assert.equal(rentalJourney.buildRentalJourney(unpaid)[0].done, true, '现状：第 1 步「已支付待取车」被标为已完成');
-  assert.equal(rentalJourney.buildRentalJourney(unpaid)[1].current, true, '现状：第 2 步为当前步');
-  assert.equal(rentalJourney.canRequestReturn(unpaid), true, '现状：未支付也允许申请归还');
+  // 仍渲染 4 步：空数组是「非租赁 / 状态无法识别」的降级表示，
+  // 未支付租赁单若也返回空数组，就再也分不出它和普通售卖单。
+  assert.equal(journey.length, 4, '租赁流程照常渲染 4 步，不退化成售卖单的空进度条');
+  assert.deepEqual(journey.map((step) => step.done), [false, false, false, false],
+    '未支付时没有任何一步可标为已完成（尤其第 1 步「已支付待取车」）');
+  assert.deepEqual(journey.map((step) => step.current), [false, false, false, false],
+    '未支付时没有「当前步骤」——租期还没开始');
+
+  // 与服务端状态机对齐：`RETURN_REQUEST` 只允许 `RENTING` 起，未支付自动落在拒绝侧。
+  assert.equal(rentalJourney.canRequestReturn(unpaid), false, '未支付不得申请归还');
+
+  // 租期未起算 ⇒ 不得展示应还时间，也不该为它走秒。
+  assert.equal(rentalJourney.rentalCardText(unpaid).dueAtText, '', 'dueAt 为 null 时不展示应还时间');
+  assert.equal(rentalJourney.rentalCountdownText(unpaid.rental.dueAt, new Date()), '', 'dueAt 为 null 时倒计时文案为空');
+  assert.equal(rentalJourney.shouldRefreshCountdown([unpaid]), false, '没有 dueAt 就不需要为它刷新倒计时');
+});
+
+test('支付成功后（RENTING + dueAt 已写入）恢复正常渲染与归还入口', () => {
+  // 上一条断言「未支付被拦住」，这一条断言「支付后不会被误伤」——
+  // 否则一个过宽的守卫会让真实租赁单永远点不了「申请归还」。
+  const paid = {
+    ...RENTAL_ORDER,
+    status: 'PAID',
+    rental: { ...RENTAL_ORDER.rental, status: 'RENTING', dueAt: '2026-09-23T10:00:00' }
+  };
+
+  assert.deepEqual(
+    rentalJourney.buildRentalJourney(paid).map((step) => step.done),
+    [true, false, false, false],
+    '支付后第 1 步「已支付待取车」才被标为已完成'
+  );
+  assert.equal(rentalJourney.canRequestReturn(paid), true, '支付后可以申请归还');
+  assert.equal(rentalJourney.rentalCardText(paid).dueAtText, '9月23日 10:00 前归还', '支付后展示应还时间');
+  assert.equal(rentalJourney.shouldRefreshCountdown([paid]), true, '支付后应还倒计时需要走秒');
 });

@@ -19,6 +19,8 @@
  *
  * 约定：
  * - **缺省即售卖**：`orderKind` 缺失（存量订单）一律按售卖处理，绝不误判为租赁。
+ * - **未支付即未开始**：`PENDING_PAYMENT` 渲染流程但一步都不点亮，
+ *   绝不把「已支付待取车」标成已完成（服务端租期从**支付成功**起算）。
  * - **状态未知即降级**：`rental.status` 不在白名单时返回空进度条，**不猜**状态。
  * - **只读**：不访问 `wx` / `getApp` / `Page`，不修改入参。
  */
@@ -30,6 +32,8 @@ const ORDER_KIND_RENTAL = 'RENTAL';
 
 /** 租赁状态（服务端 `order.rental.status`）。 */
 const RENTAL_STATUS = Object.freeze({
+  /** 已建单、未支付：租期尚未起算（服务端建单时的初始状态）。 */
+  PENDING_PAYMENT: 'PENDING_PAYMENT',
   RENTING: 'RENTING',
   RETURN_REQUESTED: 'RETURN_REQUESTED',
   RETURNED: 'RETURNED'
@@ -62,6 +66,18 @@ const RENTAL_STATUS_STEP_INDEX = Object.freeze({
 });
 
 /**
+ * 租期尚未起算的状态：进度条照常渲染，但**一步都不点亮**。
+ *
+ * 为什么不返回空数组：空数组在本模块的语义是「这不是租赁单 / 状态无法识别」，
+ * 与售卖单的返回值完全一样。若未支付租赁单也返回空数组，订单页就再也分不出
+ * 「待支付的租赁单」和「普通售卖单」—— 而那正是 T39 要消除的混淆。
+ * 4 步全灰（无 `done`、无 `current`）表达的是「流程还没开始」，信息量严格更多。
+ *
+ * @type {ReadonlyArray<string>}
+ */
+const RENTAL_NOT_STARTED_STATUSES = Object.freeze([RENTAL_STATUS.PENDING_PAYMENT]);
+
+/**
  * 是否为租赁订单。
  *
  * `orderKind` 缺失（存量订单）或非 `'RENTAL'` 一律视为售卖。
@@ -90,13 +106,29 @@ function rentalStatusOf(order) {
 /**
  * 构造租赁进度条。
  *
+ * - `PENDING_PAYMENT`（已建单未支付）：4 步全部 `done: false`、`current: false`
+ *   —— 「租期未开始」。**绝不允许**把第 1 步标成已完成（那是改动前的缺陷：
+ *   用户没付钱就看到「已支付待取车」）。
+ * - `RENTING` / `RETURN_REQUESTED` / `RETURNED`：按状态点亮。
+ * - 状态不在白名单：返回空数组，**不猜**状态。
+ *
  * @param {object|null|undefined} order 订单记录（需 `orderKind === 'RENTAL'` 与 `rental.status`）。
  * @returns {Array<{key: string, title: string, detail: string, done: boolean, current: boolean}>}
- *   4 步进度条；非租赁或状态未知时返回空数组。
+ *   4 步进度条；非租赁或状态无法识别时返回空数组。
  */
 function buildRentalJourney(order) {
   if (!isRentalOrder(order)) return [];
-  const currentIndex = RENTAL_STATUS_STEP_INDEX[rentalStatusOf(order)];
+  const status = rentalStatusOf(order);
+  if (RENTAL_NOT_STARTED_STATUSES.includes(status)) {
+    return RENTAL_STEPS.map((step) => ({
+      key: step.key,
+      title: step.title,
+      detail: step.detail,
+      done: false,
+      current: false
+    }));
+  }
+  const currentIndex = RENTAL_STATUS_STEP_INDEX[status];
   if (currentIndex === undefined) return [];
   return RENTAL_STEPS.map((step, index) => ({
     key: step.key,
@@ -207,6 +239,10 @@ function rentalCardText(order) {
  * 只有**租赁单**且状态为 `RENTING` 才可申请归还：
  * `RETURN_REQUESTED`（已申请）与 `RETURNED`（已归还）再点都是重复提交。
  *
+ * 未支付单（`PENDING_PAYMENT`）**自动**落在拒绝侧 —— 租期还没起算，
+ * 谈不上归还。这不是额外加的一道支付判断，而是与 `RENTING` 单一来源对齐：
+ * 服务端 `RENTAL_ACTIONS.RETURN_REQUEST` 只允许 `RENTING` 起，两边口径一致。
+ *
  * @param {object|null|undefined} order 订单记录。
  * @returns {boolean} 是否显示「申请归还」。
  */
@@ -268,6 +304,7 @@ module.exports = {
   ORDER_KIND_RENTAL,
   RENTAL_STATUS,
   RENTAL_STEPS,
+  RENTAL_NOT_STARTED_STATUSES,
   isRentalOrder,
   rentalStatusOf,
   buildRentalJourney,
