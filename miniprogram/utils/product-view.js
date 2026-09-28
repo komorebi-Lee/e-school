@@ -27,6 +27,20 @@ const RENTAL_UNIT_LABELS = {
 /** 未知单位时的兜底单位（服务端只允许 DAY / HOUR）。 */
 const DEFAULT_RENTAL_UNIT = 'DAY';
 
+/**
+ * 租赁计费单位的步长（毫秒）。
+ *
+ * 与 `server/src/app.js` 计算 `rental.dueAt` 的步长**必须一致**：
+ * 服务端 `stepMs = item.rentalUnit === 'HOUR' ? 60*60*1000 : 24*60*60*1000`。
+ * 前端提前展示的到期时间一旦与服务端口径不同，用户就会按错误时点归还。
+ *
+ * @type {Readonly<Record<string, number>>}
+ */
+const RENTAL_UNIT_STEP_MS = {
+  DAY: 24 * 60 * 60 * 1000,
+  HOUR: 60 * 60 * 1000
+};
+
 /** 租赁商品的角标文案（售卖车沿用商品自带的 badge）。 */
 const RENTAL_BADGE_TEXT = '可租赁';
 
@@ -107,14 +121,26 @@ function formatYuan(cents, fractionDigits = YUAN_QUOTE_DIGITS) {
 }
 
 /**
+ * 把任意输入归一化为合法的计费单位键（`'DAY'` / `'HOUR'`）。
+ *
+ * 服务端只允许这两种单位，脏值一律兜底为 `'DAY'`，避免出现空白单位。
+ *
+ * @param {unknown} unit `'DAY'` / `'HOUR'`。
+ * @returns {'DAY'|'HOUR'} 合法单位键。
+ */
+function normalizeRentalUnit(unit) {
+  const key = String(unit === undefined || unit === null ? '' : unit).trim().toUpperCase();
+  return RENTAL_UNIT_LABELS[key] ? key : DEFAULT_RENTAL_UNIT;
+}
+
+/**
  * 租赁计费单位的中文标签。
  *
  * @param {unknown} unit `'DAY'` / `'HOUR'`。
  * @returns {string} `'天'` / `'小时'`。
  */
 function rentalUnitLabel(unit) {
-  const key = String(unit === undefined || unit === null ? '' : unit).trim().toUpperCase();
-  return RENTAL_UNIT_LABELS[key] || RENTAL_UNIT_LABELS[DEFAULT_RENTAL_UNIT];
+  return RENTAL_UNIT_LABELS[normalizeRentalUnit(unit)];
 }
 
 /**
@@ -265,19 +291,189 @@ function toDetailView(product = {}) {
   };
 }
 
+// ===========================================================================
+// 结算页（T38）：租赁租期选择与费用拆分
+// ===========================================================================
+//
+// 结算页 `checkout.js` 顶层调用 `Page()`，在 Node 里无法加载，因此「选 3 天要付多少」
+// 这类**直接决定用户付多少钱**的逻辑必须住在纯函数里，才能被运行时测试真实断言。
+//
+// 口径与 `server/src/app.js` 的建单逻辑逐字对齐（`buildRentalOrderItem` +
+// `totalInCents += rentalDepositTotalInCents`）：
+//   租金合计 = 单位租金 × 租期
+//   押金     = 每单固定一份（与服务端 `createRentalDeposit` 的「每单固定押金」一致）
+//   应付合计 = 租金合计 + 押金 + 配送费
+//
+// ★ 押金**绝不**并入租金合计：服务端 L1 防线要求押金不进 `subtotalInCents`，
+//   前端若把两者合并展示，用户看到的「租金」就会与实际分账口径不符。
+
+/**
+ * 归一化传入的租赁方案。
+ *
+ * 同时接受三种形态，方便调用方少写胶水代码：
+ * - 已归一化的方案（`readRentalPlan` 的返回值）；
+ * - 原始 `rentalPlan` 对象；
+ * - 整个商品对象（自动取其 `rentalPlan`）。
+ *
+ * 单位租金缺失或非正数视为方案损坏，返回 `null`（不租赁，绝不按售价计价）。
+ *
+ * @param {object|null|undefined} input 租赁方案 / 商品对象。
+ * @returns {object|null} 归一化方案；损坏返回 `null`。
+ */
+function normalizeRentalPlanInput(input) {
+  if (!input || typeof input !== 'object') return null;
+  const plan = input.rentalPlan && typeof input.rentalPlan === 'object' ? input.rentalPlan : input;
+  if (!plan || typeof plan !== 'object') return null;
+  const unitPriceInCents = Math.round(toFiniteNumber(plan.unitPriceInCents));
+  if (!(unitPriceInCents > 0)) return null;
+  const minUnits = Math.max(1, Math.round(toFiniteNumber(plan.minUnits, 1)));
+  const maxUnits = Math.max(minUnits, Math.round(toFiniteNumber(plan.maxUnits, minUnits)));
+  return {
+    unit: normalizeRentalUnit(plan.unit),
+    unitPriceInCents,
+    minUnits,
+    maxUnits,
+    depositInCents: Math.max(0, Math.round(toFiniteNumber(plan.depositInCents)))
+  };
+}
+
+/**
+ * 把租期夹取到 `[minUnits, maxUnits]` 内并取整。
+ *
+ * 结算页的步进器已拦住越界，这里再夹一次是**纵深防御**：
+ * 任何调用方（含未来的其他入口）都不可能用越界租期算出金额。
+ *
+ * @param {unknown} units 原始租期。
+ * @param {object} plan 归一化方案。
+ * @returns {number} 合法租期。
+ */
+function clampRentalUnits(units, plan) {
+  const parsed = Math.round(toFiniteNumber(units, plan.minUnits));
+  return Math.min(plan.maxUnits, Math.max(plan.minUnits, parsed));
+}
+
+/**
+ * 租赁费用拆分。
+ *
+ * @param {object} [options] 入参。
+ * @param {object|null} [options.rentalPlan] 租赁方案（或商品对象）。
+ * @param {number} [options.rentalUnits] 用户选择的租期。
+ * @param {number} [options.deliveryFeeInCents] 校内配送费（分）。
+ * @returns {object|null} 费用拆分；非租赁返回 `null`（调用方据此走售卖分支）。
+ */
+function computeRentalFees({ rentalPlan, rentalUnits, deliveryFeeInCents } = {}) {
+  const plan = normalizeRentalPlanInput(rentalPlan);
+  if (!plan) return null;
+  const units = clampRentalUnits(rentalUnits, plan);
+  const unitRentInCents = plan.unitPriceInCents;
+  const rentInCents = unitRentInCents * units;
+  const depositInCents = plan.depositInCents;
+  const delivery = Math.max(0, Math.round(toFiniteNumber(deliveryFeeInCents)));
+  const totalInCents = rentInCents + depositInCents + delivery;
+  return {
+    rentalUnits: units,
+    unitRentInCents,
+    rentInCents,
+    depositInCents,
+    deliveryFeeInCents: delivery,
+    totalInCents,
+    // 租金是「报价」：整数元、去尾零。
+    rentText: `¥${formatYuan(rentInCents)}`,
+    // 押金是「可退还、可被部分扣除的账」：固定两位小数。
+    depositText: `¥${formatYuan(depositInCents, YUAN_EXACT_DIGITS)}`,
+    deliveryFeeText: delivery > 0 ? `¥${formatYuan(delivery)}` : '免费',
+    // 应付合计同时含押金，属于「实付」；这里仍按报价口径展示整数元（合计是用户实付的钱，
+    // 精度由押金那一行负责，避免同一张卡里出现两种「总价」写法）。
+    totalText: `¥${formatYuan(totalInCents)}`,
+    depositNoticeText: `押金 ¥${formatYuan(depositInCents, YUAN_EXACT_DIGITS)} 在归还核验后原路退回，不计入商家分账`
+  };
+}
+
+/**
+ * 把到期时间格式化为「M月D日 HH:mm 前归还」。
+ *
+ * @param {Date} date 到期时间。
+ * @returns {string} 展示文案。
+ */
+function formatRentalDueAt(date) {
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${month}月${day}日 ${hours}:${minutes} 前归还`;
+}
+
+/**
+ * 计算租赁到期时间。
+ *
+ * ⚠️ **只展示到期时间，不编造免罚宽限**：服务端 `rentalPlan` 目前没有
+ * 宽限期 / 超时费率字段，任何「之后 N 小时免罚」的文案都是凭空捏造。
+ * 待 `T32` 扩展模型后再补。
+ *
+ * @param {number} rentalUnits 租期。
+ * @param {string} unit 计费单位（`'DAY'` / `'HOUR'`）。
+ * @param {Date|string|number} [now] 起租时间，缺省为当前时间。
+ * @returns {{dueAt: string, dueAtText: string}} 到期时间（ISO）与展示文案。
+ */
+function computeRentalDueAt(rentalUnits, unit, now) {
+  const base = now instanceof Date ? now : (now === undefined || now === null ? new Date() : new Date(now));
+  const safeBase = Number.isFinite(base.getTime()) ? base : new Date();
+  const stepMs = RENTAL_UNIT_STEP_MS[normalizeRentalUnit(unit)];
+  const units = Math.max(0, Math.round(toFiniteNumber(rentalUnits)));
+  const dueDate = new Date(safeBase.getTime() + units * stepMs);
+  return { dueAt: dueDate.toISOString(), dueAtText: formatRentalDueAt(dueDate) };
+}
+
+/**
+ * 租期步进（+1 / -1）的越界拦截。
+ *
+ * 返回 `accepted: false` 时调用方**必须保持原值不变**并（可选）提示 `message`。
+ * `locked: true` 表示 `minUnits === maxUnits`，选择器整体不可用。
+ *
+ * 抽成纯函数是为了让「越界不可增加」这条规则**可被运行时断言**，
+ * 而不是只能对页面做源码文本断言（文本断言连注释都能满足）。
+ *
+ * @param {object} [options] 入参。
+ * @param {object|null} [options.rentalPlan] 租赁方案（或商品对象）。
+ * @param {number} [options.rentalUnits] 当前租期。
+ * @param {'increase'|'decrease'} [options.action] 步进方向。
+ * @returns {object|null} `{ accepted, locked, rentalUnits, message }`；非租赁返回 `null`。
+ */
+function stepRentalUnits({ rentalPlan, rentalUnits, action } = {}) {
+  const plan = normalizeRentalPlanInput(rentalPlan);
+  if (!plan) return null;
+  const current = clampRentalUnits(rentalUnits, plan);
+  const label = rentalUnitLabel(plan.unit);
+  if (plan.minUnits >= plan.maxUnits) {
+    return { accepted: false, locked: true, rentalUnits: current, message: `该商品租期固定为 ${plan.minUnits} ${label}` };
+  }
+  const delta = action === 'increase' ? 1 : action === 'decrease' ? -1 : 0;
+  if (delta === 0) return { accepted: false, locked: false, rentalUnits: current, message: '' };
+  const next = current + delta;
+  if (next < plan.minUnits) return { accepted: false, locked: false, rentalUnits: current, message: `至少租 ${plan.minUnits} ${label}` };
+  if (next > plan.maxUnits) return { accepted: false, locked: false, rentalUnits: current, message: `最多可租 ${plan.maxUnits} ${label}` };
+  return { accepted: true, locked: false, rentalUnits: next, message: '' };
+}
+
 module.exports = {
   LISTING_TYPE_SALE,
   LISTING_TYPE_RENT,
   RENTAL_UNIT_LABELS,
+  RENTAL_UNIT_STEP_MS,
   YUAN_QUOTE_DIGITS,
   YUAN_EXACT_DIGITS,
   normalizeListingType,
   formatYuan,
+  normalizeRentalUnit,
   rentalUnitLabel,
   readRentalPlan,
   effectivePriceInCentsOf,
   sellableStockOf,
   salesTextOf,
   toProductCard,
-  toDetailView
+  toDetailView,
+  normalizeRentalPlanInput,
+  computeRentalFees,
+  computeRentalDueAt,
+  stepRentalUnits
 };

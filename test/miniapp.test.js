@@ -134,11 +134,12 @@ test('checkout supports bounded e-bike purchase quantity', () => {
   const styles = readMiniappFile(path.join('pages', 'checkout', 'checkout.wxss'));
 
   assert.ok(source.includes('quantity: 1, maxQuantity: 1'), 'checkout should initialize quantity state');
-  assert.ok(source.includes('Math.max(1, Math.min(sellableStock, 5))'), 'quantity cap should follow sellable stock');
+  assert.ok(source.includes('Math.max(1, Math.min(sellableStock, MAX_ORDER_QUANTITY_PER_ITEM))'), 'quantity cap should follow sellable stock and the named platform cap');
   assert.ok(source.includes('setQuantity'), 'checkout should expose quantity controls');
   assert.ok(source.includes('Math.max(1, Math.min(Number(this.data.quantity || 1), this.data.maxQuantity || 1))'), 'totals should guard against stale quantity state');
   assert.ok(source.includes('quantity > Number(scooter.sellableStock || 0)'), 'submit should guard against stock changes');
-  assert.ok(source.includes('items: [{ productId: scooter.id, quantity }]'), 'order payload should submit selected quantity');
+  assert.ok(source.includes('{ productId: scooter.id, quantity }'), 'order payload should submit selected quantity');
+  assert.ok(source.includes('rentalUnits: this.data.rentalUnits'), 'rental order payload should submit the chosen rental units');
   assert.ok(markup.includes('每辆车同步免费校园牌照辅助'), 'multi-bike checkout should set plate assistance expectations');
   assert.ok(markup.includes('data-action="increase"') && markup.includes('data-action="decrease"'), 'quantity UI should support both actions');
   assert.ok(markup.includes('bindtap="setQuantity"'), 'quantity controls should be interactive');

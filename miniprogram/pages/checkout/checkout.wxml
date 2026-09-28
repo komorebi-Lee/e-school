@@ -1,6 +1,6 @@
   <view wx:if="{{scooter}}" class="page">
-  <view class="summary card"><view class="mark" style="background: {{scooter.color}}">{{scooter.icon}}</view><view><view class="name">{{scooter.name}}</view><view class="muted">{{scooter.subtitle}}</view><view class="price-line"><text class="price">¥{{scooter.price}}</text><text wx:if="{{scooter.originalPrice}}" class="original">¥{{scooter.originalPrice}}</text><text wx:if="{{scooter.promoText}}" class="promo">{{scooter.promoText}}</text></view><view class="muted small" wx:if="{{scooter.sellableStock < 5}}">{{scooter.sellableStock > 0 ? '仅剩 ' + scooter.sellableStock + ' 件' : '已售罄'}}</view></view></view>
-  <view class="quantity-row card" wx:if="{{!scooter.stockNote}}">
+  <view class="summary card"><view class="mark" style="background: {{scooter.color}}">{{scooter.icon}}</view><view><view class="name">{{scooter.name}}</view><view class="muted">{{scooter.subtitle}}</view><view class="price-line"><block wx:if="{{isRental}}"><text class="price">{{scooter.priceText}}</text><text wx:if="{{scooter.originalPriceText}}" class="original">{{scooter.originalPriceText}}</text></block><block wx:else><text class="price">¥{{scooter.price}}</text><text wx:if="{{scooter.originalPrice}}" class="original">¥{{scooter.originalPrice}}</text><text wx:if="{{scooter.promoText}}" class="promo">{{scooter.promoText}}</text></block></view><view class="muted small" wx:if="{{isRental && scooter.sellableStock < 5}}">{{scooter.sellableStock > 0 ? '仅剩 ' + scooter.sellableStock + ' 台可租' : '已租满'}}</view><view class="muted small" wx:if="{{!isRental && scooter.sellableStock < 5}}">{{scooter.sellableStock > 0 ? '仅剩 ' + scooter.sellableStock + ' 件' : '已售罄'}}</view></view></view>
+  <view class="quantity-row card" wx:if="{{!scooter.stockNote && !isRental}}">
     <view><view class="quantity-title">购买数量</view><view class="muted small">每辆车同步免费校园牌照辅助 · 最多可买 {{maxQuantity}} 辆</view></view>
     <view class="quantity-control">
       <view class="quantity-button {{quantity <= 1 ? 'disabled' : ''}}" data-action="decrease" bindtap="setQuantity">-</view>
@@ -8,6 +8,15 @@
       <view class="quantity-button {{quantity >= maxQuantity ? 'disabled' : ''}}" data-action="increase" bindtap="setQuantity">+</view>
     </view>
   </view>
+  <view class="rental-row card" wx:if="{{isRental && !scooter.stockNote}}">
+    <view><view class="quantity-title">租期选择</view><view class="muted small">按{{rentalUnitLabel}}计费 · 可租 {{rentalPlan.minUnits}}~{{rentalPlan.maxUnits}} {{rentalUnitLabel}} · 押金每单固定一份</view></view>
+    <view class="quantity-control">
+      <view class="quantity-button {{rentalUnits <= rentalPlan.minUnits ? 'disabled' : ''}}" data-action="decrease" bindtap="setRentalUnits">-</view>
+      <view class="quantity-value">{{rentalUnits}}</view>
+      <view class="quantity-button {{rentalUnits >= rentalPlan.maxUnits ? 'disabled' : ''}}" data-action="increase" bindtap="setRentalUnits">+</view>
+    </view>
+  </view>
+  <view class="rental-due card" wx:if="{{isRental && rentalDue}}"><text class="rental-due-label">归还时点</text><text class="rental-due-value">{{rentalDue.dueAtText}}</text></view>
   <view class="empty card" wx:if="{{scooter.stockNote}}"><view class="muted">{{scooter.stockNote}}</view></view>
   <view class="address-head">
     <text class="address-title">常用地址</text>
@@ -35,8 +44,16 @@
     <view class="checkbox {{saveAddress ? 'checked' : ''}}" bindtap="setSaveAddress"><text wx:if="{{saveAddress}}">✓</text></view>
     <text>保存为我的常用地址，下次下单直接选择</text>
   </view>
-  <view class="price-summary card"><view class="summary-row"><text>车辆费用</text><text>¥{{itemsFee}}</text></view><view class="summary-row"><text>校内配送</text><text>{{config.deliveryFeeText || '免费'}}</text></view><view class="summary-row total"><text>合计</text><text>¥{{totalFee}}</text></view><view class="summary-note">提交后 {{config.paymentTimeoutText || '30 分钟'}} 内完成支付；{{config.deliveryResponseHours || 24}}小时内响应，支付成功后进入待配送并同步免费校园牌照辅助。</view></view>
-  <view class="agreement">支付成功后创建校内配送订单，并同步免费校园牌照辅助。</view>
+  <view class="price-summary card" wx:if="{{!isRental}}"><view class="summary-row"><text>车辆费用</text><text>¥{{itemsFee}}</text></view><view class="summary-row"><text>校内配送</text><text>{{config.deliveryFeeText || '免费'}}</text></view><view class="summary-row total"><text>合计</text><text>¥{{totalFee}}</text></view><view class="summary-note">提交后 {{config.paymentTimeoutText || '30 分钟'}} 内完成支付；{{config.deliveryResponseHours || 24}}小时内响应，支付成功后进入待配送并同步免费校园牌照辅助。</view></view>
+  <view class="price-summary card" wx:if="{{isRental && rentalFees}}">
+    <view class="summary-row"><text>租金合计</text><text>{{rentalFees.rentText}}</text></view>
+    <view class="summary-row"><text>押金</text><text>{{rentalFees.depositText}}</text></view>
+    <view class="summary-row"><text>校内配送</text><text>{{rentalFees.deliveryFeeText}}</text></view>
+    <view class="summary-row total"><text>应付合计</text><text>{{rentalFees.totalText}}</text></view>
+    <view class="summary-note deposit-notice">{{rentalFees.depositNoticeText}}</view>
+    <view class="summary-note">提交后 {{config.paymentTimeoutText || '30 分钟'}} 内完成支付；支付成功后进入待配送，归还核验通过后押金原路退回。</view>
+  </view>
+  <view class="agreement">{{isRental ? '支付成功后创建校内租赁订单，归还核验通过后押金原路退回。' : '支付成功后创建校内配送订单，并同步免费校园牌照辅助。'}}</view>
   <view class="agreement-row">
     <view class="checkbox {{agreed ? 'checked' : ''}}" bindtap="toggleAgreement"><text wx:if="{{agreed}}">✓</text></view>
     <text>我已阅读并同意</text><text class="agreement-link" bindtap="openAgreement">《服务协议》</text><text>与</text><text class="agreement-link" bindtap="openPrivacy">《隐私政策》</text>

@@ -950,3 +950,155 @@ test('product-view 租赁详情页渲染押金、租期与计费单位', () => {
   assert.equal(sale.headlineText, '校内配送 · 可协助上牌', '售卖车底部栏文案保持改造前一致');
   assert.equal(sale.badgeText, '校园专享');
 });
+
+// ===========================================================================
+// 十、utils/product-view —— 结算页租期与费用拆分（T38）
+// ===========================================================================
+//
+// 背景：结算页 `checkout.js` 顶层调用 `Page()`，Node 无法加载，因此「选 3 天要付多少」
+// 这类**直接决定用户付多少钱**的逻辑被抽成纯函数，在这里真实调用、真实断言。
+//
+// 口径与 `server/src/app.js` 建单逻辑逐字对齐：
+//   租金合计 = 单位租金 × 租期；押金每单固定一份；应付合计 = 租金 + 押金 + 配送费。
+// ★ 押金**绝不**并入租金合计（服务端 L1 防线要求押金不进 `subtotalInCents`）。
+
+test('computeRentalFees 租 3 天：租金 4500 + 押金 29900 + 免配送 = 34400（与服务端一致）', () => {
+  const plan = RENTAL_PRODUCT.rentalPlan;
+  const fees = productView.computeRentalFees({ rentalPlan: plan, rentalUnits: 3, deliveryFeeInCents: 0 });
+
+  // ① 应付合计
+  assert.equal(fees.totalInCents, 34400, '应付合计应为 租金4500 + 押金29900 + 配送0');
+  // ② 三项拆分
+  assert.equal(fees.rentInCents, 4500, '租金合计 = 单位租金1500 × 租期3');
+  assert.equal(fees.depositInCents, 29900, '押金每单固定一份');
+  assert.equal(fees.deliveryFeeInCents, 0, '免配送时配送费为 0');
+  // ⑪ 反证：押金绝不并入租金（用原始方案单价，而非计算结果回代）
+  assert.equal(fees.rentInCents, plan.unitPriceInCents * 3, '租金只由单位租金×租期构成');
+  assert.notEqual(fees.rentInCents, fees.depositInCents, '押金不得被并入租金合计');
+  assert.notEqual(fees.rentInCents, 34400, '租金合计不得包含押金');
+  // ⑫ 反证：合计恒等式
+  assert.equal(
+    fees.totalInCents,
+    plan.unitPriceInCents * 3 + plan.depositInCents + 0,
+    '合计 = 单位租金×租期 + 押金 + 配送费'
+  );
+});
+
+test('computeRentalFees 金额文案：租金/合计按报价去尾零，押金固定两位小数', () => {
+  const fees = productView.computeRentalFees({ rentalPlan: RENTAL_PRODUCT.rentalPlan, rentalUnits: 3, deliveryFeeInCents: 0 });
+
+  // ③ 押金两位小数 + 租金整数元（报价口径），并用反证钉住「精度不能用反」
+  assert.equal(fees.depositText, '¥299.00', '押金是可退还金额，必须两位小数');
+  assert.equal(fees.rentText, '¥45', '租金合计是报价，整数元去尾零');
+  assert.notEqual(fees.rentText, '¥45.00', '租金不得带两位小数（精度用反了要能抓住）');
+  assert.equal(fees.totalText, '¥344', '应付合计按报价口径展示');
+  assert.equal(fees.deliveryFeeText, '免费', '免配送时展示「免费」而不是 ¥0');
+});
+
+test('computeRentalFees 押金说明必须显式告知「原路退回」与「不计入商家分账」', () => {
+  const fees = productView.computeRentalFees({ rentalPlan: RENTAL_PRODUCT.rentalPlan, rentalUnits: 1, deliveryFeeInCents: 0 });
+
+  // ④ 押金必须被显式说明，避免用户以为押金是消费
+  assert.ok(fees.depositNoticeText.includes('原路退回'), '押金说明必须写明原路退回');
+  assert.ok(fees.depositNoticeText.includes('不计入商家分账'), '押金说明必须写明不计入商家分账');
+  assert.ok(fees.depositNoticeText.includes('¥299.00'), '押金说明中的金额与押金行同精度');
+});
+
+test('computeRentalFees 含配送费时合计 = 租金 + 押金 + 配送费', () => {
+  const deliveryFeeInCents = 500;
+  const fees = productView.computeRentalFees({ rentalPlan: RENTAL_PRODUCT.rentalPlan, rentalUnits: 3, deliveryFeeInCents });
+
+  // ⑤ 配送费是「加项」，不能挤占租金或押金
+  assert.equal(fees.totalInCents, 4500 + 29900 + deliveryFeeInCents, '合计必须叠加配送费');
+  assert.equal(fees.deliveryFeeInCents, deliveryFeeInCents, '配送费原样透出');
+  assert.equal(fees.deliveryFeeText, '¥5', '有配送费时展示金额');
+});
+
+test('computeRentalDueAt 按天/按小时计算到期时间，且不编造服务端不存在的免罚宽限', () => {
+  const dayBase = new Date('2026-09-20T10:00:00');
+  const dayDue = productView.computeRentalDueAt(3, 'DAY', dayBase);
+  // ⑥ 租 3 天 = 精确 +72 小时
+  assert.equal(new Date(dayDue.dueAt).getTime() - dayBase.getTime(), 3 * 24 * 60 * 60 * 1000, '租 3 天应精确 +72 小时');
+  assert.ok(dayDue.dueAtText.includes('前归还'), '到期文案应说明归还时点');
+  assert.equal(dayDue.dueAtText.includes('免罚'), false, '服务端没有宽限字段，前端不得编造免罚');
+
+  const hourBase = new Date('2026-09-20T10:00:00');
+  const hourDue = productView.computeRentalDueAt(2, 'HOUR', hourBase);
+  // ⑦ 租 2 小时 = 精确 +2 小时
+  assert.equal(new Date(hourDue.dueAt).getTime() - hourBase.getTime(), 2 * 60 * 60 * 1000, '租 2 小时应精确 +2 小时');
+  assert.ok(hourDue.dueAtText.includes('前归还'), '按小时租同样展示归还时点');
+});
+
+test('stepRentalUnits 越界不增加/不减少，被拒时保持原值', () => {
+  const plan = RENTAL_PRODUCT.rentalPlan;
+
+  // ⑧ 超出上限
+  const atMax = productView.stepRentalUnits({ rentalPlan: plan, rentalUnits: 30, action: 'increase' });
+  assert.equal(atMax.accepted, false, '到达上限后不可再增加');
+  assert.equal(atMax.rentalUnits, 30, '被拒绝时租期必须保持原值');
+  assert.ok(atMax.message.includes('最多'), '应提示上限');
+
+  // ⑧ 低于下限
+  const atMin = productView.stepRentalUnits({ rentalPlan: plan, rentalUnits: 1, action: 'decrease' });
+  assert.equal(atMin.accepted, false, '到达下限后不可再减少');
+  assert.equal(atMin.rentalUnits, 1, '被拒绝时租期必须保持原值');
+  assert.ok(atMin.message.includes('至少'), '应提示下限');
+
+  // 正常步进
+  const stepped = productView.stepRentalUnits({ rentalPlan: plan, rentalUnits: 3, action: 'increase' });
+  assert.equal(stepped.accepted, true, '区间内应允许增加');
+  assert.equal(stepped.rentalUnits, 4);
+});
+
+test('stepRentalUnits 在 minUnits === maxUnits 时选择器整体不可用', () => {
+  const fixedPlan = { ...RENTAL_PRODUCT.rentalPlan, minUnits: 3, maxUnits: 3 };
+
+  // ⑨ 固定租期：两个方向都不可改变
+  for (const action of ['increase', 'decrease']) {
+    const result = productView.stepRentalUnits({ rentalPlan: fixedPlan, rentalUnits: 3, action });
+    assert.equal(result.accepted, false, `${action} 不应改变固定租期`);
+    assert.equal(result.locked, true, '固定租期应标记为锁定（选择器整体不可用）');
+    assert.equal(result.rentalUnits, 3, '固定租期必须保持原值');
+  }
+});
+
+test('computeRentalFees 对售卖商品返回 null，调用方据此走售卖分支', () => {
+  // ⑩ 非租赁一律返回 null（而不是算出一堆 0 误导调用方）
+  assert.equal(productView.computeRentalFees({ rentalPlan: null, rentalUnits: 1, deliveryFeeInCents: 0 }), null);
+  assert.equal(productView.computeRentalFees({}), null);
+  assert.equal(productView.computeRentalFees(), null);
+  assert.equal(productView.computeRentalFees({ rentalPlan: SALE_PRODUCT.rentalPlan, rentalUnits: 1, deliveryFeeInCents: 0 }), null);
+  assert.equal(productView.stepRentalUnits({ rentalPlan: null, rentalUnits: 1, action: 'increase' }), null);
+});
+
+test('computeRentalFees 同时接受商品对象、原始方案与 readRentalPlan 的输出', () => {
+  const fromProduct = productView.computeRentalFees({ rentalPlan: RENTAL_PRODUCT, rentalUnits: 3, deliveryFeeInCents: 0 });
+  const fromPlan = productView.computeRentalFees({ rentalPlan: RENTAL_PRODUCT.rentalPlan, rentalUnits: 3, deliveryFeeInCents: 0 });
+  const fromRead = productView.computeRentalFees({ rentalPlan: productView.readRentalPlan(RENTAL_PRODUCT), rentalUnits: 3, deliveryFeeInCents: 0 });
+
+  assert.equal(fromProduct.totalInCents, 34400, '传整个商品对象时应自动取其 rentalPlan');
+  assert.equal(fromPlan.totalInCents, 34400, '传原始 rentalPlan 时应直接使用');
+  assert.equal(fromRead.totalInCents, 34400, '传 readRentalPlan 的输出时应可直接使用');
+});
+
+test('computeRentalFees 对越界租期做夹取，绝不会用非法租期算钱', () => {
+  const plan = RENTAL_PRODUCT.rentalPlan;
+  const tooMany = productView.computeRentalFees({ rentalPlan: plan, rentalUnits: 999, deliveryFeeInCents: 0 });
+  const tooFew = productView.computeRentalFees({ rentalPlan: plan, rentalUnits: 0, deliveryFeeInCents: 0 });
+
+  assert.equal(tooMany.rentalUnits, 30, '超上限应夹取到 maxUnits');
+  assert.equal(tooMany.rentInCents, 1500 * 30, '夹取后的租金按上限计算');
+  assert.equal(tooFew.rentalUnits, 1, '低于下限应夹取到 minUnits');
+  assert.equal(tooFew.rentInCents, 1500, '夹取后的租金按下限计算');
+});
+
+test('computeRentalFees 按小时计费（单位与押金精度同时校验）', () => {
+  const hourlyPlan = { unit: 'HOUR', unitPriceInCents: 500, minUnits: 1, maxUnits: 8, depositInCents: 9900 };
+  const fees = productView.computeRentalFees({ rentalPlan: hourlyPlan, rentalUnits: 2, deliveryFeeInCents: 0 });
+
+  assert.equal(fees.rentInCents, 1000, '按小时：500 × 2');
+  assert.equal(fees.depositInCents, 9900);
+  assert.equal(fees.totalInCents, 10900);
+  assert.equal(fees.rentText, '¥10');
+  assert.equal(fees.depositText, '¥99.00', '按小时租的押金同样两位小数');
+});

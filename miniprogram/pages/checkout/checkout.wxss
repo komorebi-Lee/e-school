@@ -25,3 +25,8 @@
 .quantity-button { width: 52rpx; height: 52rpx; border-radius: 16rpx; border: 2rpx solid #dbe3f1; background: #f7f9fd; color: #002fa7; font-size: 32rpx; font-weight: 900; display: flex; align-items: center; justify-content: center; }
 .quantity-button.disabled { color: #b6c0d2; }
 .quantity-value { min-width: 58rpx; text-align: center; color: #172033; font-size: 28rpx; font-weight: 900; }
+.rental-row { padding: 22rpx 24rpx; display: flex; align-items: center; justify-content: space-between; }
+.rental-due { margin-top: 22rpx; padding: 22rpx 24rpx; display: flex; align-items: center; justify-content: space-between; }
+.rental-due-label { color: #536078; font-size: 24rpx; }
+.rental-due-value { color: #002fa7; font-size: 26rpx; font-weight: 900; }
+.deposit-notice { margin-bottom: 10rpx; color: #a15c00; font-weight: 750; }
