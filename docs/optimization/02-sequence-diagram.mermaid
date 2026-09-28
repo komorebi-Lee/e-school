@@ -1,0 +1,304 @@
+%% ============================================================================
+%% 狮山智生活 campus-go-mvp · 本轮优化关键链路时序图
+%% 来源：docs/optimization/02-architecture.md 第 6 章
+%% 说明：本文件含 6 张图（v1.2）
+%%       ① 下单到支付确认        ② 支付回调（含延迟支付自动退款）
+%%       ③ 并发写地址（互斥生效） ④ 租赁订单状态机（v1.1 落地版）
+%%       ⑤ 押金状态机（v1.1 新增） ⑥ 租赁全链路（下单→交付→归还→押金结算）
+%% 版本：v1.2（v1.0 的「④ 租赁占位图」已删除，由 ④⑤⑥ 取代）
+%%       对齐 PRD v1.4（最终冻结版）
+%%       v1.2 变更：①③ 的 store 交互标注与 PRD「存储三层拆分」对齐
+%%                  （层次 A = MysqlStore.flush 写序 / 层次 C = JsonStore.update 自同步）；
+%%                  ⑥ 的「交付 ≠ 完成」单点守卫（activateOrderSettlements 内 return []）
+%%                  与 PRD §7.4「两段交付」口径一致（⑥ 属第二批 Track B）
+%%       v1.4 增补：⑥ 的单点守卫即 PRD v1.4 §7.5.6「修正 A」采纳的架构方案
+%%                  （6 个调用点收口于 app.js:2001，不改 6 个调用方）
+%% ============================================================================
+
+%% ---------------------------------------------------------------------------
+%% ① 下单到支付确认
+%%    POST /api/orders  →  POST /api/payment-orders/:id/confirm
+%%    关键：下单整段在【单个同步 mutator】内完成，无 await 让出点 ⇒ 原子
+%% ---------------------------------------------------------------------------
+sequenceDiagram
+    autonumber
+    participant MP as 小程序 checkout.js
+    participant RT as routes/orders.js
+    participant DP as http/dispatch.js
+    participant ST as store (JsonStore/MysqlStore)
+    participant DOM as domain/inventory.js
+    participant PR as routes/payment.js
+    participant PP as paymentProvider
+
+    MP->>DP: POST /api/orders (items, fulfillment, Idempotency-Key)
+    DP->>DP: matchRoute → auth='user' → requireUser → rc.user
+    DP->>DP: await readJson → rc.body
+    DP->>RT: handler(rc)
+
+    Note over RT,ST: ★ 以下整段在【单个同步 mutator】内完成，无 await 让出点 ⇒ 原子
+    RT->>ST: update(data => { ... })
+    ST->>ST: read() 全量解析（mtime 缓存命中则跳过 parse）
+    ST->>DOM: expirePendingOrders(data) —— 先关超时单，释放库存
+    ST->>ST: 幂等检查 data.idempotencyKeys[userId:key]（在 mutator 内，非 mutator 外）
+    alt 幂等键已存在
+        ST-->>RT: { order: existing, reused: true }
+    else 新订单
+        ST->>ST: 逐商品 availableStock(product) 校验 → 不足则 409 INSUFFICIENT_STOCK
+        ST->>ST: 服务端计算 totalInCents（★ 不采信客户端价格）
+        ST->>DOM: reserveOrderStock(data, order) —— 预占库存 + 写 stockMovements
+        ST->>ST: orders.push / paymentOrders.unshift / idempotencyKeys 落键 / addAudit
+        ST->>ST: write() —— tmp + renameSync 原子落盘
+        ST-->>RT: { order, paymentOrder, reused: false }
+    end
+
+    Note over RT,PP: ★ 此处才有 await 让出点（update 已提交，锁已释放）
+    RT->>PP: attachProviderIntent(paymentOrder) → createIntent()
+    PP-->>RT: { providerTradeNo, payload }
+    RT->>ST: update(data => 回填 provider/channel/providerPayload)
+    RT-->>MP: 201 { data: order, paymentOrder, idempotencyReused: false }
+
+    MP->>MP: payPaymentOrder(paymentOrder) → wx.requestPayment()
+    MP->>PR: POST /api/payment-orders/:id/confirm
+    PR->>ST: update(data => { 校验 status === 'PENDING' })
+    PR->>PP: confirmProviderPayment(paymentOrder)
+    alt 渠道返回 PAID
+        PP-->>PR: { status: 'PAID', providerTradeNo }
+        PR->>ST: settlePaymentOrder(id, providerPayment, 'USER_CONFIRM')
+        Note over ST: 单 mutator 内：paymentOrder→PAID、order→PAID、<br/>createSettlements、activateOrderSettlements、<br/>consumeOrderStock、addFinanceEvent、addNotification
+        PR-->>MP: 200 { data: { paymentOrder, order } }
+    else 渠道失败 / 用户取消
+        PP-->>PR: throw / status !== 'PAID'
+        PR-->>MP: 502 PAYMENT_PROVIDER_FAILED
+        MP->>MP: T19 弹窗「订单已创建，支付未完成」→ switchTab 订单页
+    end
+
+%% ---------------------------------------------------------------------------
+%% ② 支付回调（含延迟支付自动退款）
+%%    POST /api/payment-callbacks/:paymentId
+%%    关键：必须恒返回 2xx（除非验签失败），否则微信持续重推
+%% ---------------------------------------------------------------------------
+sequenceDiagram
+    autonumber
+    participant WX as 微信支付平台
+    participant RT as routes/payment.js
+    participant ST as store
+    participant PP as paymentProvider
+    participant DOM as domain/inventory.js
+
+    WX->>RT: POST /api/payment-callbacks/:paymentId (验签头 + 回调体)
+    RT->>PP: verifyCallback(request, body)
+    alt 验签失败
+        PP-->>RT: throw
+        RT-->>WX: 400 / 401（不落库）
+    else 验签通过
+        PP-->>RT: { providerTradeNo, status, paidAt, payload }
+    end
+
+    RT->>ST: read() → 定位 paymentOrder 与其 order
+
+    alt 订单仍为 PENDING（正常回调）
+        RT->>ST: update(data => settlePaymentOrder(...))
+        Note over ST: paymentOrder→PAID、order→PAID、<br/>createSettlements + activateOrderSettlements、<br/>consumeOrderStock、addFinanceEvent、addNotification
+        RT-->>WX: 200 { data: { handled: true } }
+
+    else paymentOrder.status === 'CANCELLED'（★ 延迟支付：订单已超时关闭后收到支付）
+        RT->>ST: update(data => handleLatePaymentCallback(paymentOrder, providerPayment))
+        Note over ST: 同一 mutator 内：<br/>1) status 由 CANCELLED 改回 PAID、latePaymentCaptured = true<br/>2) 写入 refund = { status:'PENDING', refundNo: `RF_${paymentNo}`,<br/>&nbsp;&nbsp;&nbsp;note:'订单已关闭后收到支付，平台自动退款' }<br/>3) addFinanceEvent('PAYMENT', 'LATE_PAYMENT')<br/>4) addAudit('超时订单收到延迟支付，自动发起退款')<br/>5) addNotification 通知用户将自动退款
+        RT->>PP: refund(paymentOrder) → 渠道发起退款
+        alt 退款受理成功
+            PP-->>RT: { status: 'REFUNDED', refundNo }
+            RT->>ST: update(data => completePaymentRefund(id, providerRefund, 'LATE_PAYMENT_CALLBACK'))
+            Note over ST: paymentOrder→REFUNDED；order→CANCELLED + restoreOrderStock；<br/>markSettlementsRefunded；addFinanceEvent('REFUND', -amount)；<br/>addAudit('超时支付自动退款')；addNotification('订单已退款')
+            RT-->>WX: 200 { data: { handled: true, autoRefunded: true } }
+        else 退款受理失败（渠道抖动）
+            PP-->>RT: throw
+            RT->>ST: update(data => 保留 refund.status = 'PENDING' + 记录 providerPayload)
+            Note over ST: 由管理端 POST /api/admin/payment-orders/:id/refund/refresh<br/>或对账任务重试（不丢单）
+            RT-->>WX: 200 { data: { handled: true, autoRefunded: false } }
+        end
+
+    else 已处理过（幂等重放）
+        RT->>ST: read() 发现 status === 'PAID'
+        RT-->>WX: 200 { data: { handled: true, duplicate: true } }
+    end
+
+    Note over RT,DOM: 支付回调必须恒返回 2xx（除非验签失败），<br/>否则微信会持续重推，且重推期间用户侧状态不一致。
+
+%% ---------------------------------------------------------------------------
+%% ③ 并发写地址（展示互斥 / 原子性生效）
+%%    POST /api/my/addresses ×20
+%%    关键：阶段 A 全部让出 → 阶段 B 各自同步块，不可插入
+%% ---------------------------------------------------------------------------
+sequenceDiagram
+    autonumber
+    participant R1 as 请求 1
+    participant R2 as 请求 2
+    participant RN as 请求 N
+    participant DP as http/dispatch.js
+    participant ST as store (JsonStore)
+    participant FS as db.json
+
+    par 20 个请求同时到达
+        R1->>DP: POST /api/my/addresses (payload 1)
+        R2->>DP: POST /api/my/addresses (payload 2)
+        RN->>DP: POST /api/my/addresses (payload N)
+    end
+
+    Note over DP: 阶段 A：所有请求各自 await readJson<br/>⇒ 全部在此让出，进入宏任务队列
+    DP->>R1: rc.body = {...} 恢复
+    Note over R1,ST: ★ 阶段 B：R1 的 read→mutate→write 是【纯同步块】<br/>Node 单线程 ⇒ R2/RN 无法插入
+    R1->>ST: update(mutator)
+    ST->>FS: readFileSync（mtime 命中缓存则用 _cache）
+    ST->>ST: mutator: 校验上限 10 → 处理 isDefault → addresses.push
+    ST->>FS: writeFileSync(tmp) + renameSync(db.json)  ← 原子替换
+    ST-->>R1: created（同步返回，非 Promise）
+    R1-->>R1: 201 { data: created }
+
+    DP->>R2: rc.body 恢复
+    R2->>ST: update(mutator)
+    Note over ST: 读到的已是 R1 写入后的最新文件<br/>（因为 R1 的写已在同一同步块内完成）
+    ST->>FS: readFileSync → addresses 已含 R1 的记录
+    alt 该用户地址数已 >= 10
+        ST-->>R2: throw ApiError(409, 'ADDRESS_LIMIT_REACHED')
+        R2-->>R2: 409（计入「失败响应数」，不计入「成功响应数」）
+    else 未达上限
+        ST->>FS: renameSync 写入第 k 条
+        ST-->>R2: created
+        R2-->>R2: 201
+    end
+
+    DP->>RN: rc.body 恢复 → 同 R2 路径
+
+    Note over R1,FS: 终态不变量：db.json 中该用户地址数 == 201 响应数<br/>（上限 10 ⇒ 预期 10 == 10）<br/>★ 该不变量当前已成立（见 02-architecture §0.2）<br/>T10 的重入哨兵 stats().maxWriteReentrancy === 0 把「不可重入」锁死
+
+    Note over R1,FS: 若未来有人在 read 与 write 之间插入 await（例如加一次外部校验）<br/>⇒ R2 会读到 R1 写入前的旧快照 ⇒ 丢更新<br/>⇒ T10 的 stats() 与 T11 的护栏断言会立刻变红
+
+%% ---------------------------------------------------------------------------
+%% ④ 租赁订单状态机（★ v1.1 落地版，替代 v1.0 的占位图）
+%%    契约来源：PRD v1.1 §7.2 M12-P0-03 + 02-architecture.md §11.6.1
+%%    核心不变量：交付取车 ≠ 订单完成；车在外面时 order.status 恒为 FULFILLING
+%%    硬约束：不新增 order.status 枚举（复用 FULFILLING / COMPLETED）
+%% ---------------------------------------------------------------------------
+stateDiagram-v2
+    [*] --> PENDING_PAYMENT: POST /api/orders<br/>(orderKind='RENTAL', rentalUnits=N)
+
+    PENDING_PAYMENT --> PAID: 支付成功<br/>rental.status='PENDING_DELIVERY'<br/>创建 rentalDeposits(HELD)<br/>settlements: PENDING_DELIVERY
+    PENDING_PAYMENT --> CANCELLED: 超时 / 用户取消<br/>expirePendingOrders → releaseOrderStock
+
+    PAID --> FULFILLING: 商家 ACCEPT
+    FULFILLING --> FULFILLING: ★ 交付取车（核验交付码通过）<br/>rental.status='RENTING'<br/>rental.deliveredAt=now<br/>★ order.status 不变<br/>★ 不调 activateOrderSettlements
+
+    FULFILLING --> FULFILLING: 用户 RETURN_REQUEST<br/>rental.status='RETURN_REQUESTED'
+    FULFILLING --> FULFILLING: 巡检发现超期<br/>rental.status='OVERDUE'
+
+    FULFILLING --> FULFILLING: 商家 RETURN_VERIFY<br/>rental.status='RETURN_VERIFYING'
+    FULFILLING --> COMPLETED: ★ 商家 RETURN_VERIFY 通过<br/>rental.status='RETURNED'<br/>rental.returnedAt=now<br/>★ order.status='COMPLETED'<br/>★ activateOrderSettlements()<br/>★ restoreRentalStock(RETURN_RESTORE)<br/>★ deposit → REFUND_PENDING
+
+    COMPLETED --> AFTER_SALE: 售后申请<br/>（M3 既有流程）
+    COMPLETED --> [*]: 账期结束 → PENDING_SETTLE → 已打款
+
+    note right of FULFILLING
+        ★ 核心不变量：交付 ≠ 完成
+        车在外面时 order.status 恒为 FULFILLING
+        ⇒ createSettlements 保持 PENDING_DELIVERY
+        ⇒ 评价接口的订单完成校验自动生效
+        ⇒ 商家无法提前进账期
+    end note
+
+%% ---------------------------------------------------------------------------
+%% ⑤ 押金状态机（★ v1.1 新增）
+%%    契约来源：PRD v1.1 §7.2 M12-P0-05 + 02-architecture.md §11.6.2
+%%    恒等式（终态必检）：refundedInCents + deductionInCents === amountInCents
+%%    硬约束：押金一律不得写入 orderItems[].subtotalInCents（不进分账）
+%% ---------------------------------------------------------------------------
+stateDiagram-v2
+    [*] --> HELD: 支付成功<br/>rentalDeposits.unshift({status:'HELD', heldAt:now})
+
+    HELD --> REFUND_PENDING: 归还核验通过<br/>refundPendingAt=now<br/>商家可提议 deductionInCents<br/>（仅提议，不执行）
+
+    REFUND_PENDING --> REFUNDED: 平台审核「全额退回」<br/>{refundAll:true}<br/>refundedInCents=amountInCents<br/>deductionInCents=0
+    REFUND_PENDING --> PARTIALLY_REFUNDED: 平台审核「扣款后退回」<br/>{deductionInCents, reason}<br/>refundedInCents=amountInCents-deductionInCents
+
+    note right of REFUND_PENDING
+        RBAC：仅 SUPER_ADMIN / FINANCE 可调 settle
+        SUPPORT / OPERATOR → 403
+        商家 token → 403（商家不能自行扣款）
+    end note
+
+    note right of REFUNDED
+        恒等式（终态必检）：
+        refundedInCents + deductionInCents === amountInCents
+    end note
+
+%% ---------------------------------------------------------------------------
+%% ⑥ 租赁全链路（下单 → 支付 → 交付取车 → 归还核验 → 押金结算）
+%%    契约来源：02-architecture.md §11.2 / §11.3 / §11.4
+%%    关键：交付取车【不】激活分账；归还核验才激活 —— 由 activateOrderSettlements 单点守卫保证
+%% ---------------------------------------------------------------------------
+sequenceDiagram
+    autonumber
+    actor U as 用户（小程序）
+    participant API as POST /api/orders<br/>(routes/orders.js)
+    participant DOM as domain/rental.js
+    participant ST as JsonStore / MysqlStore
+    participant SET as domain/settlement.js<br/>createSettlements
+    participant M as 商家（merchant/orders.js）
+    participant ACT as activateOrderSettlements
+    participant ADM as 平台（admin.js）
+
+    rect rgb(240, 248, 255)
+    Note over U,SET: 阶段 A：下单（复用既有 POST /api/orders，★ 不新增下单接口）
+    U->>API: { items:[{productId, quantity, rentalUnits:3}], Idempotency-Key }
+    API->>DOM: buildRentalOrderItem(product, rentalUnits)
+    Note over DOM: rentAmountInCents = unitPriceInCents × rentalUnits × quantity<br/>= 1500 × 3 × 1 = 4500<br/>★ priceInCents = 4500（租金，非售价 319900）<br/>★ subtotalInCents = 4500（不含押金）
+    DOM-->>API: { priceInCents: 4500, subtotalInCents: 4500, rentalUnits: 3 }
+    API->>ST: update(data => { ... })
+    Note over ST: 同步 mutator 内完成：<br/>orders.push({ orderKind:'RENTAL', rental:{...} })<br/>rentalDeposits.unshift({ status:'HELD', amountInCents:29900 })<br/>totalInCents = 4500 + 29900 + deliveryFee
+    API->>SET: createSettlements(data, order, now)
+    Note over SET: gross = 4500（租金）<br/>★ 押金 29900 不进 settlements
+    API-->>U: 201 { data: { order, totalInCents: 34400 } }
+    end
+
+    rect rgb(255, 250, 240)
+    Note over U,M: 阶段 B：支付成功（押金入 HELD）
+    U->>API: POST /api/payment-orders/:id/confirm
+    API->>ST: order.rental.status = 'PENDING_DELIVERY'
+    Note over ST: settlements[].settlementStatus 仍为 PENDING_DELIVERY
+    end
+
+    rect rgb(245, 255, 245)
+    Note over M,ACT: 阶段 C：★ 交付取车 —— 不激活分账
+    M->>API: POST /api/merchant/orders/:id/status { status:'COMPLETE', deliveryCode }
+    API->>DOM: resolveOrderCompletion(order, 'DELIVER')
+    DOM-->>API: { orderStatus:'FULFILLING', rentalStatus:'RENTING' }
+    Note over DOM: ★ 租赁：交付不置 COMPLETED
+    API->>ACT: activateOrderSettlements(data, order, now)
+    ACT-->>API: []（★ 单点守卫：orderKind==='RENTAL' && rental.status!=='RETURNED' ⇒ return []）
+    Note over ACT: 分账仍为 PENDING_DELIVERY<br/>⇒ 商家无法提前进账期
+    API-->>M: 200 { data: { order } }
+    end
+
+    rect rgb(255, 245, 250)
+    Note over U,M: 阶段 D：归还核验 —— 此时才激活分账
+    U->>API: POST /api/order-collab<br/>{ role:'USER', action:'RETURN_REQUEST', orderId }<br/>（★ 复用既有端点，不新增接口）
+    API->>ST: rental.status = 'RETURN_REQUESTED'
+    M->>API: POST /api/merchant/orders/:id/status<br/>{ status:'COMPLETE', rentalAction:'RETURN_VERIFY' }<br/>（或 POST /api/order-collab { role:'MERCHANT', action:'RETURN_VERIFY' }）
+    API->>DOM: resolveOrderCompletion(order, 'RETURN_VERIFY')
+    DOM-->>API: { orderStatus:'COMPLETED', rentalStatus:'RETURNED' }
+    API->>ST: order.status='COMPLETED'、rental.status='RETURNED'<br/>restoreRentalStock(...,'RETURN_RESTORE')
+    API->>ACT: activateOrderSettlements(data, order, now)
+    ACT-->>API: [settlement]（★ 守卫放行，settlementStatus → IN_ACCOUNT_PERIOD）
+    API->>ST: rentalDeposits[].status = 'REFUND_PENDING'
+    end
+
+    rect rgb(248, 248, 255)
+    Note over ADM,ST: 阶段 E：押金结算（平台审核，RBAC）
+    ADM->>API: GET /api/admin/rental-deposits?status=REFUND_PENDING
+    API-->>ADM: { data: [...], total }
+    ADM->>API: POST /api/admin/rental-deposits/:id/settle { deductionInCents: 5000, reason }
+    API->>ST: status='PARTIALLY_REFUNDED'<br/>refundedInCents=24900、deductionInCents=5000<br/>assertDepositBalance() ✅ 24900+5000===29900
+    API->>ST: financeEvents.push({ type:'REFUND', businessType:'RENTAL_DEPOSIT' })<br/>auditLogs.push({ action:'RENTAL_DEPOSIT_SETTLE' })
+    API-->>ADM: 200 { data: { deposit } }
+    end
+
+    Note over U,ADM: ★ 全局不变量：押金金额永不出现在 settlements<br/>★ 全局恒等式：Σ settlements.amountInCents == Σ orderItems[].subtotalInCents

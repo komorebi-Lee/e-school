@@ -1,0 +1,677 @@
+%% ============================================================================
+%% 狮山智生活 campus-go-mvp · 本轮优化数据结构与接口类图
+%% 来源：docs/optimization/02-architecture.md 第 3、4、5 章 + 第 11 章（M12 租赁）
+%% 说明：★ 标记为本轮新增/变更
+%% 版本：v1.2（v1.0 的「租赁占位」类已删除，由第 11 章的 M12 落地模型取代）
+%%       ★ 硬约束：M12 不新增 routes/ 文件、不新增 category、不新增 order.status 枚举
+%%       对齐 PRD v1.4（最终冻结版）
+%%       v1.2 变更：RentalDeposit 的恒等式
+%%                 （refundedInCents + deductionInCents === amountInCents）
+%%                 与「押金不进 subtotalInCents」隔离约束；R11 裁决为
+%%                 「本轮不分配、暂挂平台待分配」，故 RentalDeposit 不含分配字段
+%%       v1.4 增补：OrderItem.priceInCents 承载租金而非售价，即 PRD v1.4
+%%                 §7.5.6「修正 B」的「第二层防线」（堵 app.js:1954 的 || 回退）
+%% ============================================================================
+
+classDiagram
+    direction TB
+
+    %% ======================= 装配层 =======================
+    class createApp {
+        <<function>>
+        +store
+        +wechatAuth
+        +wechatSubscribeSend
+        +paymentProvider
+        +corsAllowedOrigins
+        +adminLoginLockout
+        +adminPasswordHash
+        +returns handler(request, response)
+    }
+
+    class RequestContext {
+        <<rc, 每请求一个>>
+        +request
+        +response
+        +requestId : string
+        +url : URL
+        +pathname : string
+        +store
+        +ctx : Ctx
+        +body : object
+        +user : Session|null
+        +admin : AdminUser|null
+        +merchant : Merchant|null
+        +params : string[]
+        +_snapshot : object|undefined
+        +startedAt : bigint
+        +nowIso() : string
+        +readOnce() : object
+    }
+
+    class Ctx {
+        <<长生命周期依赖, 每 createApp 一个>>
+        +store
+        +paymentProvider
+        +wechatAuth
+        +wechatSubscribeSend
+        +allowedCorsOrigins : string[]
+        +userSessions : Map
+        +merchantSessions : Map
+        +adminSessions : Map
+        +requireUser(request) : Session
+        +optionalUser(request) : Session|null
+        +requireAdmin(request, permission) : AdminUser
+        +requireMerchant(request) : Merchant
+        +domain
+        +nowIso() : string
+    }
+
+    class RouteDef {
+        <<interface>>
+        +method : 'GET'|'POST'|'PATCH'|'DELETE'|'*'
+        +path : string|RegExp
+        +auth : 'public'|'user'|'optional-user'|'merchant'|'admin:*'
+        +body : boolean
+        +snapshot : boolean
+        +order : number
+        +handler(rc) : void
+    }
+
+    createApp ..> Ctx : 构造
+    createApp ..> RequestContext : 每请求构造
+    createApp ..> RouteDef : 装配 9 个域
+    RequestContext --> Ctx : 引用
+
+    %% ======================= http 层 =======================
+    class ApiError {
+        +statusCode : number
+        +code : string
+        +message : string
+        +details : object
+    }
+
+    class respond {
+        <<module>>
+        +sendJson(response, statusCode, body)
+        +sendStatic(response, filePath) : boolean
+        +normalizeCorsOrigins(input) : string[]
+        +resolveCorsOrigin(request, allowedOrigins) : string
+    }
+
+    class body {
+        <<module>>
+        +readJson(request) : object
+        +requireString(value, field, options) : string
+        +requirePositiveInteger(value, field, options) : number
+    }
+
+    class guards {
+        <<factory>>
+        +createUserGuards(userSessions) : Guards
+        +createAdminGuards(adminSessions, lockout) : Guards
+        +createMerchantGuards(merchantSessions) : Guards
+    }
+
+    class dispatch {
+        <<module>>
+        +matchRoute(routes, method, pathname) : Match|null
+        +applyPreProcessing(rc, route, guards)
+        +handleError(error, response, requestId)
+        +logRequest(entry)
+    }
+
+    RequestContext ..> respond : 写响应
+    RequestContext ..> body : 解析 body
+    RequestContext ..> guards : 鉴权
+    dispatch ..> RequestContext
+    dispatch ..> ApiError : 抛/捕
+    ApiError <.. respond
+
+    %% ======================= 存储层 =======================
+    class Store {
+        <<interface>>
+        +read() : object
+        +update(mutator) : any
+        +write(data)
+    }
+
+    class JsonStore {
+        +filePath : string
+        -_queue : Promise
+        -_writing : boolean
+        -_cache : object|null
+        -_cacheMtimeMs : number
+        -_stats : Stats
+        +read() : object
+        +write(data)
+        +update(mutator) : any
+        +updateAsync(asyncMutator) : Promise
+        +stats() : Stats
+    }
+
+    class MysqlStore {
+        +storage : 'mysql'
+        +pool : Pool
+        +cache : object|null
+        +dirty : boolean
+        +pendingFlush : Promise
+        +lastFlushAt : string
+        +lastFlushError : string|null
+        +flushCount : number
+        +initialize() : Promise
+        +read() : object
+        +update(mutator) : any
+        -_scheduleFlush() : Promise
+        +health() : object
+    }
+
+    class Stats {
+        <<value>>
+        +readCount : number
+        +parseCount : number
+        +writeCount : number
+        +writeReentrancy : number
+        +maxWriteReentrancy : number
+    }
+
+    Store <|.. JsonStore
+    Store <|.. MysqlStore
+    JsonStore --> Stats : stats()
+    JsonStore ..> ApiError : mutator 抛错透传
+    MysqlStore ..> ApiError : mutator 抛错透传
+
+    %% ======================= domain 层（纯函数，无 IO） =======================
+    class domain_inventory {
+        <<module>>
+        +availableStock(product) : number
+        +reserveOrderStock(data, order)
+        +releaseOrderStock(data, order)
+        +consumeOrderStock(data, order)
+        +restoreOrderStock(data, order)
+        +restoreOrderStockQuantity(data, order, refundItems)
+        +recordStockMovement(data, product, payload)
+        +lowStockThreshold(data) : number
+        +evaluateLowStockAlert(data, product, now)
+        +restoreRentalStock(data, order, now) ★M12-P0-04
+        +expirePendingOrders(data, now)
+    }
+
+    class domain_catalog {
+        <<module>>
+        +withAvailableStock(product) : Product
+        +withProductSale(product, now) : Product
+        +normalizeProductSaleCampaign(input, current) : object
+        +withProductReviewSummary(product, reviews) : Product
+        +withMerchantName(product, merchants) : Product
+        +orderProductsForList(data, products, sort) : Product[]
+        +productStoreProfile(product, options) : object
+        +publicStorefrontReviews(data, merchantId) : Review[]
+        +calculateProductSalesCounts(data) : Map
+        +calculateProductFavoriteCounts(data) : Map
+    }
+
+    class domain_public_view {
+        <<module>>
+        +publicSettings(settings) : object
+        +publicApplication(application) : object
+        +merchantPublic(merchant) : object
+        +publicMarketItem(item) : object
+        +publicForumPost(post, viewerId) : ForumPost
+        +publicForumComment(comment) : Comment
+        +publicRechargePromo(promo, data, now) : object
+        +publicAdminUser(user) : object
+        +sanitizeOrderForMerchant(order) : object
+        +userNotificationLink(notification, data) : string
+        +merchantNotificationLink(notification) : string
+        +maskIdNumber(value) : string
+    }
+
+    class domain_settlement {
+        <<module>>
+        +createSettlements(data, order, now)
+        +activateOrderSettlements(data, order, now) ★M12-P0-03 入口加单点守卫
+        +freezeOrderSettlements(data, order, now, reason)
+        +unfreezeOrderSettlements(data, order, now)
+        +releaseMaturedSettlements(data, now)
+        +settlementSummary(settlements) : object
+        +buildMerchantStatement(data, merchant, month) : object
+        +createPayoutRequest(data, merchant, now, remark)
+        +approvePayoutRequest(data, payout, now, reference)
+        +rejectPayoutRequest(data, payout, now, note)
+        +markSettlementsRefunded(data, orderId, now)
+        +markSettlementsPartiallyRefunded(data, orderId, cents, now)
+        +applyOrderRefund(data, order, now)
+        +applyPartialOrderRefund(data, order, afterSale, now)
+    }
+    note for domain_settlement "★ M12-P0-03 单点守卫（★ 资损级，见 §11.2）：<br/>activateOrderSettlements 有 6 个调用点<br/>（order-collab / merchant status / 售后 CLOSED / admin ×2 / 其它），<br/>PRD 只点了 1 个。故在【函数入口】加守卫：<br/>若 orderKind 为 RENTAL 且 rental.status 不为 RETURNED，直接 return []<br/>而不是改 6 个调用方"
+
+    class domain_rental {
+        <<module ★新增（M12）>>
+        +buildRentalOrderItem(product, rentalUnits, quantity) : OrderItem
+        +normalizeRentalPlan(input) : RentalPlan
+        +validateRentalPlan(plan) : void
+        +assertRentalPlanComplete(product) : void
+        +createRentalDeposit(order, now) : RentalDeposit
+        +resolveOrderCompletion(order, action) : {orderStatus, rentalStatus}
+        +applyReturnRequest(order, now)
+        +applyReturnVerify(order, now)
+        +applyOverdue(order, now)
+        +settleRentalDeposit(data, deposit, payload, admin, now)
+        +assertDepositBalance(deposit) : boolean
+        +isCountdownRelevant(record) : boolean
+    }
+    note for domain_rental "★ 纯函数、无 IO（分层规则 §3.1）<br/>★ buildRentalOrderItem 的关键：<br/>priceInCents = unitRentInCents（不是售价 319900）<br/>⇒ 堵住 app.js:1954 的「或运算符回退」膨胀路径"
+
+    class domain_scoring {
+        <<module>>
+        +computeMerchantScore(data, merchant, now) : object
+        +addMerchantScoreLog(data, merchant, entry, now)
+        +refreshMerchantScoreSnapshots(data, now)
+        +merchantScoreRisk(data, merchant) : object
+        +merchantRiskTasks(afterSales, sla, reviews, products, ...) : Task[]
+        +merchantScoreTrend(data, merchantId, days) : object
+        +createServiceScoreCase(data, merchant, payload, now)
+        +applyServiceScoreCaseAdjustment(data, merchant, case, adj, now)
+    }
+
+    class domain_orders {
+        <<module>>
+        +validateDeliverySchedule(fulfillment, settings)
+        +normalizeTimeSlot(value) : string
+        +issueDeliveryCode(order, now) : string
+        +quantityAwarePlateItem(order, data) : object
+        +createCollaboration(order, merchantId) : object
+        +appendCollaborationEvent(order, role, action, note)
+        +appendServiceRecordEvent(record, role, action, note)
+        +complaintDueAt(now) : string
+        +resolveOrderMerchantId(data, order) : string
+    }
+
+    class domain_notifications {
+        <<module>>
+        +addNotification(data, userId, type, title, content, metadata)
+        +notifyMerchant(data, merchantId, type, title, content, metadata)
+        +sendOrderNotification(data, userId, templateKey, ...)
+        +sendScoreNotification(data, userId, templateKey, ...)
+        +notifyRestockSubscribers(data, product, merchantName, now)
+        +notifyFavoriteRestockSubscribers(data, product, merchantName, now)
+        +subscribeMessagePage(type, metadata, isMerchant) : string
+    }
+
+    class domain_compliance {
+        <<module>>
+        +productComplianceMetrics(product, data) : object
+        +productComplianceReason(metrics) : string
+        +productComplianceWatchUntil(product) : string
+        +enforceProductCompliance(data, now)
+        +restoreAutoDelistedProduct(data, product, merchant, case, note, now)
+    }
+
+    class domain_settlement_tasks {
+        <<module>>
+        +buildPaymentReconciliationTaskDetail(report) : object
+        +financeTaskDueAt(data, baseIso) : string
+        +upsertPaymentReconciliationTask(data, report, now, addAuditLog)
+        +slaHours(data, field, fallback) : number
+        +collectSlaTargets(data) : Target[]
+        +runOperationsPatrol(data, now) : object
+        +slaSummary(alerts) : object
+    }
+
+    class utils_time {
+        <<module>>
+        +nowIso() : string
+        +addHours(baseIso, hours) : string
+        +localDateKey(date) : string
+    }
+
+    %% ======================= routes 层（9 个域，135 个分发点） =======================
+    class routes_index {
+        <<module>>
+        +buildRouteTable(ctx) : RouteDef[]
+    }
+    class routes_assets { <<module>> +createAssetsRoutes(ctx) : RouteDef[] }
+    class routes_auth { <<module>> +createAuthRoutes(ctx) : RouteDef[] }
+    class routes_catalog { <<module>> +createCatalogRoutes(ctx) : RouteDef[] }
+    class routes_community { <<module>> +createCommunityRoutes(ctx) : RouteDef[] }
+    class routes_orders { <<module>> +createOrderRoutes(ctx) : RouteDef[] }
+    class routes_payment { <<module>> +createPaymentRoutes(ctx) : RouteDef[] }
+    class routes_merchant { <<module>> +createMerchantRoutes(ctx) : RouteDef[] }
+    class routes_profile { <<module>> +createProfileRoutes(ctx) : RouteDef[] }
+    class routes_admin { <<module>> +createAdminRoutes(ctx) : RouteDef[] }
+
+    routes_index --> routes_assets
+    routes_index --> routes_auth
+    routes_index --> routes_catalog
+    routes_index --> routes_community
+    routes_index --> routes_orders
+    routes_index --> routes_payment
+    routes_index --> routes_merchant
+    routes_index --> routes_profile
+    routes_index --> routes_admin
+    %% ★ M12 不新增 routes/rental.js：租赁复用 routes_orders（下单/归还申请）与 routes_merchant（交付/核验）
+
+    RouteDef <|.. routes_assets
+    RouteDef <|.. routes_auth
+    RouteDef <|.. routes_catalog
+    RouteDef <|.. routes_community
+    RouteDef <|.. routes_orders
+    RouteDef <|.. routes_payment
+    RouteDef <|.. routes_merchant
+    RouteDef <|.. routes_profile
+    RouteDef <|.. routes_admin
+
+    %% ======================= 数据模型（JSON 集合 / MySQL payload） =======================
+    class Product {
+        +id : string
+        +name : string
+        +category : 'E_BIKE_NEW'|'PHONE_PLAN'|'RECHARGE'|'BROADBAND'|'PLATE'
+        +description : string
+        +priceInCents : number
+        +stock : number
+        +campusIds : string[]
+        +imageUrl : string
+        +merchantId : string
+        +active : boolean
+        +voice : string
+        +listingType : 'SALE'|'RENT' ★M12-P0-01（缺省 'SALE'）
+        +rentalPlan : RentalPlan ★M12-P0-01（listingType==='RENT' 时必填）
+        +purchasable : boolean ★对外派生
+    }
+
+    class Order {
+        +id : string
+        +orderNo : string
+        +userId : string
+        +items : OrderItem[]
+        +totalInCents : number
+        +currency : 'CNY'
+        +status : OrderStatus
+        +paymentStatus : PaymentStatus
+        +paymentOrderId : string
+        +paymentExpiresAt : string
+        +stockReservation : 'NONE'|'RESERVED'|'CONSUMED'
+        +fulfillment : Fulfillment
+        +feeSummary : object
+        +cancelReason : 'PAYMENT_TIMEOUT'|string
+        +refundedQuantity : number
+        +partialRefundedInCents : number
+        +collaboration : Collaboration
+        +deliveryCode : string
+        +orderKind : 'SALE'|'RENTAL' ★M12-P0-02（缺省 'SALE'）
+        +rental : RentalInfo ★M12-P0-02（orderKind==='RENTAL' 时存在）
+        +createdAt : string
+        +updatedAt : string
+    }
+
+    class OrderItem {
+        +productId : string
+        +merchantId : string
+        +name : string
+        +priceInCents : number
+        +originalPriceInCents : number
+        +quantity : number
+        +subtotalInCents : number
+        +rentalUnits : number ★M12-P0-02（仅 RENT，整数）
+    }
+    note for OrderItem "★ 押金隔离（M12-P0-02 ③）：<br/>RENTAL 时 subtotalInCents 与 priceInCents<br/>都只写【租金】rentAmountInCents，<br/>绝不写押金 ⇒ 押金天然不进 settlements<br/>（createSettlements 按 subtotalInCents 汇总）<br/>★ priceInCents 承载租金 = PRD v1.4 §7.5.6 修正 B 的<br/>「第二层防线」（堵 app.js:1954 的 || 回退膨胀）"
+
+    class PaymentOrder {
+        +id : string
+        +paymentNo : string
+        +businessType : 'ORDER'|'PHONE_PLAN'|'RECHARGE'|'PLATE'
+        +businessId : string
+        +orderId : string
+        +userId : string
+        +amountInCents : number
+        +currency : 'CNY'
+        +status : 'PENDING'|'PAID'|'CANCELLED'|'REFUNDED'
+        +idempotencyKey : string
+        +channel : string
+        +provider : string
+        +providerTradeNo : string
+        +providerPayload : object
+        +latePaymentCaptured : boolean
+        +refund : Refund
+        +createdAt : string
+        +paidAt : string
+        +refundedAt : string
+    }
+
+    class Refund {
+        +status : 'PENDING'|'REFUNDED'|'FAILED'
+        +refundNo : string
+        +requestedAt : string
+        +updatedAt : string
+        +note : string
+        +providerPayload : object
+    }
+
+    class Address {
+        +id : string
+        +userId : string
+        +contactName : string
+        +contactPhone : string
+        +address : string
+        +campusName : string
+        +isDefault : boolean
+        +createdAt : string
+        +updatedAt : string
+    }
+
+    class MarketItem {
+        +id : string
+        +sellerId : string
+        +sellerName : string
+        +title : string
+        +description : string
+        +category : 'BOOK'|'DAILY'|'SPORTS'|string
+        +condition : 'LIKE_NEW'|'GOOD'|'USED'
+        +priceInCents : number
+        +images : string[]
+        +contact : string
+        +status : 'ACTIVE'|'RESERVED'|'SOLD'|'DELETED' ★新增 DELETED|'REMOVED'
+        +createdAt : string
+        +updatedAt : string
+    }
+
+    class ForumPost {
+        +id : string
+        +authorId : string
+        +authorName : string
+        +board : 'STUDY'|'SECONDHAND'|'LOST_FOUND'|string
+        +title : string
+        +content : string
+        +images : string[]
+        +likedBy : string[]
+        +comments : ForumComment[]
+        +status : 'PUBLISHED'|'HIDDEN' ★本轮启用作者侧写入
+        +likes : number ★对外派生
+        +liked : boolean ★本轮修复（原恒 false）
+        +isOwner : boolean ★本轮新增
+        +commentCount : number ★对外派生
+        +createdAt : string
+    }
+
+    class ForumComment {
+        +id : string
+        +authorId : string
+        +authorName : string
+        +content : string
+        +createdAt : string
+    }
+
+    class Merchant {
+        +id : string
+        +userId : string
+        +merchantType : 'INDIVIDUAL'|'ENTERPRISE'|'PERSONAL'
+        +name : string
+        +ownerName : string
+        +phone : string
+        +licenseNo : string
+        +category : 'E_BIKE'|'DIGITAL'|'FOOD'|'LIFE_SERVICE'
+        +serviceArea : string
+        +status : 'REVIEWING'|'APPROVED'|'REJECTED'
+        +serviceScore : object
+        +settlementAccount : string
+        +ownerNameMasked : string ★对外派生
+        +phoneMasked : string ★对外派生
+        +settlementAccountMasked : string ★对外派生
+    }
+
+    class AdminSettings {
+        +brandName : string
+        +schoolName : string
+        +campusName : string
+        +servicePhone : string
+        +externalPlateFeeInCents : number
+        +commissionRatePercent : number
+        +deliveryFeeInCents : number
+        +paymentTimeoutMinutes : number
+        +settlementPeriodDays : number
+        +payoutMinimumInCents : number
+        +maxOrderQuantityPerItem : number ★新增 默认 5
+        +uploadRateLimitPerMinute : number ★新增 默认 20
+        +uploadQuotaPerUser : number ★新增 默认 200
+        +deliveryTimeSlots : string[]
+        +platformNotice : string
+    }
+
+    class UploadRecord {
+        +id : string
+        +userId : string
+        +fileName : string
+        +size : number
+        +mimeType : 'image/jpeg'|'image/png'|'image/webp'
+        +createdAt : string
+    }
+
+    class Database {
+        +schemaVersion : number
+        +products : Product[]
+        +orders : Order[]
+        +paymentOrders : PaymentOrder[]
+        +addresses : Address[]
+        +marketItems : MarketItem[]
+        +forumPosts : ForumPost[]
+        +merchants : Merchant[]
+        +adminSettings : AdminSettings
+        +uploadRecords : UploadRecord[] ★新增
+        +idempotencyKeys : object
+        +rentalDeposits : RentalDeposit[] ★M12-P0-02 ⑤
+    }
+
+    Database "1" *-- "many" Product
+    Database "1" *-- "many" Order
+    Database "1" *-- "many" PaymentOrder
+    Database "1" *-- "many" Address
+    Database "1" *-- "many" MarketItem
+    Database "1" *-- "many" ForumPost
+    Database "1" *-- "many" Merchant
+    Database "1" *-- "many" UploadRecord
+    Database "1" *-- "1" AdminSettings
+
+    Order "1" *-- "many" OrderItem
+    Order "1" --> "0..1" PaymentOrder : paymentOrderId
+    PaymentOrder "1" --> "0..1" Refund
+    ForumPost "1" *-- "many" ForumComment
+
+    %% ============ M12 租赁（v1.1 落地；★ 不新增集合、不新增枚举） ============
+    %% 硬约束：不新增 category / 不新增下单接口 / 不新增 order.status 枚举
+    %% 因此没有 RentalOrder 类：租赁信息挂在 Order.rental 上
+
+    class RentalPlan {
+        <<M12-P0-01，挂在 Product 上>>
+        +unit : 'DAY'|'WEEK'
+        +minUnits : number
+        +maxUnits : number
+        +unitPriceInCents : number
+        +depositInCents : number
+        +freeGraceMinutes : number
+        +overtimeFeePerHourInCents : number
+        +returnMode : 'SELF_PICKUP'
+    }
+
+    class RentalInfo {
+        <<M12-P0-02，挂在 Order 上>>
+        +status : RentalStatus
+        +unit : 'DAY'|'WEEK'
+        +units : number
+        +unitPriceInCents : number
+        +rentAmountInCents : number
+        +depositInCents : number
+        +startAt : string
+        +endAt : string
+        +dueAt : string
+        +freeGraceMinutes : number
+        +overtimeFeePerHourInCents : number
+        +deliveredAt : string
+        +returnedAt : string
+    }
+
+    class RentalDeposit {
+        <<M12-P0-02 ⑤，独立集合 data.rentalDeposits>>
+        +id : string
+        +orderId : string
+        +orderNo : string
+        +userId : string
+        +merchantId : string
+        +amountInCents : number
+        +status : RentalDepositStatus
+        +deductionInCents : number
+        +deductionReason : string
+        +evidenceImages : string[]
+        +refundedInCents : number
+        +heldAt : string
+        +refundPendingAt : string
+        +refundedAt : string
+        +settledBy : string
+    }
+    note for RentalDeposit "★ 恒等式（终态必检）：<br/>refundedInCents + deductionInCents === amountInCents<br/>★ 押金金额永不出现在 settlements<br/>★ R11（PRD v1.3 裁决）：本轮不分配、暂挂平台待分配<br/>　⇒ 本类【不含】任何分配字段（无 platformShare / merchantShare / settlementId）<br/>　⇒ 扣款只落 rentalDeposits + financeEvents + auditLogs"
+
+    class RentalStatus {
+        <<enum，挂在 Order.rental.status>>
+        PENDING_DELIVERY
+        RENTING
+        RETURN_REQUESTED
+        RETURN_VERIFYING
+        RETURNED
+        OVERDUE
+    }
+
+    class RentalDepositStatus {
+        <<enum>>
+        HELD
+        REFUND_PENDING
+        REFUNDED
+        PARTIALLY_REFUNDED
+    }
+
+    Product "1" --> "0..1" RentalPlan : listingType==='RENT' 时必填
+    Order "1" --> "0..1" RentalInfo : orderKind==='RENTAL' 时存在
+    Order "1" --> "0..1" RentalDeposit : orderId（★ 1 单最多 1 条押金）
+    RentalInfo --> RentalStatus
+    RentalDeposit --> RentalDepositStatus
+
+    %% ======================= 枚举 =======================
+    class OrderStatus {
+        <<enum>>
+        PENDING_PAYMENT
+        PAID
+        FULFILLING
+        COMPLETED
+        CANCELLED
+        AFTER_SALE
+    }
+    class PaymentStatus {
+        <<enum>>
+        UNPAID
+        PENDING
+        PAID
+        CANCELLED
+        PARTIALLY_REFUNDED
+        REFUNDED
+    }
+    Order --> OrderStatus
+    Order --> PaymentStatus
