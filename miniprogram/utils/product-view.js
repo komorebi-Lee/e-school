@@ -46,6 +46,20 @@ const SALE_ACTION_TEXT = '立即购买';
 const SALE_SOLD_OUT_ACTION_TEXT = '暂无可售';
 
 /**
+ * 展示精度：报价（售价 / 单位租金 / 买断参考价）用整数元并去掉尾零。
+ *
+ * @type {number}
+ */
+const YUAN_QUOTE_DIGITS = 0;
+
+/**
+ * 展示精度：押金等**可退还 / 可被部分扣除**的金额固定两位小数。
+ *
+ * @type {number}
+ */
+const YUAN_EXACT_DIGITS = 2;
+
+/**
  * 把任意输入归一化为 `'SALE'` / `'RENT'`。
  *
  * 缺失、空串、大小写不一致的存量数据都按售卖处理，避免脏数据把商品打成租赁。
@@ -72,15 +86,24 @@ function toFiniteNumber(value, fallback = 0) {
 }
 
 /**
- * 分 → 元的展示文本，整数元不带小数（`239900` → `'2399'`，`29900` → `'299'`）。
+ * 分 → 元的展示文本。
+ *
+ * 展示口径遵循 PRD 的一致约定（`01-PRD.md:56` 金额一律以分为单位）：
+ * **报价用整数元、可退还 / 可被部分扣除的金额用两位小数**。
+ *
+ * 为什么押金必须两位小数：押金会被**部分扣除**，`¥299.00 − ¥49.50 = ¥249.50`
+ * 一眼可验；若展示成 `¥299`，同样的减法会看起来像算错。押金是「账」，报价是「价」，
+ * 精度要求不同 —— 所以精度是**显式参数**，而不是全局统一（用反了要有断言能抓住）。
  *
  * @param {unknown} cents 金额（分）。
+ * @param {number} [fractionDigits] `YUAN_QUOTE_DIGITS`（默认，报价去尾零）/ `YUAN_EXACT_DIGITS`（押金固定两位）。
  * @returns {string} 元文本。
  */
-function formatYuan(cents) {
+function formatYuan(cents, fractionDigits = YUAN_QUOTE_DIGITS) {
   const yuan = Math.round(toFiniteNumber(cents)) / 100;
+  if (fractionDigits > YUAN_QUOTE_DIGITS) return yuan.toFixed(fractionDigits);
   if (Number.isInteger(yuan)) return String(yuan);
-  return String(Number(yuan.toFixed(2)));
+  return String(Number(yuan.toFixed(YUAN_EXACT_DIGITS)));
 }
 
 /**
@@ -193,7 +216,8 @@ function toProductCard(item = {}) {
     priceText: isRental ? rentalPriceText(rentalPlan) : `¥${formatYuan(effectivePriceInCentsOf(source))}`,
     // 租赁车额外透出买断参考价，避免学生把「日租金 15 元」误读成整车售价。
     originalPriceText: isRental ? `原价 ¥${formatYuan(toFiniteNumber(source.priceInCents))}` : '',
-    depositText: isRental ? `押金 ¥${formatYuan(rentalPlan ? rentalPlan.depositInCents : 0)}` : '',
+    // 押金是「账」不是「价」：可退还、可被部分扣除，固定两位小数（PRD 一致口径）。
+    depositText: isRental ? `押金 ¥${formatYuan(rentalPlan ? rentalPlan.depositInCents : 0, YUAN_EXACT_DIGITS)}` : '',
     rentalRangeText: isRental ? rentalRangeText(rentalPlan) : '',
     salesText: salesTextOf(listingType, salesCount),
     range: String(source.range || ''),
@@ -224,7 +248,8 @@ function toDetailView(product = {}) {
     badgeText: isRental ? RENTAL_BADGE_TEXT : String(source.badge || '校园专享'),
     priceText: isRental ? rentalPriceText(rentalPlan) : `¥${formatYuan(effectivePriceInCentsOf(source))}`,
     originalPriceText: isRental ? `原价 ¥${formatYuan(toFiniteNumber(source.priceInCents))}` : '',
-    depositText: isRental ? `押金 ¥${formatYuan(rentalPlan ? rentalPlan.depositInCents : 0)}` : '',
+    // 押金是「账」不是「价」：可退还、可被部分扣除，固定两位小数（PRD 一致口径）。
+    depositText: isRental ? `押金 ¥${formatYuan(rentalPlan ? rentalPlan.depositInCents : 0, YUAN_EXACT_DIGITS)}` : '',
     rentalRangeText: isRental ? rentalRangeText(rentalPlan) : '',
     rentalUnitLabel: unitLabel,
     // 底部栏副标题：租赁车说「取还」，售卖车说「配送」。
@@ -244,6 +269,8 @@ module.exports = {
   LISTING_TYPE_SALE,
   LISTING_TYPE_RENT,
   RENTAL_UNIT_LABELS,
+  YUAN_QUOTE_DIGITS,
+  YUAN_EXACT_DIGITS,
   normalizeListingType,
   formatYuan,
   rentalUnitLabel,

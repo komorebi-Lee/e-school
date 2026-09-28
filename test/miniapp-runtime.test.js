@@ -774,8 +774,8 @@ test('product-view 租赁车按日租金展示，并给出押金与租期', () =
   assert.equal(card.listingType, 'RENT');
   assert.equal(card.isRental, true);
   assert.equal(card.priceText, '¥15/天', '租赁车价格必须是单位租金而非买断价');
-  assert.equal(card.depositText, '押金 ¥299');
-  assert.ok(card.depositText.includes('299'), '押金文案应含 299');
+  assert.equal(card.depositText, '押金 ¥299.00', '押金是可退还金额，必须两位小数');
+  assert.notEqual(card.depositText, '押金 ¥299', '押金不得去尾零（部分扣除后会对不上账）');
   assert.equal(card.rentalRangeText, '可租 1~30 天');
   assert.ok(card.rentalRangeText.includes('1~30'), '租期文案应含 1~30');
   assert.equal(card.range, '70 km');
@@ -843,11 +843,41 @@ test('product-view 计费单位为小时时展示「小时」', () => {
   };
 
   assert.equal(productView.toProductCard(hourly).priceText, '¥5/小时');
+  assert.equal(productView.toProductCard(hourly).depositText, '押金 ¥99.00', '按小时租的押金同样两位小数');
   assert.equal(productView.toProductCard(hourly).rentalRangeText, '可租 1~8 小时');
   assert.equal(productView.toDetailView(hourly).rentalUnitLabel, '小时');
   assert.equal(productView.toDetailView(hourly).headlineText, '校内取还 · 按小时计费');
   // 服务端只允许 DAY / HOUR，脏单位一律兜底为「天」，不允许出现空白单位。
   assert.equal(productView.rentalUnitLabel('WEEK'), '天');
+});
+
+test('product-view 展示精度口径：报价去尾零、押金固定两位小数（防精度用反）', () => {
+  const rentalCard = productView.toProductCard(RENTAL_PRODUCT);
+  const rentalDetail = productView.toDetailView(RENTAL_PRODUCT);
+  const saleCard = productView.toProductCard(SALE_PRODUCT);
+
+  // 报价（售价 / 单位租金 / 买断参考价）：整数元、去尾零
+  assert.equal(rentalCard.priceText, '¥15/天');
+  assert.notEqual(rentalCard.priceText, '¥15.00/天', '单位租金是报价，不得带两位小数');
+  assert.equal(rentalDetail.priceText, '¥15/天');
+  assert.notEqual(rentalDetail.priceText, '¥15.00/天', '详情页单位租金同样不得带两位小数');
+  assert.equal(saleCard.priceText, '¥2399');
+  assert.notEqual(saleCard.priceText, '¥2399.00', '售价是报价，不得带两位小数');
+  assert.equal(rentalCard.originalPriceText, '原价 ¥3199');
+  assert.notEqual(rentalCard.originalPriceText, '原价 ¥3199.00', '买断参考价是报价，不得带两位小数');
+
+  // 押金（可退还、可被部分扣除）：固定两位小数
+  assert.equal(rentalCard.depositText, '押金 ¥299.00');
+  assert.equal(rentalDetail.depositText, '押金 ¥299.00');
+
+  // 精度参数本身：默认去尾零，显式传两位则补零；用反了会被上面两条抓住
+  assert.equal(productView.YUAN_QUOTE_DIGITS, 0);
+  assert.equal(productView.YUAN_EXACT_DIGITS, 2);
+  assert.equal(productView.formatYuan(29900), '299');
+  assert.equal(productView.formatYuan(29900, productView.YUAN_EXACT_DIGITS), '299.00');
+  assert.equal(productView.formatYuan(1500, productView.YUAN_EXACT_DIGITS), '15.00');
+  assert.equal(productView.formatYuan(29949, productView.YUAN_EXACT_DIGITS), '299.49');
+  assert.equal(productView.formatYuan(29949), '299.49');
 });
 
 test('product-view 「价格优先」排序按单位租金：日租 1500 排在日租 2000 之前（护栏）', () => {
@@ -912,7 +942,7 @@ test('product-view 租赁详情页渲染押金、租期与计费单位', () => {
   const sale = productView.toDetailView(SALE_PRODUCT);
 
   assert.equal(rental.priceText, '¥15/天');
-  assert.ok(rental.depositText.includes('299'), '详情页押金应含 299');
+  assert.equal(rental.depositText, '押金 ¥299.00', '详情页押金固定两位小数');
   assert.equal(rental.rentalRangeText, '可租 1~30 天');
   assert.equal(rental.rentalUnitLabel, '天');
   assert.equal(rental.headlineText, '校内取还 · 按天计费');
