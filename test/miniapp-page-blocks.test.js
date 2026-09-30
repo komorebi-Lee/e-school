@@ -57,12 +57,17 @@ const settle = () => new Promise((resolve) => setImmediate(resolve));
 function createHarness() {
   const storage = {};
   let redirectUrl = '';
+  // `navigateBack` 默认静默成功；置 true 时回调 `fail`，用于验证「无上一页」的兜底分支。
+  let navigateBackShouldFail = false;
   const wxStub = new Proxy({
     getStorageSync: (key) => storage[key],
     setStorageSync: (key, value) => { storage[key] = value; },
     removeStorageSync: (key) => { delete storage[key]; },
     nextTick: (fn) => fn(),
     redirectTo: (options) => { redirectUrl = options.url; },
+    navigateBack: (options) => {
+      if (navigateBackShouldFail && typeof options?.fail === 'function') options.fail({ errMsg: 'navigateBack:fail' });
+    },
     env: { USER_DATA_PATH: '/tmp' },
     createSelectorQuery: () => ({
       selectAll: () => ({ boundingClientRect: () => ({}) }),
@@ -78,6 +83,8 @@ function createHarness() {
   });
 
   let apiHandler = () => Promise.resolve({ data: {} });
+  // 记录页面把跳转委托给 openLink 的调用（tabBar 页必须走它，不能自己调 navigateTo）。
+  const openLinkCalls = [];
   const stubs = new Map([
     [require.resolve(path.join(miniprogramDirectory, 'services', 'api.js')), {
       request: (requestPath, options) => apiHandler(requestPath, options),
@@ -91,7 +98,7 @@ function createHarness() {
       payPaymentOrder: () => Promise.resolve({})
     }],
     [require.resolve(path.join(miniprogramDirectory, 'utils', 'navigation.js')), {
-      openLink: () => {}
+      openLink: (url, options) => { openLinkCalls.push({ url, options }); }
     }]
   ]);
 
@@ -112,6 +119,11 @@ function createHarness() {
     storage,
     setApiHandler(handler) { apiHandler = handler; },
     getRedirectUrl() { return redirectUrl; },
+    /** 控制 `wx.navigateBack` 是否回调 `fail`（验证「无上一页」的兜底分支）。 */
+    setNavigateBackFailure(value) { navigateBackShouldFail = Boolean(value); },
+    /** 页面把跳转委托给 openLink 的调用记录。 */
+    getOpenLinkCalls() { return openLinkCalls.map((call) => ({ ...call })); },
+    clearOpenLinkCalls() { openLinkCalls.length = 0; },
     /**
      * 加载一个页面脚本，并构造一个可以真实调用其方法的实例。
      *
@@ -960,4 +972,86 @@ test('M3-P1-05：待支付倒计时定时器按紧迫度动态切换，且重建
   orders.loadRecords();
   await settle();
   assert.equal(liveTimers.size, 0, '⑱ ★ 页面已停表时，异步到达的加载结果不得重新拉起定时器');
+});
+
+test('M1-P1-02：市集提为 tabBar 页后 forum / market-item 的 goMarket 走 openLink；首页价格不编造', async (t) => {
+  const harness = createHarness();
+  t.after(() => harness.restore());
+
+  // ==================== ⑤-a forum.js：goMarket 必须交给 openLink ====================
+  // 说明分工：本用例证明「这两个页面把市集跳转委托给 openLink」；
+  // 「openLink 对 /pages/market/market 真的走 switchTab」由
+  // test/miniapp-runtime.test.js 用真实 navigation.js + wx 桩断言。
+  // 两者合起来才是完整保证：页面不再自己调 navigateTo（对 tabBar 页必然失败）。
+  const forum = harness.loadPage(path.join('pages', 'forum', 'forum.js'));
+  harness.clearOpenLinkCalls();
+  forum.goMarket();
+  assert.deepEqual(
+    harness.getOpenLinkCalls().map((call) => call.url), ['/pages/market/market'],
+    '⑤ ★ forum 的 goMarket 必须把市集交给 openLink（tabBar 页走 navigateTo 会静默失败）'
+  );
+
+  // ==================== ⑤-b market/item.js：兜底分支同样走 openLink ====================
+  const item = harness.loadPage(path.join('pages', 'market', 'item.js'));
+  harness.clearOpenLinkCalls();
+  harness.setNavigateBackFailure(false);
+  item.goMarket();
+  assert.deepEqual(
+    harness.getOpenLinkCalls(), [],
+    '⑤ 有上一页时应优先返回上一页，不该跳市集（正常路径行为不变）'
+  );
+
+  harness.setNavigateBackFailure(true);
+  item.goMarket();
+  assert.deepEqual(
+    harness.getOpenLinkCalls().map((call) => call.url), ['/pages/market/market'],
+    '⑤ ★ 无上一页的兜底分支，市集也必须经 openLink（而不是 navigateTo）'
+  );
+
+  // ==================== ⑥ 首页编造价回归（T18 ①②③ 已修，此处作回归） ====================
+  const home = harness.loadPage(path.join('pages', 'home', 'home.js'));
+
+  // 正对照：接口正常时价格必须来自服务端 —— 没有这一步，下面的 null 断言会假通过
+  //（一个「压根没跑过 loadCatalog」的页面，价格同样是 null）。
+  harness.setApiHandler((requestPath) => {
+    if (requestPath === '/api/products') {
+      return Promise.resolve({
+        data: [
+          { id: 'p1', name: '轻风 通勤版', category: 'E_BIKE_NEW', active: true, effectivePriceInCents: 239900 },
+          { id: 'p2', name: '校园卡 29', category: 'PHONE_PLAN', active: true, effectivePriceInCents: 2900, stock: 5 }
+        ]
+      });
+    }
+    return Promise.resolve({ data: [] });
+  });
+  await home.loadCatalog();
+  assert.equal(home.data.scooterFromPrice, 2399, '⑥ 正对照：接口正常时车辆起步价必须来自服务端');
+  assert.equal(home.data.phoneFromPrice, 29, '⑥ 正对照：接口正常时电话卡起步价必须来自服务端');
+
+  // 断开 /api/products → 价格必须为 null，绝不编造数字
+  harness.setApiHandler(() => Promise.reject(new Error('商品接口 500')));
+  await home.loadCatalog();
+  assert.equal(home.data.scootersLoading, false, '⑥ 必须确实跑完过一轮（否则下面的 null 断言会假通过）');
+  assert.equal(home.data.scooterFromPrice, null, '⑥ ★ 接口挂掉后不得编造车辆起步价（曾硬编码 1899，真实最低价 2399）');
+  assert.equal(home.data.phoneFromPrice, null, '⑥ ★ 接口挂掉后不得编造电话卡起步价（曾硬编码 19，真实最低价 29）');
+  assert.equal(home.data.catalogError, true, '⑥ 失败必须置 catalogError，模板据此给出「价格加载失败，点击重试」');
+  const shownPrices = JSON.stringify({ scooter: home.data.scooterFromPrice, phone: home.data.phoneFromPrice });
+  assert.equal(shownPrices.includes('1899'), false, '⑥ ★ 页面价格区不得出现编造价 1899');
+  assert.equal(shownPrices.includes('19'), false, '⑥ ★ 页面价格区不得出现编造价 19');
+
+  // 接口成功但无数据：同样不编造（「取到空」不等于「有个默认价」）
+  harness.setApiHandler(() => Promise.resolve({ data: [] }));
+  await home.loadCatalog();
+  assert.equal(home.data.scootersLoading, false, '⑥ 空数据也必须跑完一轮');
+  assert.equal(home.data.scooterFromPrice, null, '⑥ 接口成功但无商品时同样不得编造车辆价');
+  assert.equal(home.data.phoneFromPrice, null, '⑥ 接口成功但无商品时同样不得编造电话卡价');
+  assert.equal(home.data.catalogError, false, '⑥ 成功（哪怕空）不应置 catalogError —— 否则会把「暂无报价」说成「加载失败」');
+
+  // 重试入口必须真的重新发起请求
+  let catalogCalls = 0;
+  harness.setApiHandler(() => { catalogCalls += 1; return Promise.reject(new Error('又挂了')); });
+  home.reloadCatalog();
+  await settle();
+  assert.equal(catalogCalls, 1, '⑥ reloadCatalog 必须真的重新发起请求（而不是只把 catalogError 清掉）');
+  assert.equal(home.data.catalogError, true, '⑥ 重试再次失败应保持错误态');
 });

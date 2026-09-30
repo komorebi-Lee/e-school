@@ -253,14 +253,14 @@ test('openLink 跳转非 tabBar 页面时调用 navigateTo 且 query 原样保�
   assert.equal(stub.calls.setStorageSync.length, 0, '非 tabBar 页面不应写焦点 Storage');
 });
 
-test('openLink 跳转市集（当前尚未是 tabBar 页）走 navigateTo', () => {
+test('openLink 跳转市集（已是第 5 个 tabBar 页）走 switchTab', () => {
   const stub = createWxStub();
   withWx(stub, () => navigation.openLink('/pages/market/market'));
 
-  assert.equal(stub.calls.navigateTo.length, 1);
-  assert.equal(stub.calls.navigateTo[0].url, '/pages/market/market');
-  assert.equal(stub.calls.switchTab.length, 0, '市集提为 tabBar 页前不应走 switchTab');
-  assert.equal(navigation.isTabBarPath('/pages/market/market'), false);
+  assert.equal(stub.calls.switchTab.length, 1, '市集已是 tabBar 页，必须走 switchTab');
+  assert.equal(stub.calls.switchTab[0].url, '/pages/market/market');
+  assert.equal(stub.calls.navigateTo.length, 0, '★ 不得调用 navigateTo —— 对 tabBar 页它必然失败，用户点了没反应');
+  assert.equal(navigation.isTabBarPath('/pages/market/market'), true, 'isTabBarPath 应认市集');
 });
 
 test('openLink 对多参数 query 完整透传给 navigateTo', () => {
@@ -427,14 +427,16 @@ test('switchTab 失败且未写入任何焦点参数时不调用 removeStorageSy
 // 六、navigation.isTabBarPath 与 TABBAR_PAGES 一致性
 // ===========================================================================
 
-test('isTabBarPath 对 4 个 tabBar 页面返回 true', () => {
-  for (const pagePath of ['/pages/home/home', '/pages/map/map', '/pages/orders/orders', '/pages/profile/profile']) {
+test('isTabBarPath 对 5 个 tabBar 页面返回 true', () => {
+  for (const pagePath of ['/pages/home/home', '/pages/map/map', '/pages/orders/orders', '/pages/profile/profile', '/pages/market/market']) {
     assert.equal(navigation.isTabBarPath(pagePath), true, `${pagePath} 应被识别为 tabBar 页面`);
   }
 });
 
 test('isTabBarPath 对非 tabBar 页面与空值返回 false', () => {
-  for (const pagePath of ['/pages/market/market', '/pages/detail/detail', '/pages/orders/orders-detail', '', null, undefined]) {
+  // `/pages/market/item` 是 `/pages/market/market` 的近似串：必须按**整串**比对，
+  // 不能用前缀/包含判断，否则市集详情页会被误判成 tabBar 页。
+  for (const pagePath of ['/pages/market/item', '/pages/detail/detail', '/pages/orders/orders-detail', '', null, undefined]) {
     assert.equal(navigation.isTabBarPath(pagePath), false, `${String(pagePath)} 不应被识别为 tabBar 页面`);
   }
 });
