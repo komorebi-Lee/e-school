@@ -1486,3 +1486,60 @@ test('T40：商家端「核验归还」入口已接线（条件 / 动作 / 备�
     '服务端 requireString(note) 要求非空，留空时必须兜底'
   );
 });
+
+/**
+ * 静默失败修复第一批（merchant/index + card）。
+ *
+ * 为什么需要源码级护栏：页面脚本在顶层调用 `Page()`，Node 里无法真实执行，
+ * 因此「页面确实用了共享工具 / 每块都有可见错误态与重试入口」只能用源码断言守住。
+ * 三态工具本身的运行时行为由 `test/miniapp-runtime.test.js` 覆盖。
+ */
+test('静默失败修复：merchant/card 不再有空 catch，每块都有可见错误态与重试入口', () => {
+  // 空格容错：`}).catch(()=>{});` 与 `}).catch(() => {});` 都要被逮住。
+  const emptyCatch = /catch\(\s*\(\s*\)\s*=>\s*\{\s*\}\s*\)/;
+
+  const pages = [
+    {
+      name: '商家工作台',
+      js: path.join('pages', 'merchant', 'index.js'),
+      wxml: path.join('pages', 'merchant', 'index.wxml'),
+      retries: ['retryNotifications', 'retryMessageSubscriptions', 'retryMessageTemplates', 'retryRevenueTrend', 'retryStatement']
+    },
+    {
+      name: '校园电话卡',
+      js: path.join('pages', 'card', 'card.js'),
+      wxml: path.join('pages', 'card', 'card.wxml'),
+      retries: ['retryPlans', 'retryPromos', 'retryBusinessConfig']
+    }
+  ];
+
+  for (const page of pages) {
+    const source = readMiniappFile(page.js);
+    const markup = readMiniappFile(page.wxml);
+
+    assert.equal(emptyCatch.test(source), false, `${page.name}（${page.js}）不得再出现空 catch`);
+    assert.ok(source.includes('utils/load-state'), `${page.name} 应使用共享的三态工具`);
+    assert.ok(source.includes('loadState.loadBlock('), `${page.name} 应通过 loadBlock 写块状态`);
+
+    for (const handler of page.retries) {
+      assert.ok(source.includes(`${handler}()`), `${page.name} 应提供 ${handler} 重试入口`);
+      assert.ok(markup.includes(`bindtap="${handler}"`), `${page.wxml} 应把 ${handler} 绑到错误占位`);
+    }
+    assert.ok(markup.includes('load-error'), `${page.name} 的错误占位应有独立样式类`);
+    assert.ok(readMiniappFile(page.wxml.replace(/wxml$/, 'wxss')).includes('.load-error'), `${page.name} 的 wxss 应定义 .load-error`);
+  }
+
+  // `Promise.all(...)` 上那个把 5 个块的失败合并成一次静默的 catch 必须消失。
+  const merchantSource = readMiniappFile(path.join('pages', 'merchant', 'index.js'));
+  assert.equal(
+    merchantSource.includes(']).catch('),
+    false,
+    'merchant 的 Promise.all 不得再挂 catch —— 每块自己持有 error，失败不再被吞'
+  );
+
+  // 两个区块的错误态必须互相独立：各自有独立的状态键。
+  const cardSource = readMiniappFile(path.join('pages', 'card', 'card.js'));
+  for (const key of ['plansBlock', 'promosBlock']) {
+    assert.ok(cardSource.includes(`${key}: loadState.initialBlock()`), `card 的 ${key} 必须独立初始化`);
+  }
+});

@@ -1,4 +1,5 @@
 const { request: apiRequest, userId } = require('../../services/api');
+const loadState = require('../../utils/load-state');
 
 const orderStatusLabels = {
   PENDING_PAYMENT: '待支付',
@@ -218,19 +219,27 @@ Page({
   data: {
     merchant: null, metrics: null, products: [], orders: [], settlements: [], payoutRequests: [], focusId: '',
     lowStockProducts: [], lowStockThreshold: 10,
-    slaAlerts: [], riskTasks: [], promotionSummary: [], notifications: [], unreadNotificationCount: 0, loading: true,
+    slaAlerts: [], riskTasks: [], promotionSummary: [], loading: true,
     workbenchCounts: { overview: 0, risk: 0, finance: 0, messages: 0 },
-    serviceScore: null, scoreTrend: null, latestRiskUrge: null, pendingPublishProducts: [], scoreCases: [], scoreNoticeSubscribed: false, messageTemplates: [], configuredTemplateCount: 0,
+    serviceScore: null, scoreTrend: null, latestRiskUrge: null, pendingPublishProducts: [], scoreCases: [],
+    // ★ 五个异步块各自持有三态（loading / error / data）。
+    // 改造前它们被一个「吞掉所有错误的空 catch」合并成一次静默失败：
+    // 任意一个接口挂掉，页面既不报错也不给重试入口，用户只看到空白。
+    // 现在每块自己持有 loading / error，且 `loadBlock` 保证失败时**不清空**已有数据。
+    notificationsBlock: loadState.initialBlock(),
+    subscriptionsBlock: loadState.initialBlock(),
+    templatesBlock: loadState.initialBlock(),
+    trendBlock: loadState.initialBlock(),
+    statementBlock: loadState.initialBlock(),
     scoreEvidence: [], uploadingScoreEvidence: false,
     qualificationRenewals: [], renewalLicenseNo: '', renewalLicenseExpireDate: '', renewalNote: '',
     renewalEvidence: [], uploadingRenewalEvidence: false, renewalSubmitting: false,
     delistedProducts: [], watchingProducts: [], rectifyProductIndex: 0, showQualificationPanel: false,
     activeWorkbenchTab: 'overview',
-    trend: { bars: [], totalRevenueText: '0.00', totalOrders: 0, hasData: false },
     trendMetric: 'revenue',
     scoreCaseType: 'APPEAL', scoreCaseReasonTypeIndex: 0, appealReasons,
     payoutMinimumText: '100.00', payableText: '0.00', canRequestPayout: false, payoutHint: '', payoutSubmitting: false,
-    statement: null, statementMonth: new Date().toISOString().slice(0, 7), statementSaving: false
+    statementMonth: new Date().toISOString().slice(0, 7), statementSaving: false
   },
   onLoad(options) {
     this.pendingFocusId = options?.focusId ? decodeURIComponent(options.focusId) : '';
@@ -395,34 +404,22 @@ Page({
         this.pendingFocusId = '';
         this.applyNotificationFocus(focusValue);
       }
-      const notificationTask = this.request('/api/merchant/notifications').then(({ data: items }) => {
-        const notifications = (items || []).slice(0, 5).map((item) => ({
-          ...item,
-          timeText: String(item.createdAt || '').slice(5, 16).replace('T', ' ')
-        }));
-        const unreadNotificationCount = (items || []).filter((item) => !item.read).length;
-        this.setData({ notifications, unreadNotificationCount, 'workbenchCounts.messages': unreadNotificationCount });
-        if (unreadNotificationCount) return this.request('/api/merchant/notifications/read', { method: 'POST' });
-      });
-      const subscriptionTask = this.request('/api/merchant/message-subscriptions').then(({ data }) => {
-        this.setData({ scoreNoticeSubscribed: data.subscribed === true });
-      });
-      const templateTask = this.request('/api/subscribe-templates').then(({ data = [] }) => {
-        const messageTemplates = (data || []).filter((item) => item.audience === 'MERCHANT').map((item) => ({
-          key: item.key,
-          description: item.description,
-          configured: Boolean(item.configuredId)
-        }));
-        this.setData({
-          messageTemplates,
-          configuredTemplateCount: messageTemplates.filter((item) => item.configured).length
-        });
-      }).catch(() => {});
-      const trendTask = this.request('/api/merchant/revenue-trend')
-        .then(({ data }) => this.setData(this.buildTrend(data)))
-        .catch(() => {});
-      const statementTask = this.loadStatement();
-      return Promise.all([notificationTask, subscriptionTask, statementTask, trendTask, templateTask]).catch(() => {});
+      // ★ 五个块**各自**加载：任一块失败只影响它自己，不再被合并成一个静默的失败。
+      //
+      // 为什么这里可以、也必须去掉 `Promise.all` 上那个吞错的空 catch：
+      // 每个 `loadXxx` 都走 `loadBlock`，它把失败落成块内的 `error` 文案并**不 rethrow**，
+      // 因此 `Promise.all` 不会 reject —— 不需要空 catch 兜底，也就不会再吞掉错误。
+      //
+      // 注意：改造前「商家提醒」与「提醒订阅」这两个任务**没有** catch，
+      // 一旦挂掉会让 `Promise.all` reject，被那个空 catch 吞掉（用户毫无感知）；
+      // 现在它们同样进块，失败可见、可重试。
+      return Promise.all([
+        this.loadNotifications(),
+        this.loadMessageSubscriptions(),
+        this.loadMessageTemplates(),
+        this.loadRevenueTrend(),
+        this.loadStatement()
+      ]);
     }).catch(() => {
       this.setData({ loading: false });
       wx.removeStorageSync('campusGoMerchantId');
@@ -432,6 +429,86 @@ Page({
         else this.goApply();
       }).catch(() => this.goApply());
     });
+  },
+  /**
+   * 用共享的三态工具加载一个数据块。
+   *
+   * 三个关键约定由 `loadBlock` 保证，调用方不必再重复实现：
+   * 1. 先写「加载中」（保留上一次的数据，重试期间旧内容不闪白）；
+   * 2. 成功写 `{loading:false, error:'', data}`；
+   * 3. 失败**只**写 `error` 文案，`prev` 的数据原样带回 —— 绝不清空。
+   *
+   * @param {string} stateKey 块状态在 `data` 上的键，如 `'trendBlock'`。
+   * @param {Function} loader 返回 Promise 的加载函数，解析值即该块的数据。
+   * @returns {Promise<unknown>} 块数据；失败时为 `undefined`（错误已写入块内 `error`）。
+   */
+  loadMerchantBlock(stateKey, loader) {
+    return loadState.loadBlock({
+      setData: (patch) => this.setData(patch),
+      stateKey,
+      prev: this.data[stateKey],
+      loader
+    });
+  },
+  /** 商家提醒块。 */
+  loadNotifications() {
+    return this.loadMerchantBlock('notificationsBlock', () => this.request('/api/merchant/notifications')
+      .then(({ data: items }) => {
+        const list = items || [];
+        const notifications = list.slice(0, 5).map((item) => ({
+          ...item,
+          timeText: String(item.createdAt || '').slice(5, 16).replace('T', ' ')
+        }));
+        const unreadNotificationCount = list.filter((item) => !item.read).length;
+        // 未读数是页签红点，属于跨块的全局派生值，单独写入（不是本块的数据）。
+        this.setData({ 'workbenchCounts.messages': unreadNotificationCount });
+        if (!unreadNotificationCount) return { items: notifications, unread: unreadNotificationCount };
+        // 标记已读失败也落进本块的 error：列表已经在手上，不会被清空。
+        return this.request('/api/merchant/notifications/read', { method: 'POST' })
+          .then(() => ({ items: notifications, unread: unreadNotificationCount }));
+      }));
+  },
+  /** 服务分提醒订阅块。 */
+  loadMessageSubscriptions() {
+    return this.loadMerchantBlock('subscriptionsBlock', () => this.request('/api/merchant/message-subscriptions')
+      .then(({ data }) => ({ subscribed: data.subscribed === true })));
+  },
+  /** 订阅模板配置块。 */
+  loadMessageTemplates() {
+    return this.loadMerchantBlock('templatesBlock', () => this.request('/api/subscribe-templates')
+      .then(({ data = [] }) => {
+        const items = (data || []).filter((item) => item.audience === 'MERCHANT').map((item) => ({
+          key: item.key,
+          description: item.description,
+          configured: Boolean(item.configuredId)
+        }));
+        return { items, configuredCount: items.filter((item) => item.configured).length };
+      }));
+  },
+  /** 近 7 日营收 / 订单趋势块。 */
+  loadRevenueTrend() {
+    return this.loadMerchantBlock('trendBlock', () => this.request('/api/merchant/revenue-trend')
+      .then(({ data }) => this.buildTrend(data).trend));
+  },
+  /** 重新加载：商家提醒。 */
+  retryNotifications() {
+    return this.loadNotifications();
+  },
+  /** 重新加载：提醒订阅状态。 */
+  retryMessageSubscriptions() {
+    return this.loadMessageSubscriptions();
+  },
+  /** 重新加载：订阅模板配置。 */
+  retryMessageTemplates() {
+    return this.loadMessageTemplates();
+  },
+  /** 重新加载：营收 / 订单趋势。 */
+  retryRevenueTrend() {
+    return this.loadRevenueTrend();
+  },
+  /** 重新加载：当月对账单。 */
+  retryStatement() {
+    return this.loadStatement();
   },
   goApply() {
     wx.redirectTo({ url: '/pages/merchant/apply' });
@@ -504,7 +581,7 @@ Page({
     this.load();
   },
   openNoticeCenter() {
-    if (this.data.scoreNoticeSubscribed) {
+    if (this.data.subscriptionsBlock.data?.subscribed) {
       this.setData({ activeWorkbenchTab: 'messages' });
       return;
     }
@@ -681,18 +758,16 @@ Page({
   },
   loadStatement() {
     const month = this.data.statementMonth || new Date().toISOString().slice(0, 7);
-    return this.request(`/api/merchant/settlement-statement?month=${encodeURIComponent(month)}`)
-      .then(({ data }) => {
-        this.setData({ statement: data });
-      })
-      .catch(() => {});
+    return this.loadMerchantBlock('statementBlock', () => this.request(`/api/merchant/settlement-statement?month=${encodeURIComponent(month)}`)
+      .then(({ data }) => data));
   },
   saveStatement() {
-    if (this.data.statementSaving || !this.data.statement) return;
+    const statement = this.data.statementBlock.data;
+    if (this.data.statementSaving || !statement) return;
     const month = this.data.statementMonth;
     const filePath = `${wx.env.USER_DATA_PATH}/shishan-statement-${month}.csv`;
     try {
-      wx.getFileSystemManager().writeFileSync(filePath, buildStatementCsv(this.data.statement), 'utf8');
+      wx.getFileSystemManager().writeFileSync(filePath, buildStatementCsv(statement), 'utf8');
       this.setData({ statementSaving: true });
       wx.shareFileMessage({
         filePath,
@@ -802,9 +877,9 @@ Page({
     });
   },
   subscribeScoreNotice() {
-    if (this.data.scoreNoticeSubscribed) {
+    if (this.data.subscriptionsBlock.data?.subscribed) {
       this.request('/api/merchant/message-subscriptions', { method: 'POST', data: { accepted: false } }).then(() => {
-        this.setData({ scoreNoticeSubscribed: false });
+        this.setData({ 'subscriptionsBlock.data.subscribed': false });
         wx.showToast({ title: '已关闭提醒', icon: 'success' });
       }).catch((error) => wx.showToast({ title: error.message || '设置失败', icon: 'none' }));
       return;
@@ -815,7 +890,7 @@ Page({
         method: 'POST',
         data: { accepted: true }
       }).then(() => {
-        this.setData({ scoreNoticeSubscribed: true });
+        this.setData({ 'subscriptionsBlock.data.subscribed': true });
         wx.showToast({ title: '已开启服务分提醒', icon: 'success' });
       });
       if (!tmplIds.length) {

@@ -169,3 +169,7 @@
 .notice-subscription .muted { line-height: 1.5; }
 .template-row { display: flex; justify-content: space-between; align-items: center; gap: 16rpx; padding: 12rpx 0; border-bottom: 1rpx solid #edf0f5; }
 .template-row:last-child { border-bottom: 0; }
+/* 区块错误占位：接口失败时页面必须「看得见、点得动」，而不是安静地留白。 */
+.load-error { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; padding: 20rpx 24rpx; margin: 12rpx 0; background: #fff4f2; border: 2rpx solid #ffd9d3; border-radius: 18rpx; }
+.load-error .muted { flex: 1; min-width: 0; color: #a3341f; line-height: 1.45; }
+.load-error .ghost-button { min-width: 120rpx; margin: 0; flex-shrink: 0; }

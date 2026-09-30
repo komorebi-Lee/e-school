@@ -30,6 +30,8 @@ const cloudRequest = require(path.join(miniprogramDirectory, 'lib', 'cloud-reque
 const productView = require(path.join(miniprogramDirectory, 'utils', 'product-view.js'));
 // 租赁订单展示层（进度条 / 应还倒计时 / 卡片文案）：同样是纯函数模块。
 const rentalJourney = require(path.join(miniprogramDirectory, 'utils', 'rental-journey.js'));
+// 分块加载的三态工具（loading / error / data）：纯函数 + 一个只依赖注入 setData 的薄包装。
+const loadState = require(path.join(miniprogramDirectory, 'utils', 'load-state.js'));
 
 const ORDER_FOCUS_KEY = 'campusGoOrderFocusId';
 const ORDER_RECORD_TYPE_KEY = 'campusGoOrderFocusRecordType';
@@ -1650,4 +1652,100 @@ test('⑩ E2E：商家端「核验归还」入口 false → true → false（走
     await new Promise((resolve) => server.close(resolve));
     fs.rmSync(tempDirectory, { recursive: true, force: true });
   }
+});
+
+/**
+ * 分块加载的三态工具（`miniprogram/utils/load-state.js`）。
+ *
+ * 本批改造的主题是**静默失败**：接口挂掉时页面什么都不发生（没有提示、没有重试，
+ * 数据保持空白或陈旧）。工具本身是纯函数 + 一个只依赖注入 `setData` 的薄包装，
+ * 因此成功 / 失败两条路径都能在 Node 里真实跑通、真实断言。
+ *
+ * 十条断言对应派发要求 ①~⑩；`★` 标记的两条是本模块存在的理由。
+ */
+test('load-state：失败不清空数据、块之间互相独立', async () => {
+  const {
+    initialBlock, beginBlock, resolveBlock, rejectBlock, blockErrorText, loadBlock,
+    DEFAULT_ERROR_TEXT, MAX_ERROR_TEXT_LENGTH
+  } = loadState;
+
+  // ① 初始块 = 加载中且无错误。
+  assert.deepEqual(initialBlock(), { loading: true, error: '' }, '① 初始块应为「加载中、无错误」');
+
+  // ② 进入加载中必须保留上一次的数据 —— 重试期间旧列表不能闪成空白。
+  const prev = { loading: false, error: '', data: [1, 2, 3] };
+  const begun = beginBlock(prev);
+  assert.deepEqual(begun.data, [1, 2, 3], '② 进入加载中不得丢掉上一次的数据');
+  assert.equal(begun.loading, true, '② 进入加载中应置 loading=true');
+  assert.equal(begun.error, '', '② 进入加载中应清掉上一次的错误');
+
+  // ③ ★ 核心约定：失败绝不清空数据。
+  const rejected = rejectBlock(new Error('接口 500'), prev);
+  assert.deepEqual(
+    rejected.data, [1, 2, 3],
+    '③ 失败时必须保留旧数据 —— 清空等于向用户断言「这里本来就没有数据」，是假事实'
+  );
+  assert.equal(rejected.loading, false, '③ 失败应结束加载态');
+  assert.equal(rejected.error, '接口 500', '③ 失败应写入可读错误文案');
+
+  // ④ 成功态清掉 loading 与 error。
+  assert.deepEqual(resolveBlock({ loading: true, error: 'x', data: 'k' }), { loading: false, error: '', data: 'k' }, '④ 成功态应清掉 loading 与 error，并保留数据');
+
+  // ⑤ 文案兜底与截断。
+  assert.equal(blockErrorText(new Error('')), DEFAULT_ERROR_TEXT, '⑤ 空 message 应回落到兜底文案');
+  assert.equal(blockErrorText(undefined), DEFAULT_ERROR_TEXT, '⑤ 非 Error 入参也应回落，不得抛错');
+  const truncated = blockErrorText(new Error('x'.repeat(300)));
+  assert.equal(truncated.length, MAX_ERROR_TEXT_LENGTH, '⑤ 超长文案必须截断到上限（否则会撑爆单行占位，把重试按钮挤出屏幕）');
+  assert.ok(truncated.endsWith('…'), '⑤ 截断应带省略号，提示用户文案不完整');
+
+  // ⑥ ★ 块之间独立：同一页面上并发加载两块，一块失败不得牵连另一块。
+  const written = {};
+  const setData = (patch) => Object.assign(written, patch);
+  await Promise.all([
+    loadBlock({
+      setData, stateKey: 'aBlock',
+      prev: { loading: false, error: '', data: ['旧'] },
+      loader: () => Promise.reject(new Error('A 挂了'))
+    }),
+    loadBlock({
+      setData, stateKey: 'bBlock', prev: initialBlock(),
+      loader: () => Promise.resolve(['新'])
+    })
+  ]);
+  assert.equal(written.aBlock.error, 'A 挂了', '⑥ A 块失败应只写 A 块的 error');
+  assert.deepEqual(written.aBlock.data, ['旧'], '⑥ A 块失败也不得清空自己的数据');
+  assert.deepEqual(written.bBlock.data, ['新'], '⑥ B 块必须照常成功 —— 一个接口挂掉不该拖垮整页');
+  assert.equal(written.bBlock.error, '', '⑥ B 块不得被写入 A 块的错误');
+
+  // ⑦ 成功路径的 setData 序列：先「加载中」，再「数据 + 成功态」。
+  const calls = [];
+  const data7 = await loadBlock({
+    setData: (patch) => calls.push(patch), stateKey: 'cBlock', prev: initialBlock(),
+    loader: () => Promise.resolve(42)
+  });
+  assert.equal(data7, 42, '⑦ loadBlock 应把 loader 的解析值透传出去');
+  assert.deepEqual(calls[0].cBlock, { loading: true, error: '' }, '⑦ 第一次 setData 应进入加载中');
+  assert.deepEqual(calls[1].cBlock, { loading: false, error: '', data: 42 }, '⑦ 第二次 setData 应写入数据并清空错误');
+
+  // ⑧ ★ 失败路径：不清空 prev 的数据，且不 rethrow。
+  const calls8 = [];
+  const result8 = await loadBlock({
+    setData: (patch) => calls8.push(patch), stateKey: 'dBlock',
+    prev: { loading: false, error: '', data: ['旧数据'] },
+    loader: () => Promise.reject(new Error('挂了'))
+  });
+  assert.equal(result8, undefined, '⑧ 失败时不得 rethrow —— 否则调用方又得包一层空 catch，回到改造前');
+  assert.deepEqual(calls8[calls8.length - 1].dBlock.data, ['旧数据'], '⑧ 失败时数据必须原样保留');
+
+  // ⑨ loader 同步抛错同样要被接住（不能漏成未捕获异常）。
+  const result9 = await loadBlock({
+    setData: () => {}, stateKey: 'eBlock',
+    loader: () => { throw new Error('同步炸'); }
+  });
+  assert.equal(result9, undefined, '⑨ loader 同步抛错同样不 rethrow');
+
+  // ⑩ 入参校验：缺任何一个必需项都应在开发期立刻暴露，而不是静默写坏 state。
+  assert.throws(() => loadBlock({ stateKey: 'x', loader: () => {} }), TypeError, '⑩ 缺 setData 应抛 TypeError');
+  assert.throws(() => loadBlock({ setData: () => {}, loader: () => {} }), TypeError, '⑩ 缺 stateKey 应抛 TypeError');
+  assert.throws(() => loadBlock({ setData: () => {}, stateKey: 'x' }), TypeError, '⑩ 缺 loader 应抛 TypeError');
 });

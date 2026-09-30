@@ -13,3 +13,8 @@
 .recharge-card.disabled .recharge-state { color: #667289; }
 .recharge-value { margin-bottom: 12rpx; }
 .recharge-state { color: #002fa7; font-size: 20rpx; font-weight: 800; }
+/* 区块错误占位：套餐 / 活动各自独立，一个接口挂掉另一块照常渲染。 */
+.load-error { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; padding: 20rpx 24rpx; margin: 0 0 18rpx; background: #fff4f2; border: 2rpx solid #ffd9d3; border-radius: 18rpx; }
+.load-error .muted { flex: 1; min-width: 0; color: #a3341f; line-height: 1.45; }
+.load-error .ghost-button { min-width: 120rpx; margin: 0; flex-shrink: 0; }
+
