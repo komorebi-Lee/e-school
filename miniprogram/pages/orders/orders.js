@@ -71,13 +71,15 @@ Page({
     const storedFocusId = wx.getStorageSync('campusGoOrderFocusId');
     if (storedFocusId) {
       this.focusId = storedFocusId;
-      try { wx.removeStorageSync('campusGoOrderFocusId'); } catch (error) {}
+      try { wx.removeStorageSync('campusGoOrderFocusId'); }
+      catch (error) { /* 清理失败不应阻断订单列表加载：残留的焦点 id 最多让下次进入多高亮一次，不会造成错误数据 */ }
     }
     // tabBar 页面无法携带 query，recordType 同样经 Storage 传入
     const storedRecordType = wx.getStorageSync('campusGoOrderFocusRecordType');
     if (storedRecordType) {
       this.focusRecordType = storedRecordType;
-      try { wx.removeStorageSync('campusGoOrderFocusRecordType'); } catch (error) {}
+      try { wx.removeStorageSync('campusGoOrderFocusRecordType'); }
+      catch (error) { /* 清理失败不应阻断订单列表加载：残留的 recordType 最多让下次进入多高亮一次，不会造成错误数据 */ }
     }
     this.loadRecords();
     this.startCountdownTimer();

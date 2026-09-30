@@ -94,8 +94,8 @@ Page({
   },
 
   goMarket() {
-    // 市集当前不是 tabBar 页，openLink 会走 navigateTo；
-    // 待市集提为 tabBar 页后 openLink 自动改走 switchTab，避免此处静默失效。
+    // 市集已是第 5 个 tabBar 页（M1-P1-02），openLink 会走 switchTab ——
+    // 这正是此处不直接写 wx.navigateTo 的原因（tabBar 页用 navigateTo 必然失败）。
     openLink('/pages/market/market');
   }
 });

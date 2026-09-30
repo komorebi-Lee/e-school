@@ -14,7 +14,8 @@ function loadHistory() {
 }
 
 function saveHistory(keywords) {
-  try { wx.setStorageSync(HISTORY_KEY, keywords.slice(0, 10)); } catch (error) {}
+  try { wx.setStorageSync(HISTORY_KEY, keywords.slice(0, 10)); }
+  catch (error) { /* 搜索历史写入失败不应阻断搜索本身：历史只是便利功能，本次搜索结果仍然可用 */ }
 }
 
 const typeLabels = {

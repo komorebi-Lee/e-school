@@ -181,7 +181,8 @@ Page({
   },
   goReview() {
     if (!this.data.orderId) return;
-    try { wx.setStorageSync('campusGoOrderFocusId', this.data.orderId); } catch (error) {}
+    try { wx.setStorageSync('campusGoOrderFocusId', this.data.orderId); }
+    catch (error) { /* 存储写入失败不应阻断跳转订单页：焦点参数只用于高亮该订单，是便利而非必需 */ }
     wx.switchTab({ url: '/pages/orders/orders' });
   },
   requestAppeal() {
