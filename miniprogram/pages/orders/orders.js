@@ -298,7 +298,7 @@ function buildSessionFrom(record) {
 }
 
 Page({
-  data:{ active:'ALL', records:[], filtered:[], linkage:[], loading:true, consult:null, reviewing:false, serviceContact:'15527111396', responseHours:24, focusId:'' },
+  data:{ active:'ALL', records:[], filtered:[], linkage:[], loading:true, consult:null, reviewing:false, serviceContact:'15527111396', responseHours:24, focusId:'', recordsError:'' },
   onShow(){
     const storedFocusId = wx.getStorageSync('campusGoOrderFocusId');
     if (storedFocusId) {
@@ -393,13 +393,17 @@ Page({
       const focusRecordType=this.focusRecordType;
       if (focusRecordType) this.focusRecordType='';
       const active=focusRecordType&&focusRecordType!==this.data.active?focusRecordType:this.data.active;
-      this.setData({records,active,filtered:this.filterRecords(records,active),linkage:this.buildLinkage(orderData,records),loading:false});
+      this.setData({records,active,filtered:this.filterRecords(records,active),linkage:this.buildLinkage(orderData,records),loading:false,recordsError:''});
       this.focusLoadedRecord(records);
     }).catch(error=>{
-      this.setData({records:[],filtered:[],linkage:[],loading:false});
-      wx.showToast({title:error.message||'订单加载失败',icon:'none'});
+      // ★ 失败不清空：保留上一次的服务记录，把「失败」变成可见状态（错误占位 + 重试）。
+      // 改造前这里 setData({records:[],filtered:[],linkage:[]}) —— 订单页会显示
+      // 「还没有服务记录」，等于向用户断言「你确实没有订单」，而事实是「我们没取到」。
+      // 只改本 catch：Promise.all / records 组装 / buildLinkage / focusLoadedRecord 一律未动。
+      this.setData({loading:false, recordsError:loadState.blockErrorText(error)});
     });
   },
+  retryRecords(){return this.loadRecords()},
   filterRecords(records,active){return active==='ALL'?records:records.filter(item=>item.type===active)},
   focusLoadedRecord(records){
     const focusId=this.focusId;

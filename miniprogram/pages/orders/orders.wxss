@@ -116,3 +116,7 @@
 .journey-step.current .journey-dot { background: #f59f00; box-shadow: 0 0 0 5rpx #fff5e6; }
 .journey-step.current .journey-name { color: #a55a00; }
 .return-button { background: #002fa7; color: #fff; border: 0; }
+/* 失败占位：接口挂掉必须「看得见、点得动」，而不是把「没取到」显示成「还没有服务记录」。 */
+.load-error { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; padding: 20rpx 24rpx; margin: 18rpx 0 0; background: #fff4f2; border: 2rpx solid #ffd9d3; border-radius: 18rpx; }
+.load-error .muted { flex: 1; min-width: 0; color: #a3341f; line-height: 1.45; }
+.load-error .ghost-button { min-width: 120rpx; margin: 0; flex-shrink: 0; }

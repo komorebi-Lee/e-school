@@ -6,6 +6,7 @@ Page({
   data: {
     addresses: [],
     loading: true,
+    addressesError: '',
     saving: false,
     form: {
       visible: false,
@@ -29,11 +30,18 @@ Page({
 
   loadAddresses() {
     request('/api/my/addresses').then(({ data }) => {
-      this.setData({ addresses: data || [], loading: false });
+      this.setData({ addresses: data || [], loading: false, addressesError: '' });
     }).catch((error) => {
-      this.setData({ addresses: [], loading: false });
-      wx.showToast({ title: error.message || '地址加载失败', icon: 'none' });
+      // ★ 失败不清空：保留上一次的地址列表，把「失败」变成可见状态（错误占位 + 重试）。
+      // 改造前这里 setData({addresses:[]}) + 一闪而过的 toast —— 用户会看到
+      // 「还没有常用地址」，等于断言「你确实没存过地址」，而事实是「我们没取到」。
+      this.setData({ loading: false, addressesError: loadState.blockErrorText(error) });
     });
+  },
+
+  /** 重新加载：常用地址列表。 */
+  retryAddresses() {
+    return this.loadAddresses();
   },
 
   startCreate() {

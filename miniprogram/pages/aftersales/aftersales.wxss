@@ -47,3 +47,7 @@
 .evidence-remove { position: absolute; top: 6rpx; right: 6rpx; width: 40rpx; height: 40rpx; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgba(23,32,51,.72); color: #fff; font-size: 26rpx; }
 .evidence-add { height: 168rpx; display: flex; align-items: center; justify-content: center; border: 2rpx dashed #b9c6dd; border-radius: 14rpx; color: #0f5fd8; font-size: 42rpx; background: #f8faff; }
 .existing .evidence-grid { margin: 18rpx 0 16rpx; text-align: left; }
+/* 失败占位：接口挂掉必须「看得见、点得动」，而不是把「没取到」显示成「未找到可售后订单」。 */
+.load-error { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; padding: 20rpx 24rpx; margin: 18rpx 0 0; background: #fff4f2; border: 2rpx solid #ffd9d3; border-radius: 18rpx; }
+.load-error .muted { flex: 1; min-width: 0; color: #a3341f; line-height: 1.45; }
+.load-error .ghost-button { min-width: 120rpx; margin: 0; flex-shrink: 0; }

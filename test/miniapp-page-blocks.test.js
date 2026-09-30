@@ -677,3 +677,193 @@ test('第三批：plate 申请状态三态化；动作类失败不得产生错�
     '★ 动作类（上报已读）失败不得改动页面任何可见状态 —— 既不清空列表，也不产生错误占位'
   );
 });
+
+test('第四批：orders / addresses / aftersales 失败不再清空数据；租赁行为逐条不变', async (t) => {
+  const harness = createHarness();
+  t.after(() => harness.restore());
+
+  const RENTAL = {
+    id: 'o-renting', orderNo: 'R001', status: 'RENTING', totalInCents: 9900,
+    items: [{ name: '轻风 通勤版', quantity: 1, productId: 'p1', merchantId: 'm1' }],
+    orderKind: 'RENTAL',
+    rental: { status: 'RENTING', dueAt: '2026-02-01T10:00:00.000Z', plan: { unit: 'MONTH', units: 1 }, depositInCents: 5000 },
+    fulfillment: {}, merchantName: '测试商家',
+    createdAt: '2026-01-01T10:00:00.000Z', updatedAt: '2026-01-01T10:00:00.000Z'
+  };
+  const EBIKE = {
+    id: 'e1', orderNo: 'E001', status: 'COMPLETED', statusLabel: '已完成', totalInCents: 19900,
+    merchantName: '测试商家',
+    items: [{ name: '轻风 通勤版', quantity: 1, productId: 'p1', merchantId: 'm1' }],
+    fulfillment: {}, createdAt: '2026-01-01T10:00:00.000Z', updatedAt: '2026-01-01T10:00:00.000Z'
+  };
+  const serveOrders = (orders) => (requestPath) => (
+    requestPath === '/api/my/orders'
+      ? Promise.resolve({ data: { ebikeOrders: orders, serviceRecords: [] } })
+      : Promise.resolve({ data: [] })
+  );
+
+  // ==================== ① orders：失败 → 不清空 + error 可见 ====================
+  harness.setApiHandler(serveOrders([RENTAL]));
+  const orders = harness.loadPage(path.join('pages', 'orders', 'orders.js'));
+  orders.loadRecords();
+  await settle();
+  assert.equal(orders.data.records.length, 1, '① orders 首次加载应有 1 条');
+  assert.equal(orders.data.recordsError, '', '① orders 成功时不应有错误');
+
+  harness.setApiHandler(() => Promise.reject(new Error('订单接口 500')));
+  orders.loadRecords();
+  await settle();
+  assert.equal(orders.data.recordsError, '订单接口 500', '① ★ orders 失败必须暴露错误，不能沉默');
+  assert.equal(orders.data.loading, false, '⑧ orders 必须确实跑完过一轮（否则下面的断言会假通过）');
+  assert.equal(
+    orders.data.records.length, 1,
+    '① ★★ orders 失败时不得清空服务记录 —— 清空等于告诉用户「你确实没有订单」'
+  );
+  assert.equal(orders.data.filtered.length, 1, '① orders 派生列表也不得被清空');
+
+  // ==================== ⑥ ★ 租赁回归：改造后逐条不变 ====================
+  const rentalRecord = orders.data.records[0];
+  assert.equal(rentalRecord.orderKind, 'RENTAL', '⑥ 租赁单 orderKind 透传不得改动');
+  assert.equal(rentalRecord.isRental, true, '⑥ 租赁单 isRental 不得改动');
+  assert.equal(rentalRecord.type, 'E_BIKE', '⑥ 租赁单仍沿用 type E_BIKE（交付码 / 履约依赖它）');
+  assert.equal(rentalRecord.canReturnRequest, true, '⑥ RENTING 单 canRequestReturn 必须为 true');
+  assert.deepEqual(
+    (rentalRecord.journey || []).map((step) => `${step.key}:${step.done ? 'done' : step.current ? 'current' : 'todo'}`),
+    ['PAID:done', 'RENTING:current', 'RETURN_REQUESTED:todo', 'RETURNED:todo'],
+    '⑥ 租赁进度条必须逐条不变'
+  );
+  assert.equal(rentalRecord.rentalDueAtText, '2月1日 18:00 前归还', '⑥ 应还时间文案不得改动');
+  assert.equal(rentalRecord.nextStep, '凭交付码到校内取车点取车，按租期归还', '⑥ 租赁下一步文案不得改动');
+  assert.ok(rentalRecord.rentalCountdownText, '⑥ 应还倒计时不得改动（应有值）');
+
+  // ==================== ② orders：失败且无旧数据 → 空列表但 error 非空 ====================
+  const ordersCold = harness.loadPage(path.join('pages', 'orders', 'orders.js'));
+  harness.setApiHandler(() => Promise.reject(new Error('首次就挂了')));
+  ordersCold.loadRecords();
+  await settle();
+  assert.ok(Array.isArray(ordersCold.data.records), '② orders 冷启动失败后 records 仍须是数组（不是 undefined）');
+  assert.deepEqual(ordersCold.data.records, [], '② orders 首次失败时列表为空');
+  assert.equal(
+    ordersCold.data.recordsError, '首次就挂了',
+    '② ★★ orders 首次失败时 error 必须非空 —— 这是「失败」与「无订单」唯一的区分点'
+  );
+  assert.equal(ordersCold.data.loading, false, '⑧ orders 首次失败后也必须结束加载态');
+
+  // ==================== ③ addresses：同上两条 ====================
+  const addressRecord = { id: 'a1', contactName: '张三', contactPhone: '13800000000', address: '宿舍 1 栋' };
+  harness.setApiHandler((requestPath) => (
+    requestPath === '/api/my/addresses' ? Promise.resolve({ data: [addressRecord] }) : Promise.resolve({ data: [] })
+  ));
+  const addresses = harness.loadPage(path.join('pages', 'addresses', 'addresses.js'));
+  addresses.loadAddresses();
+  await settle();
+  assert.equal(addresses.data.addresses.length, 1, '③ addresses 首次加载应有 1 条');
+  harness.setApiHandler(() => Promise.reject(new Error('地址接口 500')));
+  addresses.loadAddresses();
+  await settle();
+  assert.equal(addresses.data.addressesError, '地址接口 500', '③ ★ addresses 失败必须暴露错误');
+  assert.equal(addresses.data.loading, false, '⑧ addresses 必须确实跑完过一轮');
+  assert.equal(
+    addresses.data.addresses.length, 1,
+    '③ ★★ addresses 失败时不得清空地址 —— 否则页面会说「还没有常用地址」'
+  );
+
+  const addressesCold = harness.loadPage(path.join('pages', 'addresses', 'addresses.js'));
+  harness.setApiHandler(() => Promise.reject(new Error('地址首次就挂了')));
+  addressesCold.loadAddresses();
+  await settle();
+  assert.ok(Array.isArray(addressesCold.data.addresses), '③ addresses 冷启动失败后 addresses 仍须是数组');
+  assert.deepEqual(addressesCold.data.addresses, [], '③ addresses 首次失败时列表为空');
+  assert.equal(addressesCold.data.addressesError, '地址首次就挂了', '③ ★★ addresses 首次失败时 error 必须非空');
+  assert.equal(addressesCold.data.loading, false, '⑧ addresses 首次失败后也必须结束加载态');
+
+  // ==================== ④ aftersales：error 非空（改造前完全没有）+ 数据保留 ====================
+  const serveContext = (orders, afterSales) => (requestPath) => {
+    if (requestPath === '/api/my/orders') return Promise.resolve({ data: { ebikeOrders: orders } });
+    if (requestPath === '/api/after-sales') return Promise.resolve({ data: afterSales });
+    return Promise.resolve({ data: [] });
+  };
+  harness.setApiHandler(serveContext([EBIKE], []));
+  const aftersales = harness.loadPage(path.join('pages', 'aftersales', 'aftersales.js'));
+  aftersales.data.orderId = 'e1';
+  await aftersales.loadContext();
+  assert.ok(aftersales.data.order, '④ aftersales 前置：应加载到订单');
+  assert.equal(aftersales.data.order.title, '轻风 通勤版', '④ aftersales 前置：订单标题应正确');
+  assert.equal(aftersales.data.contextError, '', '④ aftersales 成功时不应有错误');
+
+  harness.setApiHandler(() => Promise.reject(new Error('售后接口 500')));
+  await aftersales.loadContext();
+  assert.equal(
+    aftersales.data.contextError, '售后接口 500',
+    '④ ★★ aftersales 失败必须暴露错误 —— 改造前它连提示都没有（页面直接变空白）'
+  );
+  assert.equal(aftersales.data.loading, false, '⑧ aftersales 必须确实跑完过一轮');
+  assert.ok(aftersales.data.order, '④ ★★ aftersales 失败时不得清空订单信息');
+  assert.equal(aftersales.data.order.title, '轻风 通勤版', '④ aftersales 保留的必须是原来那条订单');
+
+  const aftersalesCold = harness.loadPage(path.join('pages', 'aftersales', 'aftersales.js'));
+  aftersalesCold.data.orderId = 'e1';
+  harness.setApiHandler(() => Promise.reject(new Error('售后首次就挂了')));
+  await aftersalesCold.loadContext();
+  assert.equal(aftersalesCold.data.order, null, '④ aftersales 首次失败时没有订单数据');
+  assert.equal(
+    aftersalesCold.data.contextError, '售后首次就挂了',
+    '④ ★★ aftersales 首次失败时 error 必须非空 —— 这是「失败」与「未找到订单」唯一的区分点'
+  );
+  assert.equal(aftersalesCold.data.loading, false, '⑧ aftersales 首次失败后也必须结束加载态');
+
+  // ==================== ⑤ 三处重试都必须真的重新发起请求 ====================
+  let ordersCalls = 0;
+  harness.setApiHandler((requestPath) => {
+    if (requestPath !== '/api/my/orders') return Promise.resolve({ data: [] });
+    ordersCalls += 1;
+    return ordersCalls === 1
+      ? Promise.reject(new Error('第一次挂'))
+      : Promise.resolve({ data: { ebikeOrders: [RENTAL], serviceRecords: [] } });
+  });
+  const ordersRetry = harness.loadPage(path.join('pages', 'orders', 'orders.js'));
+  ordersRetry.loadRecords();
+  await settle();
+  assert.equal(ordersRetry.data.recordsError, '第一次挂', '⑤ orders 前置：第一次应失败');
+  assert.equal(ordersCalls, 1, '⑤ orders 前置：应只请求过一次');
+  ordersRetry.retryRecords();
+  await settle();
+  assert.equal(ordersCalls, 2, '⑤ ★★ orders 重试必须真的重新发起请求（而不是只把 error 清掉）');
+  assert.equal(ordersRetry.data.recordsError, '', '⑤ orders 重试成功后应清掉错误');
+  assert.equal(ordersRetry.data.records.length, 1, '⑤ orders 重试成功后应写入数据');
+
+  let addressCalls = 0;
+  harness.setApiHandler((requestPath) => {
+    if (requestPath !== '/api/my/addresses') return Promise.resolve({ data: [] });
+    addressCalls += 1;
+    return addressCalls === 1 ? Promise.reject(new Error('第一次挂')) : Promise.resolve({ data: [addressRecord] });
+  });
+  const addressesRetry = harness.loadPage(path.join('pages', 'addresses', 'addresses.js'));
+  addressesRetry.loadAddresses();
+  await settle();
+  assert.equal(addressesRetry.data.addressesError, '第一次挂', '⑤ addresses 前置：第一次应失败');
+  assert.equal(addressCalls, 1, '⑤ addresses 前置：应只请求过一次');
+  addressesRetry.retryAddresses();
+  await settle();
+  assert.equal(addressCalls, 2, '⑤ ★★ addresses 重试必须真的重新发起请求');
+  assert.equal(addressesRetry.data.addressesError, '', '⑤ addresses 重试成功后应清掉错误');
+  assert.equal(addressesRetry.data.addresses.length, 1, '⑤ addresses 重试成功后应写入数据');
+
+  let contextCalls = 0;
+  harness.setApiHandler((requestPath) => {
+    if (requestPath !== '/api/my/orders') return Promise.resolve({ data: [] });
+    contextCalls += 1;
+    return contextCalls === 1
+      ? Promise.reject(new Error('第一次挂'))
+      : Promise.resolve({ data: { ebikeOrders: [EBIKE] } });
+  });
+  const aftersalesRetry = harness.loadPage(path.join('pages', 'aftersales', 'aftersales.js'));
+  aftersalesRetry.data.orderId = 'e1';
+  await aftersalesRetry.loadContext();
+  assert.equal(aftersalesRetry.data.contextError, '第一次挂', '⑤ aftersales 前置：第一次应失败');
+  assert.equal(contextCalls, 1, '⑤ aftersales 前置：应只请求过一次');
+  await aftersalesRetry.retryContext();
+  assert.equal(contextCalls, 2, '⑤ ★★ aftersales 重试必须真的重新发起请求');
+  assert.equal(aftersalesRetry.data.contextError, '', '⑤ aftersales 重试成功后应清掉错误');
+  assert.ok(aftersalesRetry.data.order, '⑤ aftersales 重试成功后应写入订单');
+});

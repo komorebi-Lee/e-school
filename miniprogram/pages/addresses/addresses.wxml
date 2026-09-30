@@ -31,6 +31,12 @@
       <button class="primary-button" loading="{{saving}}" disabled="{{saving}}" bindtap="saveAddress">保存</button>
     </view>
   </view>
+  <!-- 失败占位：接口挂了必须说出来，并且能重试。旧地址（若有）仍显示在下方。 -->
+  <view wx:if="{{addressesError}}" class="load-error card">
+    <view class="muted">{{addressesError}}</view>
+    <button size="mini" class="ghost-button" bindtap="retryAddresses">重试</button>
+  </view>
+
   <view class="address-item card" wx:for="{{addresses}}" wx:key="id">
     <view class="item-main">
       <view class="item-head">
@@ -49,7 +55,7 @@
       <button size="mini" class="danger-button" data-id="{{item.id}}" bindtap="deleteAddress">删除</button>
     </view>
   </view>
-  <view class="empty card" wx:if="{{!loading && !addresses.length}}">
+  <view class="empty card" wx:if="{{!loading && !addressesError && !addresses.length}}">
     <view class="empty-title">还没有常用地址</view>
     <view class="muted">新增一个，下次校内配送直接选择。</view>
   </view>

@@ -1669,3 +1669,44 @@ test('第三批：plate 申请状态是加载类，必须三态化（块 + 错�
   assert.ok(markup.includes('statusBlock.loading'), 'plate.wxml 应渲染加载态');
   assert.ok(styles.includes('.load-error'), 'plate.wxss 应定义 .load-error');
 });
+
+test('第四批：orders / addresses / aftersales 的加载失败必须「保留 + 错误占位 + 重试」', () => {
+  const emptyCatch = /catch\(\s*\(\s*\)\s*=>\s*\{\s*\}\s*\)/;
+  // 三处原本是「非空 catch 但同样误导」：清空数据 + 一闪而过的 toast，或干脆无提示。
+  const pages = [
+    {
+      name: '订单', directory: 'orders', retry: 'retryRecords', errorKey: 'recordsError',
+      guard: '!loading && !recordsError && filtered.length === 0'
+    },
+    {
+      name: '地址', directory: 'addresses', retry: 'retryAddresses', errorKey: 'addressesError',
+      guard: '!loading && !addressesError && !addresses.length'
+    },
+    {
+      name: '售后', directory: 'aftersales', retry: 'retryContext', errorKey: 'contextError',
+      guard: '!loading && !contextError'
+    }
+  ];
+  for (const page of pages) {
+    const base = path.join('pages', page.directory, page.directory);
+    const source = readMiniappFile(`${base}.js`);
+    const markup = readMiniappFile(`${base}.wxml`);
+    const styles = readMiniappFile(`${base}.wxss`);
+
+    assert.equal(emptyCatch.test(source), false, `${page.name}（${page.directory}.js）不得再出现空 catch`);
+    assert.ok(source.includes(page.errorKey), `${page.name} 应有 ${page.errorKey} 错误字段`);
+    assert.ok(
+      source.includes('loadState.blockErrorText('),
+      `${page.name} 的错误文案应复用 loadState.blockErrorText（截断 + 兜底）`
+    );
+    assert.ok(source.includes(`${page.retry}()`), `${page.name} 应提供 ${page.retry} 重试入口`);
+    assert.ok(markup.includes(`bindtap="${page.retry}"`), `${page.name} 的 wxml 应把 ${page.retry} 绑到错误占位`);
+    assert.ok(markup.includes(page.errorKey), `${page.name} 的 wxml 应渲染 ${page.errorKey}`);
+    assert.ok(markup.includes('load-error'), `${page.name} 应有错误占位`);
+    assert.ok(styles.includes('.load-error'), `${page.name} 的 wxss 应定义 .load-error`);
+    assert.ok(
+      markup.includes(page.guard),
+      `${page.name} 的空态条件必须排除「失败」：否则失败时会把「没取到」说成「确实没有」`
+    );
+  }
+});

@@ -14,3 +14,7 @@
 .danger-button { background: #fff1f1; color: #c94831; font-weight: 800; }
 .empty { margin-top: 30rpx; padding: 70rpx 30rpx; text-align: center; }
 .empty-title { font-size: 30rpx; font-weight: 900; margin-bottom: 8rpx; }
+/* 失败占位：接口挂掉必须「看得见、点得动」，而不是把「没取到」显示成「还没有常用地址」。 */
+.load-error { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; padding: 20rpx 24rpx; margin: 18rpx 0 0; background: #fff4f2; border: 2rpx solid #ffd9d3; border-radius: 18rpx; }
+.load-error .muted { flex: 1; min-width: 0; color: #a3341f; line-height: 1.45; }
+.load-error .ghost-button { min-width: 120rpx; margin: 0; flex-shrink: 0; }

@@ -42,7 +42,7 @@ Page({
   data: {
     orderId: '', order: null, existing: null, completed: null, platformResult: null, typeOptions, selectedType: typeOptions[0], images: [],
     detail: '', submitting: false, appealing: false, loading: true, dueText: '', quantity: 1, maxQuantity: 1,
-    afterSaleResponseHours: 24, afterSaleResolutionHours: 72, contact: ''
+    afterSaleResponseHours: 24, afterSaleResolutionHours: 72, contact: '', contextError: ''
   },
   onLoad(options) {
     this.setData({ orderId: options.id || '' });
@@ -111,10 +111,17 @@ Page({
           images: completed.images || [],
           resolutionNote: completed.resolutionNote || '',
         } : null,
-        loading: false
+        loading: false,
+        contextError: ''
       });
-    }).catch(() => this.setData({ loading:false }));
+    }).catch((error) => {
+      // ★ 失败不清空、也不再静默：保留上一次的订单/售后信息，把「失败」变成可见状态。
+      // 改造前这里只 setData({loading:false}) —— 页面会显示「未找到可售后的电瓶车订单」，
+      // 把「没取到」说成「确实没有」，而且**连提示都没有**（本批最糟的一种）。
+      this.setData({ loading: false, contextError: loadState.blockErrorText(error) });
+    });
   },
+  retryContext(){return this.loadContext()},
   chooseType(e) {
     const selectedType = this.data.typeOptions.find(item => item.key === e.currentTarget.dataset.key) || this.data.typeOptions[0];
     this.setData({ selectedType, detail:'' });

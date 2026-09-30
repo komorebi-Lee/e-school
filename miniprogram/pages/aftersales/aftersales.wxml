@@ -1,12 +1,18 @@
 <view class="page">
   <view wx:if="{{loading}}" class="notice">正在获取订单信息…</view>
 
+  <!-- 失败占位：接口挂了必须说出来，并且能重试。旧信息（若有）仍显示在下方。 -->
+  <view wx:if="{{contextError}}" class="load-error card">
+    <view class="muted">{{contextError}}</view>
+    <button size="mini" class="ghost-button" bindtap="retryContext">重试</button>
+  </view>
+
   <view class="order-card card" wx:if="{{order}}">
     <view class="order-head"><text class="order-title">{{order.title}}</text><text class="order-status">{{order.statusLabel}}</text></view>
     <view class="order-meta"><text>编号 {{order.orderNo}}</text><text>{{order.merchantName}}</text></view>
     <view class="order-price">{{order.priceText}}</view>
   </view>
-  <view wx:elif="{{!loading}}" class="notice">未找到可售后的电瓶车订单，请返回订单页重新进入。</view>
+  <view wx:elif="{{!loading && !contextError}}" class="notice">未找到可售后的电瓶车订单，请返回订单页重新进入。</view>
 
   <view class="promise card" wx:if="{{order && !existing}}">
     <view class="promise-row"><text class="promise-icon">响</text><view><view class="promise-title">{{afterSaleResponseHours}} 小时内响应</view><view class="muted">工作时段内优先处理校园车辆问题</view></view></view>
