@@ -32,6 +32,10 @@ const productView = require(path.join(miniprogramDirectory, 'utils', 'product-vi
 const rentalJourney = require(path.join(miniprogramDirectory, 'utils', 'rental-journey.js'));
 // 分块加载的三态工具（loading / error / data）：纯函数 + 一个只依赖注入 setData 的薄包装。
 const loadState = require(path.join(miniprogramDirectory, 'utils', 'load-state.js'));
+// 待支付倒计时分级（文案 / 紧急判定）：纯函数模块，M3-P1-05 新增。
+const format = require(path.join(miniprogramDirectory, 'utils', 'format.js'));
+// 订单卡片装饰层（`card` 及其文案表）：纯函数模块，M3-P1-05 从 `orders.js` 抽出。
+const orderCard = require(path.join(miniprogramDirectory, 'utils', 'order-card.js'));
 
 const ORDER_FOCUS_KEY = 'campusGoOrderFocusId';
 const ORDER_RECORD_TYPE_KEY = 'campusGoOrderFocusRecordType';
@@ -1760,4 +1764,207 @@ test('load-state：失败不清空数据、块之间互相独立', async () => {
   assert.throws(() => loadBlock({ stateKey: 'x', loader: () => {} }), TypeError, '⑩ 缺 setData 应抛 TypeError');
   assert.throws(() => loadBlock({ setData: () => {}, loader: () => {} }), TypeError, '⑩ 缺 stateKey 应抛 TypeError');
   assert.throws(() => loadBlock({ setData: () => {}, stateKey: 'x' }), TypeError, '⑩ 缺 loader 应抛 TypeError');
+});
+
+// ===========================================================================
+// 八、待支付倒计时分级（M3-P1-05）—— format.js 纯函数
+// ===========================================================================
+
+test('M3-P1-05：待支付倒计时分级文案与紧急判定（format.js）', () => {
+  const NOW = new Date('2026-03-01T12:00:00.000Z');
+  /** 相对 NOW 偏移 `offsetMs` 的 ISO 时间。 */
+  const at = (offsetMs) => new Date(NOW.getTime() + offsetMs).toISOString();
+  const MINUTE = 60000;
+  const HOUR = 60 * MINUTE;
+
+  // ① ≥60 分钟 → 小时档（含「小时」「分钟」，不含秒）。
+  const hourText = format.paymentCountdownText(at(2 * HOUR + 30 * MINUTE), NOW);
+  assert.equal(hourText, '请在 2 小时 30 分钟内完成支付', '① 剩余 2 小时 30 分应走小时档');
+  assert.equal(hourText.includes('秒'), false, '① 小时档不得出现秒 —— 秒级只在最后 5 分钟');
+
+  // ② 5 分钟 ~ 60 分钟 → 分钟档（含「超时自动取消」，不含秒）。
+  const minuteText = format.paymentCountdownText(at(30 * MINUTE), NOW);
+  assert.equal(minuteText, '请在 30 分钟内完成支付，超时自动取消', '② 剩余 30 分应走分钟档');
+  assert.equal(minuteText.includes('秒'), false, '② 分钟档不得出现秒');
+
+  // ③ <5 分钟 → 秒档（含「分」与「秒」）。
+  assert.equal(
+    format.paymentCountdownText(at(4 * MINUTE + 59 * 1000), NOW),
+    '请在 4 分 59 秒内完成支付',
+    '③ 剩余 4 分 59 秒必须精确到秒 —— 分钟粒度在最后 60 秒里数字不动，会被当成卡死'
+  );
+  assert.equal(
+    format.paymentCountdownText(at(30000), NOW),
+    '请在 0 分 30 秒内完成支付',
+    '③ 秒档统一走「X 分 Y 秒」格式，不因不足 1 分钟就换另一套文案'
+  );
+
+  // ④ ≤0 → 超时文案。
+  assert.equal(format.paymentCountdownText(at(0), NOW), '支付已超时，刷新后订单将关闭', '④ 剩余恰好为 0 也算超时');
+  assert.equal(
+    format.paymentCountdownText(at(-5 * MINUTE), NOW),
+    '支付已超时，刷新后订单将关闭',
+    '④ 已过期同样是超时文案'
+  );
+
+  // ⑤ 非法 expiresAt → 空串（不能把「拿不到时间」说成「已超时」）。
+  for (const bad of [undefined, null, '', 'not-a-date', NaN]) {
+    assert.equal(
+      format.paymentCountdownText(bad, NOW), '',
+      `⑤ 非法 expiresAt(${String(bad)}) 应返回空串，不猜`
+    );
+  }
+
+  // ⑥ isPaymentUrgent：剩余 >0 且 ≤5 分钟为真，其余为假。
+  assert.equal(format.isPaymentUrgent(at(5 * MINUTE), NOW), true, '⑥ 恰好剩 5:00 算紧急（闭区间：宁可早一秒切秒级）');
+  assert.equal(format.isPaymentUrgent(at(1 * MINUTE), NOW), true, '⑥ 剩 1 分钟算紧急');
+  assert.equal(format.isPaymentUrgent(at(5 * MINUTE + 1), NOW), false, '⑥ 超过 5 分钟不算紧急');
+  assert.equal(format.isPaymentUrgent(at(0), NOW), false, '⑥ 已超时不算紧急（走的是刷新链路，不是高亮）');
+  assert.equal(format.isPaymentUrgent(at(-1), NOW), false, '⑥ 负剩余不算紧急');
+  assert.equal(format.isPaymentUrgent(undefined, NOW), false, '⑥ 非法输入不算紧急');
+
+  // ⑦ isPaymentExpired 与文案的超时判定必须同源：否则会出现「显示已超时却不去刷新」的空转。
+  for (const offset of [-HOUR, -1, 0, 1, 30 * MINUTE, 2 * HOUR]) {
+    const expiresAt = at(offset);
+    const textSaysExpired = format.paymentCountdownText(expiresAt, NOW) === '支付已超时，刷新后订单将关闭';
+    assert.equal(
+      format.isPaymentExpired(expiresAt, NOW), textSaysExpired,
+      `⑦ 偏移 ${offset}ms：isPaymentExpired 必须与文案的超时判定一致`
+    );
+  }
+  assert.equal(format.isPaymentExpired(undefined, NOW), false, '⑦ 非法输入不得判为已超时');
+
+  // ⑧ ★ 文案随时间单调：now 越晚，文案里隐含的剩余时间越小。
+  // 先把文案还原成秒数再断言序列非递增 —— 并且必须**真的在变**：
+  // 一句恒定文案也能满足「非递增」，那种假通过必须被排掉。
+  const impliedSeconds = (text) => {
+    if (!text) return null;
+    if (text.includes('已超时')) return 0;
+    const hours = Number((/(\d+)\s*小时/.exec(text) || [0, 0])[1]);
+    const minuteWord = /(\d+)\s*分钟/.exec(text); // 小时档的 Y / 分钟档的 X
+    const minuteChar = /(\d+)\s*分(?!钟)/.exec(text); // 秒档的 X
+    const minutes = minuteWord ? Number(minuteWord[1]) : minuteChar ? Number(minuteChar[1]) : 0;
+    const seconds = Number((/(\d+)\s*秒/.exec(text) || [0, 0])[1]);
+    return hours * 3600 + minutes * 60 + seconds;
+  };
+  const expiresAt = at(3 * HOUR);
+  const samples = [];
+  for (let step = 0; step <= 120; step += 1) {
+    const now = new Date(NOW.getTime() + step * 90000); // 每 1.5 分钟采样一次
+    samples.push(impliedSeconds(format.paymentCountdownText(expiresAt, now)));
+  }
+  assert.ok(
+    new Set(samples).size > 5,
+    `⑧ 文案必须随时间变化（否则「单调」是废话），实得不同值 ${new Set(samples).size} 个`
+  );
+  for (let index = 1; index < samples.length; index += 1) {
+    assert.ok(
+      samples[index] <= samples[index - 1],
+      `⑧ ★ 文案必须随时间单调不增：第 ${index} 个样本 ${samples[index]}s 大于前一个 ${samples[index - 1]}s`
+    );
+  }
+  assert.equal(samples[samples.length - 1], 0, '⑧ 采样末端（now 已越过截止）必须归零');
+});
+
+// ===========================================================================
+// 九、订单卡片装饰层（M3-P1-05）—— order-card.js 纯函数
+// ===========================================================================
+
+test('M3-P1-05：订单卡片装饰覆盖退款 / 超时 / 售后 / 商家 / 租赁分流（order-card.js）', () => {
+  const MINUTE = 60000;
+  const now = Date.now();
+  const urgentExpiresAt = new Date(now + 2 * MINUTE).toISOString();
+  const calmExpiresAt = new Date(now + 30 * MINUTE).toISOString();
+
+  // ⑨ 基础装饰：类型名 / 图标 / 色调 / 金额 / 时间。
+  const base = orderCard.card({
+    id: 'e1', recordNo: 'E001', type: 'E_BIKE', status: 'COMPLETED', amountInCents: 19900,
+    items: [{ name: '轻风 通勤版', quantity: 1, productId: 'p1', merchantId: 'm1' }],
+    fulfillment: {}, merchantName: '测试商家',
+    createdAt: '2026-01-01T10:00:00.000Z', updatedAt: '2026-01-01T10:00:00.000Z'
+  });
+  assert.equal(base.typeLabel, '电瓶车', '⑨ typeLabel 应映射类型名');
+  assert.equal(base.icon, '车', '⑨ icon 应映射类型图标');
+  assert.equal(base.tone, 'done', '⑨ COMPLETED 应走 done 色调');
+  assert.equal(base.priceText, '¥199.00', '⑨ 金额应以元展示两位小数');
+  assert.equal(base.timeText, '01-01 10:00', '⑨ 时间文案应取 updatedAt 的月-日 时:分');
+
+  // ⑩ 倒计时接线：待支付 + 紧急 → 文案含秒且 countdownUrgent 为真；非紧急 / 非待支付 → 假。
+  const urgent = orderCard.card({ id: 'p1', type: 'E_BIKE', status: 'PENDING_PAYMENT', paymentExpiresAt: urgentExpiresAt, items: [], fulfillment: {} });
+  assert.ok(urgent.countdownText.includes('秒'), '⑩ 紧急单的倒计时文案必须含秒');
+  assert.equal(urgent.countdownUrgent, true, '⑩ ★ 紧急单必须带 countdownUrgent=true（模板靠它加高亮类）');
+  const calm = orderCard.card({ id: 'p2', type: 'E_BIKE', status: 'PENDING_PAYMENT', paymentExpiresAt: calmExpiresAt, items: [], fulfillment: {} });
+  assert.equal(calm.countdownUrgent, false, '⑩ 非紧急单不得高亮');
+  assert.equal(calm.countdownText.includes('秒'), false, '⑩ 非紧急单文案不出现秒');
+  const paid = orderCard.card({ id: 'p3', type: 'E_BIKE', status: 'PAID', items: [], fulfillment: {} });
+  assert.equal(paid.countdownText, '', '⑩ 非待支付单没有倒计时文案');
+  assert.equal(paid.countdownUrgent, false, '⑩ 非待支付单不得高亮');
+
+  // ⑪ 部分退款：状态标签 + 剩余履约范围 + 已退金额。
+  const partial = orderCard.card({
+    id: 'e2', type: 'E_BIKE', status: 'FULFILLING', paymentStatus: 'PARTIALLY_REFUNDED',
+    refundedQuantity: 1, partialRefundedInCents: 9900,
+    items: [{ name: '轻风 通勤版', quantity: 2, productId: 'p1', merchantId: 'm1' }],
+    fulfillment: {}, createdAt: '2026-01-01T10:00:00.000Z'
+  });
+  assert.equal(partial.statusLabel, '部分退款', '⑪ 部分退款应覆盖状态标签');
+  assert.equal(partial.statusNote, '已退 1 件，剩余 1 件继续履约 · 已退 ¥99.00', '⑪ 部分退款应说明剩余履约范围与退款金额');
+
+  // ⑫ 支付超时关闭：状态标签 + 可重新下单的提示。
+  const timedOut = orderCard.card({ id: 'e3', type: 'E_BIKE', status: 'CANCELLED', cancelReason: 'PAYMENT_TIMEOUT', items: [], fulfillment: {}, createdAt: '2026-01-01T10:00:00.000Z' });
+  assert.equal(timedOut.statusLabel, '已超时关闭', '⑫ 支付超时应显示「已超时关闭」');
+  assert.equal(timedOut.statusNote, '超过支付时限自动关闭，可重新下单', '⑫ 超时关闭应提示可重新下单');
+
+  // ⑬ 售后：进行中的工单进面板；超过承诺响应时限置 afterSaleOverdue。
+  const overdueAt = new Date(now - 60 * MINUTE).toISOString();
+  const withAfterSale = orderCard.card({
+    id: 'e4', type: 'E_BIKE', status: 'AFTER_SALE', items: [], fulfillment: {}, createdAt: '2026-01-01T10:00:00.000Z',
+    afterSales: [{ id: 'as1', status: 'REVIEWING', typeLabel: '退款', reason: '车况问题', responseDueAt: overdueAt }]
+  });
+  assert.ok(withAfterSale.afterSale, '⑬ 有售后工单时必须写入 afterSale');
+  assert.equal(withAfterSale.afterSale.statusLabel, '处理中', '⑬ 售后状态标签应映射');
+  assert.equal(withAfterSale.afterSaleOverdue, true, '⑬ ★ 超过承诺响应时限必须置 afterSaleOverdue（页面据此建催办卡）');
+  assert.equal(withAfterSale.afterSale.overdueText, '已超过承诺响应时限，平台已加入催办', '⑬ 超时文案应说明平台已催办');
+  assert.ok(withAfterSale.journey.length > 0, '⑬ AFTER_SALE 应有进度条');
+
+  // ⑭ 商家：无商家名回落空串（模板用「平台自营」兜底）；有 merchantId 才给「进店」入口。
+  const noMerchant = orderCard.card({ id: 'e5', type: 'E_BIKE', status: 'PAID', items: [], fulfillment: {}, createdAt: '2026-01-01T10:00:00.000Z' });
+  assert.equal(noMerchant.merchantName, '', '⑭ 无商家名应为空串，交由模板兜底');
+  assert.equal(noMerchant.actions.some((action) => action.key === 'store'), false, '⑭ 无 merchantId 不得给「进店」入口');
+  const withMerchant = orderCard.card({ id: 'e6', type: 'E_BIKE', status: 'PAID', merchantId: 'm1', merchantName: '测试商家', items: [], fulfillment: {}, createdAt: '2026-01-01T10:00:00.000Z' });
+  assert.equal(withMerchant.actions.some((action) => action.key === 'store'), true, '⑭ 有 merchantId 应给「进店」入口');
+
+  // ⑮ 租赁分流：进度条 / 下一步 / 归还入口 / 应还倒计时全部走租赁口径（回归护栏）。
+  const rental = orderCard.card({
+    id: 'o-renting', recordNo: 'R001', type: 'E_BIKE', status: 'RENTING', orderKind: 'RENTAL',
+    rental: { status: 'RENTING', dueAt: '2026-02-01T10:00:00.000Z', plan: { unit: 'MONTH', units: 1 }, depositInCents: 5000 },
+    items: [{ name: '轻风 通勤版', quantity: 1, productId: 'p1', merchantId: 'm1' }],
+    fulfillment: {}, merchantName: '测试商家', createdAt: '2026-01-01T10:00:00.000Z', updatedAt: '2026-01-01T10:00:00.000Z'
+  });
+  assert.equal(rental.isRental, true, '⑮ 租赁单 isRental 必须为真');
+  assert.deepEqual(
+    rental.journey.map((step) => `${step.key}:${step.done ? 'done' : step.current ? 'current' : 'todo'}`),
+    ['PAID:done', 'RENTING:current', 'RETURN_REQUESTED:todo', 'RETURNED:todo'],
+    '⑮ ★ 租赁单必须走租赁进度条（不得退回售卖文案）'
+  );
+  assert.equal(rental.nextStep, '凭交付码到校内取车点取车，按租期归还', '⑮ 租赁下一步不得出现「配送」措辞');
+  assert.equal(rental.canReturnRequest, true, '⑮ RENTING 单应显示「申请归还」');
+  assert.ok(rental.rentalCountdownText, '⑮ 租赁应还倒计时应有值');
+
+  // ⑯ 平台处理结果 / 协同轨迹 / 留言。
+  const collaborated = orderCard.card({
+    id: 'e7', type: 'E_BIKE', status: 'FULFILLING', items: [], fulfillment: {}, createdAt: '2026-01-01T10:00:00.000Z',
+    collaboration: {
+      unrepliedMessage: { action: 'NOTE', text: '在吗', createdAt: '2026-01-01T10:00:00.000Z' },
+      intervention: { status: 'RESOLVED', note: '已协调补发', updatedAt: '2026-01-02T03:00:00.000Z' },
+      handoffs: [{ role: 'PLATFORM', note: '平台已介入', createdAt: '2026-01-02T02:00:00.000Z' }],
+      messages: [{ id: 'm1', role: 'MERCHANT', text: '已安排' }]
+    }
+  });
+  assert.equal(collaborated.platformResult.note, '已协调补发', '⑯ 平台处理结果应写入 note');
+  assert.equal(collaborated.intervention, false, '⑯ RESOLVED 不等于 REQUESTED');
+  assert.equal(collaborated.timeline.length, 1, '⑯ 协同轨迹应映射 handoffs');
+  assert.equal(collaborated.timeline[0].roleLabel, '平台', '⑯ 轨迹角色应映射中文名');
+  assert.equal(collaborated.messages.length, 1, '⑯ 留言应透传');
+  assert.equal(collaborated.messageStatus, '已提交留言，预计 24 小时内回复', '⑯ 有未回复留言应给出响应预期');
 });

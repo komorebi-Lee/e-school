@@ -867,3 +867,97 @@ test('第四批：orders / addresses / aftersales 失败不再清空数据；租
   assert.equal(aftersalesRetry.data.contextError, '', '⑤ aftersales 重试成功后应清掉错误');
   assert.ok(aftersalesRetry.data.order, '⑤ aftersales 重试成功后应写入订单');
 });
+
+test('M3-P1-05：待支付倒计时定时器按紧迫度动态切换，且重建时先清后建', async (t) => {
+  const harness = createHarness();
+  t.after(() => harness.restore());
+
+  // 把 Node 的定时器换成可观测桩：只记录「谁被创建、谁被清掉」，不真的走时间。
+  // 用桩而不是真定时器的原因：真定时器会让「同时只有一条存活」这件事无法在
+  // 单次运行里断言，而且会让测试进程被挂住的句柄拖住。
+  const liveTimers = new Set();
+  const events = [];
+  const intervals = [];
+  let nextHandle = 1;
+  const originalSetInterval = global.setInterval;
+  const originalClearInterval = global.clearInterval;
+  global.setInterval = (fn, ms) => {
+    const handle = nextHandle;
+    nextHandle += 1;
+    liveTimers.add(handle);
+    intervals.push(ms);
+    events.push({ type: 'set', handle, ms });
+    return handle;
+  };
+  global.clearInterval = (handle) => {
+    liveTimers.delete(handle);
+    events.push({ type: 'clear', handle });
+  };
+  t.after(() => {
+    global.setInterval = originalSetInterval;
+    global.clearInterval = originalClearInterval;
+  });
+
+  const MINUTE = 60000;
+  const urgentOrder = {
+    id: 'u1', orderNo: 'U001', status: 'PENDING_PAYMENT', totalInCents: 9900,
+    paymentExpiresAt: new Date(Date.now() + 2 * MINUTE).toISOString(),
+    items: [{ name: '轻风 通勤版', quantity: 1, productId: 'p1', merchantId: 'm1' }],
+    fulfillment: {}, merchantName: '测试商家',
+    createdAt: '2026-01-01T10:00:00.000Z', updatedAt: '2026-01-01T10:00:00.000Z'
+  };
+  const calmOrder = {
+    ...urgentOrder, id: 'u2', orderNo: 'U002',
+    paymentExpiresAt: new Date(Date.now() + 30 * MINUTE).toISOString()
+  };
+  const serveOrders = (orders) => (requestPath) => (
+    requestPath === '/api/my/orders'
+      ? Promise.resolve({ data: { ebikeOrders: orders, serviceRecords: [] } })
+      : Promise.resolve({ data: [] })
+  );
+
+  // ⑰ 无紧急订单 → 30000ms。
+  harness.setApiHandler(serveOrders([calmOrder]));
+  const orders = harness.loadPage(path.join('pages', 'orders', 'orders.js'));
+  orders.loadRecords();
+  await settle();
+  orders.startCountdownTimer();
+  assert.equal(orders.countdownIntervalFor(), 30000, '⑰ 无紧急订单应回落 30000ms');
+  assert.equal(intervals[intervals.length - 1], 30000, '⑰ ★ 实测建出来的间隔必须是 30000ms');
+  assert.equal(liveTimers.size, 1, '⑰ 常态下应只有一条定时器存活');
+
+  // ⑰ 出现紧急订单 → 1000ms（由 refreshCountdowns 侦测到档位变化后重建）。
+  orders.setData({
+    records: orders.data.records.map((item) => ({ ...item, paymentExpiresAt: urgentOrder.paymentExpiresAt }))
+  });
+  orders.refreshCountdowns();
+  assert.equal(orders.countdownIntervalFor(), 1000, '⑰ 有紧急订单应切到 1000ms');
+  assert.equal(intervals[intervals.length - 1], 1000, '⑰ ★ 实测建出来的间隔必须是 1000ms');
+  assert.equal(liveTimers.size, 1, '⑰ 切换档位后仍只应有一条定时器（切换本身也要先清后建）');
+  assert.equal(orders.data.records[0].countdownUrgent, true, '⑰ refreshCountdowns 应把 countdownUrgent 写进记录（模板据此高亮）');
+
+  // ⑰ 脱离紧急档 → 回落到 30000ms。
+  orders.setData({
+    records: orders.data.records.map((item) => ({ ...item, paymentExpiresAt: calmOrder.paymentExpiresAt }))
+  });
+  orders.refreshCountdowns();
+  assert.equal(intervals[intervals.length - 1], 30000, '⑰ ★ 脱离紧急档必须回落到 30000ms，不能一直按秒空转');
+  assert.equal(orders.data.records[0].countdownUrgent, false, '⑰ 脱离紧急档后高亮应撤掉');
+
+  // ⑱ ★ 反复重建不得累积：每次都是先 clear 再 set，存活数恒为 1。
+  for (let round = 0; round < 3; round += 1) {
+    orders.startCountdownTimer();
+    assert.equal(liveTimers.size, 1, `⑱ ★ 第 ${round + 1} 次重建后仍只应有一条定时器（先 clear 再 set）`);
+  }
+  assert.deepEqual(
+    events.slice(-2).map((event) => event.type), ['clear', 'set'],
+    '⑱ ★ 重建的最后两步必须是「先 clear 再 set」——少了 clear 就会留下孤儿定时器'
+  );
+
+  // ⑱ 停表后存活数为 0；且隐藏页面后到达的加载结果不得把定时器重新拉起来（后台空转）。
+  orders.stopCountdownTimer();
+  assert.equal(liveTimers.size, 0, '⑱ stopCountdownTimer 应清掉唯一一条定时器');
+  orders.loadRecords();
+  await settle();
+  assert.equal(liveTimers.size, 0, '⑱ ★ 页面已停表时，异步到达的加载结果不得重新拉起定时器');
+});

@@ -43,6 +43,10 @@
 .countdown { display: flex; align-items: center; gap: 10rpx; margin-top: 14rpx; padding: 12rpx 16rpx; background: #fff5e6; border-radius: 12rpx; color: #a55a00; font-size: 21rpx; font-weight: 700; }
 .message-status { margin-top: 14rpx; padding: 10rpx 14rpx; border-radius: 12rpx; background: #f7f9ff; color: #33435f; font-size: 20rpx; font-weight: 700; }
 .countdown-dot { width: 12rpx; height: 12rpx; border-radius: 50%; background: #f59f00; flex: none; }
+/* 待支付进入最后 5 分钟（`isPaymentUrgent`）：底色与描边一起收紧，让「现在就得点」一眼可见。
+   用色沿用全站既有的告警语言（同 `.tone-warn` / `.after-sale-overdue`），不新造色板。 */
+.countdown-urgent { background: #ffe9e6; border: 2rpx solid #ffd9d3; color: #b42318; }
+.countdown-urgent .countdown-dot { background: #e5484d; }
 .journey { margin-top: 16rpx; padding: 16rpx; background: #f7f9ff; border-radius: 14rpx; }
 .journey-title { font-size: 23rpx; font-weight: 850; color: #17233d; margin-bottom: 12rpx; }
 .journey-step { display: flex; gap: 12rpx; padding: 8rpx 0; }

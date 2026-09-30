@@ -5,16 +5,22 @@ const { loadBusinessConfig } = require('../../services/business');
 // 全部是纯函数，可被 test/miniapp-runtime.test.js 真实加载断言。
 const rentalJourney = require('../../utils/rental-journey');
 const loadState = require('../../utils/load-state');
+// 待支付倒计时分级（文案 + 紧急判定）：纯函数，可被 test/miniapp-runtime.test.js 真实加载断言。
+const format = require('../../utils/format');
+// 订单卡片装饰层：`card(item)` 与其文案表已抽出，页面只负责「取数 → map(card) → setData」。
+const orderCard = require('../../utils/order-card');
 
-const DEFAULT_RESPONSE_HOURS = 24;
-
-const typeNames = { E_BIKE:'电瓶车', PHONE_PLAN:'电话卡', RECHARGE:'话费权益', BROADBAND:'宽带', PLATE:'校园牌照' };
 const consultQuestions = {
   PHONE_PLAN: ['实名审核需要多久？','实名信息填错了怎么修改？','订单进度请帮忙查询'],
   RECHARGE: ['话费预计什么时候到账？','到账金额和订单不一致','请帮我核对到账进度'],
   BROADBAND: ['资格核验预计多久通过？','什么时候可以安排安装？','请帮我查询核验进度'],
   PLATE: ['还需要补充哪些材料？','办理进度请帮忙查询','办理完成后如何领牌？']
 };
+
+// 待支付倒计时的刷新节奏：存在紧急订单（剩余 ≤5 分钟）时按秒走，否则按半分钟走。
+// 秒级只在最后 5 分钟开启 —— 整页长期高频 `setData` 在订单多时开销可观。
+const COUNTDOWN_INTERVAL_URGENT = 1000;
+const COUNTDOWN_INTERVAL_IDLE = 30000;
 
 function uploadReviewImage(file) {
   const extension = file.tempFilePath.split('.').pop().toLowerCase();
@@ -31,90 +37,6 @@ function uploadReviewImage(file) {
     data: { dataBase64, mimeType }
   }).then(({ data }) => data.url));
 }
-const roleNames = { USER:'我', MERCHANT:'商家', PLATFORM:'平台' };
-const ebikeJourney = {
-  PENDING_PAYMENT: [
-    { title:'订单已创建', detail:'库存已为你预留', done:true },
-    { title:'等待支付', detail:'超时后库存自动释放', done:false },
-    { title:'商家确认履约', detail:'支付成功后开始', done:false },
-    { title:'校内配送', detail:'凭交付码收车', done:false }
-  ],
-  PAID: [
-    { title:'支付成功', detail:'免费校园牌照辅助已同步', done:true },
-    { title:'等待商家确认', detail:'商家会确认配送安排', done:false },
-    { title:'校内配送', detail:'确认地址和时段', done:false },
-    { title:'交付核验', detail:'凭交付码收车', done:false }
-  ],
-  FULFILLING: [
-    { title:'支付成功', detail:'车辆已进入履约', done:true },
-    { title:'商家已接单', detail:'按约定时间配送', done:true },
-    { title:'校内配送中', detail:'保持联系方式畅通', done:false },
-    { title:'交付核验', detail:'向商家出示交付码', done:false }
-  ],
-  COMPLETED: [
-    { title:'支付成功', detail:'订单已生效', done:true },
-    { title:'商家履约', detail:'车辆已交付', done:true },
-    { title:'交付核验', detail:'交付码已核验', done:true },
-    { title:'服务评价', detail:'可分享真实使用体验', done:false }
-  ],
-  CANCELLED: [
-    { title:'订单已取消', detail:'占用库存已释放', done:true },
-    { title:'如已误操作', detail:'可重新下单', done:false }
-  ],
-  AFTER_SALE: [
-    { title:'售后已开启', detail:'商家和平台可跟进', done:true },
-    { title:'处理中', detail:'可补充问题照片和说明', done:false },
-    { title:'处理完成', detail:'结果会同步到订单', done:false }
-  ]
-};
-
-const afterSaleJourney = {
-  SUBMITTED: [
-    { title:'售后已受理', detail:'商家和平台都能看到这单', done:true },
-    { title:'等待处理', detail:'注意响应时限，可补充照片', done:false },
-    { title:'处理完成', detail:'商家结论会同步到订单', done:false }
-  ],
-  REVIEWING: [
-    { title:'售后已受理', detail:'商家已接收工单', done:true },
-    { title:'处理中', detail:'可继续补充问题说明', done:true },
-    { title:'处理完成', detail:'商家结论会同步到订单', done:false }
-  ],
-  CLOSED: [
-    { title:'售后已受理', detail:'处理流程已启动', done:true },
-    { title:'处理中', detail:'商家完成跟进', done:true },
-    { title:'处理完成', detail:'可查看处理结果', done:true }
-  ],
-  REJECTED: [
-    { title:'售后已受理', detail:'处理流程已启动', done:true },
-    { title:'商家反馈', detail:'本次申请未通过', done:true },
-    { title:'如仍有异议', detail:'可联系平台协助', done:false }
-  ]
-};
-
-// 待支付订单会占用库存，超时后服务端自动关闭，这里把剩余时间翻译成用户能读懂的文案。
-function paymentCountdownText(expiresAt) {
-  if (!expiresAt) return '';
-  const remainMs = new Date(expiresAt).getTime() - Date.now();
-  if (!Number.isFinite(remainMs)) return '';
-  if (remainMs <= 0) return '支付已超时，刷新后订单将关闭';
-  const minutes = Math.floor(remainMs / 60000);
-  if (minutes >= 60) return `请在 ${Math.floor(minutes / 60)} 小时 ${minutes % 60} 分钟内完成支付`;
-  if (minutes >= 1) return `请在 ${minutes} 分钟内完成支付，超时自动取消`;
-  return '不足 1 分钟，请尽快完成支付';
-}
-
-function isPaymentExpired(expiresAt) {
-  if (!expiresAt) return false;
-  const time = new Date(expiresAt).getTime();
-  return Number.isFinite(time) && time <= Date.now();
-}
-const statusTones = {
-  PENDING_PAYMENT:'todo', PAID:'blue', FULFILLING:'run', COMPLETED:'done', CANCELLED:'closed', AFTER_SALE:'warn',
-  PENDING_REALNAME:'todo', ACTIVATED:'done', REJECTED:'closed',
-  PENDING_CREDIT:'todo', CREDITED:'done',
-  PENDING_VERIFY:'todo', APPROVED:'done',
-  MATERIAL_PENDING:'todo', REVIEWING:'run'
-};
 
 function uploadPlateMaterial(file) {
   const extension = file.tempFilePath.split('.').pop().toLowerCase();
@@ -132,165 +54,11 @@ function uploadPlateMaterial(file) {
   }).then(({ data }) => data.url));
 }
 
-function formatDueText(value, prefix) {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return `${prefix} ${date.toLocaleDateString()} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-}
-
 function previewAfterSaleImages(event) {
   const urls = event.currentTarget.dataset.urls;
   const current = event.currentTarget.dataset.url;
   if (!Array.isArray(urls) || !urls.length) return;
   wx.previewImage({ current: current || urls[0], urls });
-}
-
-function decorateAfterSale(record) {
-  const tone = record.status === 'CLOSED' ? 'done' : record.status === 'REVIEWING' ? 'run' : 'todo';
-  return {
-    ...record,
-    tone,
-    responseDueText: formatDueText(record.responseDueAt, '响应截止'),
-    resolutionDueText: formatDueText(record.resolutionDueAt, '处理截止'),
-    isOverdue: Boolean(record.status !== 'CLOSED' && record.responseDueAt
-      && new Date(record.responseDueAt).getTime() < Date.now()),
-    overdueText: record.status !== 'CLOSED' && record.responseDueAt
-      && new Date(record.responseDueAt).getTime() < Date.now()
-      ? '已超过承诺响应时限，平台已加入催办' : '',
-    statusLabel: record.statusLabel || { SUBMITTED:'待处理', REVIEWING:'处理中', CLOSED:'已完成', REJECTED:'未通过' }[record.status] || record.status
-  };
-}
-
-/**
- * 租赁单的「下一步」文案。
- *
- * 绝不能出现「向商家出示交付码完成配送」这类售卖 / 配送措辞 ——
- * 租赁的真实流程是「取车 → 租期中 → 申请归还 → 归还完成」。
- *
- * @param {object} order 订单记录。
- * @returns {string} 下一步文案。
- */
-function rentalNextStep(order) {
-  const status = rentalJourney.rentalStatusOf(order);
-  if (status === 'RETURNED') return '归还已完成，等待押金原路退回';
-  if (status === 'RETURN_REQUESTED') return '已提交归还申请，等待商家核验';
-  return '凭交付码到校内取车点取车，按租期归还';
-}
-
-function card(item) {
-  const isEbike = item.type === 'E_BIKE';
-  const type = item.type;
-  // 租赁单沿用 `type: 'E_BIKE'`（交付码 / 履约 / 数量统计都依赖它），
-  // 但进度条与文案必须按 `orderKind` 分流，否则租赁单会显示「校内配送 / 凭交付码收车」。
-  const isRental = rentalJourney.isRentalOrder(item);
-  const rentalCard = isRental ? rentalJourney.rentalCardText(item) : null;
-  // 归还完成后不再展示应还倒计时：车与钱都已结清，倒计时只会制造无意义焦虑。
-  const rentalDueAt = isRental && item.rental && item.rental.status !== 'RETURNED' ? (item.rental.dueAt || '') : '';
-  const orderAfterSales = (item.afterSales || []).map(decorateAfterSale);
-  const activeAfterSale = orderAfterSales.find(record => record.status !== 'CLOSED') || orderAfterSales[0] || null;
-  const overdueAfterSale = orderAfterSales.find(record => record.isOverdue);
-  const totalQuantity = isEbike ? (item.items || []).reduce((sum, orderItem) => sum + Number(orderItem.quantity || 0), 0) : 0;
-  const refundedQuantity = Number(item.refundedQuantity || 0);
-  const remainingQuantity = Math.max(0, totalQuantity - refundedQuantity);
-  const isPartiallyRefunded = item.paymentStatus === 'PARTIALLY_REFUNDED'
-    && refundedQuantity > 0 && remainingQuantity > 0;
-  const refundAmountText = Number(item.partialRefundedInCents || 0) > 0
-    ? ` · 已退 ¥${(Number(item.partialRefundedInCents) / 100).toFixed(2)}`
-    : '';
-  const actions = [];
-  if (item.merchantId && type === 'E_BIKE') {
-    actions.push({ key:'store', text:'进店', merchantId:item.merchantId });
-  }
-  if (item.status === 'PENDING_PAYMENT' && ['E_BIKE','PHONE_PLAN','RECHARGE','PLATE'].includes(type)) {
-    actions.push({ key:'pay', text:'去支付' });
-    actions.push({ key:'cancel', text:'取消订单' });
-  }
-  const fulfillment = isEbike ? (item.fulfillment || {}) : {};
-  const reviewedProductIds = item.reviewedProductIds || [];
-  if (type === 'E_BIKE') {
-    if (item.status === 'COMPLETED') {
-      const buyAgainProduct = (item.items || []).find((orderItem) => orderItem.productId);
-      if (buyAgainProduct) {
-        actions.push({ key:'buyAgain', text:'再次购买', productId:buyAgainProduct.productId });
-      }
-      (item.items || []).forEach((orderItem) => {
-        if (!reviewedProductIds.includes(orderItem.productId)) {
-          actions.push({ key:`review:${orderItem.productId}`, type:'review', text:`评价 ${orderItem.name}`, productId:orderItem.productId });
-        }
-      });
-    }
-    if (!['COMPLETED','CANCELLED','AFTER_SALE'].includes(item.status)) actions.push({ key:'edit', text:'修改配送' });
-  if (item.status !== 'CANCELLED') actions.push({ key:'collab', text:'联系商家', action:'NOTE' });
-    if (!['COMPLETED','CANCELLED','AFTER_SALE'].includes(item.status)) actions.push({ key:'appeal', text:'平台协助', action:'APPEAL' });
-    if (!['CANCELLED'].includes(item.status)) actions.push({ key:'aftersale', text:item.status === 'AFTER_SALE' ? '售后详情' : '申请售后' });
-  }
-  if (type === 'PHONE_PLAN') {
-    if (item.status === 'PENDING_REALNAME') actions.push({ key:'consult', text:'实名咨询', business:'电话卡实名激活' });
-    if (item.relatedIds.broadbandApplicationId) actions.push({ key:'filter', text:'查看宽带', filter:'BROADBAND' });
-    else actions.push({ key:'action', text:'申请宽带', action:'APPLY_BROADBAND', disabled:item.status !== 'ACTIVATED', reason:'完成实名激活后可申请' });
-  }
-  if (type === 'RECHARGE') {
-    actions.push({ key:'detail', text:'\u6743\u76ca\u8be6\u60c5', rechargeId:item.id });
-    if (item.status === 'PENDING_CREDIT') actions.push({ key:'consult', text:'到账咨询', business:'话费到账确认' });
-    if (item.relatedIds.phoneCardOrderId) actions.push({ key:'action', text:'激活电话卡', action:'ACTIVATE_CARD', disabled:!['PENDING_CREDIT','CREDITED'].includes(item.status), reason:'支付后可激活' });
-  }
-  if (type === 'BROADBAND') actions.push({ key:'consult', text:item.status === 'APPROVED' ? '预约安装' : '核验咨询', business:item.status === 'APPROVED' ? '宽带安装预约' : '宽带资格核验' });
-  if (type === 'PLATE' && item.status !== 'PENDING_PAYMENT') {
-    actions.push({ key:'materials', text:`上传材料${item.materialCount ? ` (${item.materialCount}/9)` : ''}`, disabled:item.status !== 'MATERIAL_PENDING' && item.status !== 'REVIEWING' });
-    actions.push({ key:'consult', text:'办理咨询', business:'校园牌照辅助' });
-  }
-
-  return {
-    ...item,
-    typeLabel: typeNames[type] || '服务',
-    icon: type === 'E_BIKE' ? '车' : type === 'PHONE_PLAN' ? '卡' : type === 'RECHARGE' ? '充' : type === 'BROADBAND' ? '网' : '牌',
-    tone: statusTones[item.status] || 'todo',
-    timeText: (item.updatedAt || item.createdAt || '').slice(5,16).replace('T',' '),
-    countdownText: item.status === 'PENDING_PAYMENT' ? paymentCountdownText(item.paymentExpiresAt) : '',
-    deliveryCode: isEbike && !['PENDING_PAYMENT','CANCELLED'].includes(item.status) ? (item.deliveryCode || '') : '',
-    priceText: item.amountInCents ? `¥${(item.amountInCents / 100).toFixed(2)}` : '',
-    statusLabel: isPartiallyRefunded ? '部分退款' : (item.cancelReason === 'PAYMENT_TIMEOUT' ? '已超时关闭' : (item.statusLabel || '处理中')),
-    statusNote: isPartiallyRefunded ? `已退 ${refundedQuantity} 件，剩余 ${remainingQuantity} 件继续履约${refundAmountText}`
-      : (item.cancelReason === 'PAYMENT_TIMEOUT' ? '超过支付时限自动关闭，可重新下单' : ''),
-    deliveryText: fulfillment.address ? `${fulfillment.date || '尽快配送'} · ${fulfillment.address}` : '',
-    actions,
-    merchantName:item.merchantName || '',
-    messageStatus:item.collaboration?.unrepliedMessage
-      ? `已提交留言，预计 ${DEFAULT_RESPONSE_HOURS} 小时内回复`
-      : (item.collaboration?.messages || []).some(message => ['MERCHANT', 'PLATFORM'].includes(message.role) && message.text !== '订单已支付，等待商家确认履约。')
-        ? '客服已回复'
-        : '',
-    afterSale: activeAfterSale,
-    afterSaleOverdue: Boolean(overdueAfterSale),
-    isRental,
-    rentalPriceText: rentalCard ? rentalCard.priceText : '',
-    rentalTermText: rentalCard ? rentalCard.termText : '',
-    rentalDepositText: rentalCard ? rentalCard.depositText : '',
-    rentalDueAtText: rentalCard ? rentalCard.dueAtText : '',
-    rentalCountdownAt: rentalDueAt,
-    rentalCountdownText: rentalDueAt ? rentalJourney.rentalCountdownText(rentalDueAt, new Date()) : '',
-    rentalOverdue: rentalDueAt ? rentalJourney.isRentalOverdue(rentalDueAt, new Date()) : false,
-    // 归还入口：仅租赁单且 `rental.status === 'RENTING'`（纯函数判定，可运行时断言）。
-    canReturnRequest: rentalJourney.canRequestReturn(item),
-    // 进度条的唯一选择点：租赁走租赁进度条，售卖仍走 ebikeJourney（回归不变）。
-    journey: rentalJourney.selectOrderJourney({ order: item, isEbike, status: item.status, activeAfterSale, ebikeJourney, afterSaleJourney }),
-    nextStep: isRental ? rentalNextStep(item) : isEbike && item.status === 'FULFILLING' ? '向商家出示交付码完成配送' : item.collaboration?.roleActions?.MERCHANT?.length ? '商家确认履约' : item.collaboration?.roleActions?.PLATFORM?.length ? '平台介入处理' : item.status === 'COMPLETED' ? '可评价本次服务' : '等待履约更新',
-    intervention:item.collaboration?.intervention?.status === 'REQUESTED',
-    platformResult:item.collaboration?.intervention?.status === 'RESOLVED' && item.collaboration?.intervention?.note
-      ? {
-        note: item.collaboration.intervention.note,
-        timeText: String(item.collaboration.intervention.updatedAt || item.collaboration.intervention.createdAt || '').replace('T',' ').slice(5,16)
-      }
-      : null,
-    messages:(item.collaboration?.messages || []).slice(0,2),
-    timeline:(item.collaboration?.handoffs || []).slice(0,4).map((handoff, index) => ({
-      id:index,
-      roleLabel:roleNames[handoff.role] || '平台',
-      note:handoff.note || '状态已更新',
-      timeText:String(handoff.createdAt || '').replace('T',' ').slice(5,16)
-    }))
-  };
 }
 
 function buildSessionFrom(record) {
@@ -328,8 +96,45 @@ Page({
     })).catch(loadState.ignoreSilently);
   },
   startCountdownTimer(){
-    if (this.countdownTimer) return;
-    this.countdownTimer = setInterval(() => this.refreshCountdowns(), 30000);
+    // 无条件重建：进入页面时先把可能还活着的那条定时器清掉，避免累积。
+    this.rebuildCountdownTimer();
+  },
+  /**
+   * 按「是否存在紧急订单」算出应有的刷新间隔。
+   *
+   * @returns {number} 毫秒间隔：存在紧急待支付单 → 1000，否则 → 30000。
+   */
+  countdownIntervalFor(){
+    const records = this.data.records || [];
+    return records.some((item) => item.status === 'PENDING_PAYMENT' && format.isPaymentUrgent(item.paymentExpiresAt))
+      ? COUNTDOWN_INTERVAL_URGENT
+      : COUNTDOWN_INTERVAL_IDLE;
+  },
+  /**
+   * 重建倒计时定时器。
+   *
+   * ★ 必须先 `clearInterval` 再 `setInterval`：`setInterval` 不会顶掉旧定时器，
+   * 直接叠加会让页面每重建一次就多一条走秒链 —— 而 `onHide` 只清得掉最后一条，
+   * 其余会变成后台空转的定时器。
+   */
+  rebuildCountdownTimer(){
+    if (this.countdownTimer) {
+      clearInterval(this.countdownTimer);
+      this.countdownTimer = null;
+    }
+    const interval = this.countdownIntervalFor();
+    this.countdownInterval = interval;
+    this.countdownTimer = setInterval(() => this.refreshCountdowns(), interval);
+  },
+  /**
+   * 若定时器正在运行，按其应有的节奏重建它。
+   *
+   * 为什么不无条件重建：`loadRecords` 是异步的，而 `onHide` 会停表 ——
+   * 页面隐藏后到达的加载结果不该把定时器重新拉起来（后台空转）。
+   */
+  syncCountdownTimer(){
+    if (!this.countdownTimer) return;
+    this.rebuildCountdownTimer();
   },
   stopCountdownTimer(){
     if (!this.countdownTimer) return;
@@ -341,7 +146,7 @@ Page({
     // 原来只服务「待支付订单」，没有待支付单时直接 return —— 租赁的应还倒计时因此
     // 永远不会刷新。改由纯函数统一裁决「是否还有需要走秒的记录」。
     if (!rentalJourney.shouldRefreshCountdown(records)) return;
-    if (records.some((item) => item.status === 'PENDING_PAYMENT' && isPaymentExpired(item.paymentExpiresAt))) {
+    if (records.some((item) => item.status === 'PENDING_PAYMENT' && format.isPaymentExpired(item.paymentExpiresAt))) {
       this.loadRecords();
       return;
     }
@@ -349,7 +154,11 @@ Page({
     const nextRecords = records.map((item) => {
       let next = item;
       if (item.status === 'PENDING_PAYMENT') {
-        next = { ...next, countdownText: paymentCountdownText(item.paymentExpiresAt) };
+        next = {
+          ...next,
+          countdownText: format.paymentCountdownText(item.paymentExpiresAt, now),
+          countdownUrgent: format.isPaymentUrgent(item.paymentExpiresAt, now)
+        };
       }
       if (item.rentalCountdownAt) {
         next = {
@@ -361,6 +170,9 @@ Page({
       return next;
     });
     this.setData({ records: nextRecords, filtered: this.filterRecords(nextRecords, this.data.active) });
+    // 节奏随紧迫度切换：进入 5 分钟以内改走秒级，脱离后回落半分钟。
+    // 只在**档位真的变了**时重建，否则每秒都会 clear+set 一次。
+    if (this.countdownTimer && this.countdownInterval !== this.countdownIntervalFor()) this.rebuildCountdownTimer();
   },
   loadRecords(){
     Promise.all([
@@ -389,12 +201,14 @@ Page({
         collaboration:order.collaboration,
         createdAt:order.createdAt, updatedAt:order.updatedAt
       }));
-      const records=[...ebikes,...(orderData.serviceRecords||[])].map(card).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
+      const records=[...ebikes,...(orderData.serviceRecords||[])].map(orderCard.card).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
       const focusRecordType=this.focusRecordType;
       if (focusRecordType) this.focusRecordType='';
       const active=focusRecordType&&focusRecordType!==this.data.active?focusRecordType:this.data.active;
       this.setData({records,active,filtered:this.filterRecords(records,active),linkage:this.buildLinkage(orderData,records),loading:false,recordsError:''});
       this.focusLoadedRecord(records);
+      // 数据到手后按真实紧迫度校准节奏（进入页面时 `records` 可能还是空的）。
+      this.syncCountdownTimer();
     }).catch(error=>{
       // ★ 失败不清空：保留上一次的服务记录，把「失败」变成可见状态（错误占位 + 重试）。
       // 改造前这里 setData({records:[],filtered:[],linkage:[]}) —— 订单页会显示
@@ -515,7 +329,7 @@ Page({
     const id=e.currentTarget.dataset.id;
     if(!id||this.data.submitting) return;
     const order=(this.data.records||[]).find(record=>record.id===id);
-    if (order && isPaymentExpired(order.paymentExpiresAt)) {
+    if (order && format.isPaymentExpired(order.paymentExpiresAt)) {
       wx.showToast({ title: '支付已超时，正在刷新订单', icon: 'none' });
       this.loadRecords();
       return;
@@ -666,7 +480,7 @@ Page({
     if(!consult || consult.sending)return;
     this.setData({'consult.sending':text});
     request('/api/order-collab',{method:'POST',data:{role:'USER',orderId:consult.id,action:'NOTE',note:text}}).then(({data})=>{
-      const updated=card(data);
+      const updated=orderCard.card(data);
       const records=this.data.records.map(item=>item.id===updated.id?updated:item);
       this.setData({records,filtered:this.filterRecords(records,this.data.active),consult:null});
       wx.showToast({title:'已提交咨询'});

@@ -57,6 +57,28 @@ function readProductListViewSource() {
   ].join('\n');
 }
 
+/**
+ * 读取「订单页 + 它委托的卡片装饰层」源码并拼接后返回。
+ *
+ * 与 `readProductListViewSource()` 同型，理由也相同：M3-P1-05 把 `card(item)`
+ * 及其文案表（`typeNames` / `ebikeJourney` / `afterSaleJourney` / `statusTones`
+ * / `decorateAfterSale` / `formatDueText` / `rentalNextStep`）从 `orders.js` 抽到
+ * `utils/order-card.js`（纯函数，可被 `test/miniapp-runtime.test.js` 真实加载断言）。
+ *
+ * 这些断言的**意图**是「订单页这套代码里有售后进度 / 部分退款 / 平台处理结果」，
+ * 而不是「这段逻辑恰好写在 orders.js 里」。若继续单读 `orders.js`，抽取之后断言
+ * 会转红 —— 但页面行为一个字都没变。改成拼接读法后，断言继续守住原意图，
+ * 且「订单卡片逻辑跑去了别处」这种真正的回归依然会被 `order-card.js` 的运行时用例拦住。
+ *
+ * @returns {string} `orders.js` 与 `utils/order-card.js` 的源码拼接。
+ */
+function readOrdersCardSource() {
+  return [
+    readMiniappFile(path.join('pages', 'orders', 'orders.js')),
+    readMiniappFile(path.join('utils', 'order-card.js'))
+  ].join('\n');
+}
+
 test('miniapp JavaScript parses without syntax errors', () => {
   for (const file of listMiniappFiles()) {
     const source = fs.readFileSync(file, 'utf8');
@@ -235,7 +257,7 @@ test('aftersales surface platform resolution results to users', () => {
 });
 
 test('orders surface platform resolution results to users', () => {
-  const source = readMiniappFile(path.join('pages', 'orders', 'orders.js'));
+  const source = readOrdersCardSource();
   const markup = readMiniappFile(path.join('pages', 'orders', 'orders.wxml'));
   const styles = readMiniappFile(path.join('pages', 'orders', 'orders.wxss'));
 
@@ -486,7 +508,7 @@ test('merchant surfaces collect qualification expiry for renewals', () => {
 });
 
 test('orders page surfaces after-sale progress and merchant result', () => {
-  const js = readMiniappFile(path.join('pages', 'orders', 'orders.js'));
+  const js = readOrdersCardSource();
   const wxml = readMiniappFile(path.join('pages', 'orders', 'orders.wxml'));
   const css = readMiniappFile(path.join('pages', 'orders', 'orders.wxss'));
 
@@ -504,7 +526,7 @@ test('orders page surfaces after-sale progress and merchant result', () => {
 });
 
 test('orders page surfaces partial refund scope to users', () => {
-  const js = readMiniappFile(path.join('pages', 'orders', 'orders.js'));
+  const js = readOrdersCardSource();
   const wxml = readMiniappFile(path.join('pages', 'orders', 'orders.wxml'));
   const styles = readMiniappFile(path.join('pages', 'orders', 'orders.wxss'));
 
@@ -530,7 +552,7 @@ test('merchant orders surface partial refund fulfillment scope', () => {
 test('after-sale rejection keeps users and merchants connected', () => {
   const merchantJs = readMiniappFile(path.join('pages', 'merchant', 'orders.js'));
   const merchantWxml = readMiniappFile(path.join('pages', 'merchant', 'orders.wxml'));
-  const ordersJs = readMiniappFile(path.join('pages', 'orders', 'orders.js'));
+  const ordersJs = readOrdersCardSource();
   const afterSaleJs = readMiniappFile(path.join('pages', 'aftersales', 'aftersales.js'));
 
   assert.ok(merchantJs.includes('REJECTED'), 'merchant after-sale labels should include rejection');
@@ -1173,7 +1195,7 @@ test('scooter list shows service score and commerce signals', () => {
 });
 
 test('user orders surface consultation response progress', () => {
-  const orderJs = readMiniappFile(path.join('pages', 'orders', 'orders.js'));
+  const orderJs = readOrdersCardSource();
   const orderWxml = readMiniappFile(path.join('pages', 'orders', 'orders.wxml'));
   const orderCss = readMiniappFile(path.join('pages', 'orders', 'orders.wxss'));
 
@@ -1187,7 +1209,7 @@ test('user orders surface consultation response progress', () => {
 
 test('user notices and service linkage land on focused records', () => {
   const profileJs = readMiniappFile(path.join('pages', 'profile', 'profile.js'));
-  const orderJs = readMiniappFile(path.join('pages', 'orders', 'orders.js'));
+  const orderJs = readOrdersCardSource();
   const orderWxml = readMiniappFile(path.join('pages', 'orders', 'orders.wxml'));
 
   assert.ok(profileJs.includes('link: item.link'), 'profile notices should use server business links');
@@ -1709,4 +1731,45 @@ test('第四批：orders / addresses / aftersales 的加载失败必须「保留
       `${page.name} 的空态条件必须排除「失败」：否则失败时会把「没取到」说成「确实没有」`
     );
   }
+});
+
+test('M3-P1-05：待支付倒计时分级高亮已接线（纯函数模块 / 紧急类 / 动态节奏 / 租赁不动）', () => {
+  const js = readMiniappFile(path.join('pages', 'orders', 'orders.js'));
+  const wxml = readMiniappFile(path.join('pages', 'orders', 'orders.wxml'));
+  const styles = readMiniappFile(path.join('pages', 'orders', 'orders.wxss'));
+  const cardSource = readMiniappFile(path.join('utils', 'order-card.js'));
+  const formatSource = readMiniappFile(path.join('utils', 'format.js'));
+
+  // 一、分级逻辑必须住在纯函数模块里（可被 test/miniapp-runtime.test.js 运行时断言），
+  //     而不是埋在页面脚本 —— 页面脚本顶层调用 `Page()`，Node 无法加载。
+  assert.ok(formatSource.includes('function paymentCountdownText('), 'format.js 应提供 paymentCountdownText');
+  assert.ok(formatSource.includes('function isPaymentUrgent('), 'format.js 应提供 isPaymentUrgent');
+  assert.ok(formatSource.includes('function isPaymentExpired('), 'format.js 应提供 isPaymentExpired');
+  assert.equal(js.includes('function paymentCountdownText('), false, '订单页不得再自带倒计时文案实现（已抽到 format.js）');
+  assert.equal(js.includes('function isPaymentExpired('), false, '订单页不得再自带超时判定实现（已抽到 format.js）');
+  assert.equal(js.includes('function card('), false, '订单页不得再自带卡片装饰实现（已抽到 order-card.js）');
+  assert.ok(js.includes("require('../../utils/format')"), '订单页应引入 format.js');
+  assert.ok(js.includes("require('../../utils/order-card')"), '订单页应引入 order-card.js');
+  assert.ok(js.includes('orderCard.card'), '订单页应通过 order-card.js 的 card() 装饰记录');
+  assert.ok(cardSource.includes('countdownUrgent'), 'order-card.js 应为卡片写入 countdownUrgent');
+
+  // 二、模板接线：紧急类必须绑到倒计时容器上（只在 JS 里算出字段、模板不绑定等于没做）。
+  assert.ok(wxml.includes("item.countdownUrgent ? 'countdown-urgent' : ''"), 'orders.wxml 应把 countdown-urgent 绑到倒计时容器');
+  assert.ok(styles.includes('.countdown-urgent'), 'orders.wxss 应定义 .countdown-urgent');
+
+  // 三、动态节奏：紧急 1000ms / 常态 30000ms；重建必须先 clear 再 set（否则定时器累积）。
+  assert.ok(js.includes('COUNTDOWN_INTERVAL_URGENT = 1000'), '订单页应声明紧急间隔 1000ms');
+  assert.ok(js.includes('COUNTDOWN_INTERVAL_IDLE = 30000'), '订单页应声明常态间隔 30000ms');
+  assert.ok(js.includes('countdownIntervalFor()'), '订单页应提供「按紧迫度算间隔」的方法');
+  assert.ok(js.includes('rebuildCountdownTimer()'), '订单页应提供重建定时器的方法');
+  assert.match(
+    js, /clearInterval\(this\.countdownTimer\)[\s\S]*setInterval\(/,
+    '★ 重建必须先 clearInterval 再 setInterval，否则每重建一次就多一条走秒链'
+  );
+
+  // 四、租赁倒计时（T39 的产物）一行未动 —— 本批只加待支付的分级高亮。
+  assert.ok(wxml.includes('item.rentalCountdownText'), '租赁应还倒计时文案不得改动');
+  assert.ok(wxml.includes('rental-countdown'), '租赁倒计时容器不得改动');
+  assert.ok(wxml.includes("item.rentalOverdue ? 'overdue' : ''"), '租赁逾期类不得改动');
+  assert.ok(styles.includes('.rental-countdown.overdue'), '租赁逾期样式不得改动');
 });
