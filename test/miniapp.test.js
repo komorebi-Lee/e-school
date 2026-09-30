@@ -1394,10 +1394,17 @@ test('navigation tabBar list stays in sync with app.json', () => {
     );
   }
 
-  // 反向检查：不应保留已从 app.json 移除的 tabBar 页面
-  const declared = (source.match(/'(\/pages\/[^']+)'/g) || [])
-    .map((item) => item.slice(1, -1))
-    .filter((item) => tabBarPaths.includes(item));
+  // 反向检查：不应保留已从 app.json 移除的 tabBar 页面。
+  // 注意：此处**不得**再用 `tabBarPaths.includes(item)` 过滤字面量 —— 那个过滤会把
+  // 「navigation.js 多出来的条目」在比较之前就丢掉，使 `declared ⊆ tabBarPaths` 恒成立，
+  // 反向检查退化为与上面的正向检查逻辑等价（永远无法单独失败）。
+  // 正确做法是把取值范围收敛到 `TABBAR_PAGES` 数组本身。
+  const tabBarBlockStart = source.indexOf('const TABBAR_PAGES');
+  assert.notEqual(tabBarBlockStart, -1, 'navigation.js 应声明 TABBAR_PAGES');
+  const tabBarBlockEnd = source.indexOf('];', tabBarBlockStart);
+  assert.notEqual(tabBarBlockEnd, -1, 'TABBAR_PAGES 应以 `];` 结束');
+  const declared = (source.slice(tabBarBlockStart, tabBarBlockEnd).match(/'(\/pages\/[^']+)'/g) || [])
+    .map((item) => item.slice(1, -1));
   assert.deepEqual(
     [...new Set(declared)].sort(),
     [...new Set(tabBarPaths)].sort(),
@@ -1772,4 +1779,67 @@ test('M3-P1-05：待支付倒计时分级高亮已接线（纯函数模块 / 紧
   assert.ok(wxml.includes('rental-countdown'), '租赁倒计时容器不得改动');
   assert.ok(wxml.includes("item.rentalOverdue ? 'overdue' : ''"), '租赁逾期类不得改动');
   assert.ok(styles.includes('.rental-countdown.overdue'), '租赁逾期样式不得改动');
+});
+
+test('M1-P1-02：市集是第 5 个 tabBar 项（只追加，地图项位置不动）', () => {
+  const appConfig = JSON.parse(readMiniappFile('app.json'));
+  const list = appConfig.tabBar?.list || [];
+
+  // ② 追加第 5 项，内容正确。
+  assert.equal(list.length, 5, 'tabBar 应有 5 项（第 5 项是市集）');
+  assert.equal(list[4].pagePath, 'pages/market/market', '第 5 项的 pagePath 应是市集');
+  assert.equal(list[4].text, '市集', '第 5 项的文案应是「市集」');
+
+  // ③ ★ 地图项必须仍在且位置未变 —— 本次只允许「追加一项」，不得删除/重排。
+  assert.equal(list[1].pagePath, 'pages/map/map', '★ 地图必须仍是第 2 项（本次只允许追加，不得重排）');
+  assert.equal(list[1].text, '地图', '★ 地图文案不得改动');
+  assert.deepEqual(
+    list.slice(0, 4).map((item) => item.pagePath),
+    ['pages/home/home', 'pages/map/map', 'pages/orders/orders', 'pages/profile/profile'],
+    '★ 原有 4 项的顺序与内容必须逐字不变'
+  );
+
+  // 定位相关声明一律不动（PRD 硬约束）。
+  assert.deepEqual(appConfig.requiredPrivateInfos, ['getLocation'], 'requiredPrivateInfos 不得改动');
+  assert.ok(
+    appConfig.permission['scope.userLocation'].desc.includes('校园地图'),
+    'scope.userLocation 的说明不得改动'
+  );
+
+  // 既有 4 项都没有 iconPath —— 第 5 项保持一致，不为它新增二进制图标资源。
+  assert.equal(
+    list.every((item) => item.iconPath === undefined && item.selectedIconPath === undefined),
+    true,
+    'tabBar 项一律不带图标（与既有 4 项一致，避免为此新增二进制资源）'
+  );
+
+  // 首页跳市集必须走 openLink（tabBar 页用 navigateTo 会失败）。
+  const homeJs = readMiniappFile(path.join('pages', 'home', 'home.js'));
+  assert.match(
+    homeJs, /goMarket\(\)\s*\{\s*openLink\(["']\/pages\/market\/market["']\)/,
+    '首页 goMarket 应改走 openLink'
+  );
+
+  // 首页价格失败时必须给出可见重试入口（T18 ①②③ 的产物，作回归）。
+  const homeWxml = readMiniappFile(path.join('pages', 'home', 'home.wxml'));
+  assert.ok(homeWxml.includes('价格加载失败，点击重试'), '首页价格失败时应给出重试文案');
+  assert.ok(homeWxml.includes('catchtap="reloadCatalog"'), '重试入口应绑 reloadCatalog 且阻止冒泡');
+  assert.ok(homeWxml.includes('scooterFromPrice !== null'), '车辆价格必须只在有真值时展示');
+  assert.ok(homeWxml.includes('phoneFromPrice !== null'), '电话卡价格必须只在有真值时展示');
+
+  // 首页通往市集的唯一入口是 market-banner（`bindtap="goMarket"`），本次改的是它的**实现**
+  // （改走 openLink），入口本身必须保留。
+  assert.ok(homeWxml.includes('bindtap="goMarket"'), '首页市集 banner 入口应保留');
+
+  // 市集页自身的「去逛论坛」入口不得被本次改动波及。
+  // 说明：T18 ⑧ 把该按钮记作 `home.wxml` 的「逛论坛」次级按钮，实际它在 `market.wxml:52`
+  // （文案为「去逛论坛」，`bindtap` 而非 `catchtap`；`home.wxml` 里没有任何论坛入口）。
+  // 这里按**真实位置**断言，并顺带锁住它的跳转目标。
+  const marketWxml = readMiniappFile(path.join('pages', 'market', 'market.wxml'));
+  assert.ok(marketWxml.includes('bindtap="goForum"'), '市集空态的「去逛论坛」入口应保留');
+  const marketJs = readMiniappFile(path.join('pages', 'market', 'market.js'));
+  assert.match(
+    marketJs, /goForum\(\)\s*\{\s*wx\.navigateTo\(\{\s*url:\s*['"]\/pages\/forum\/forum['"]\s*\}\s*\)/,
+    'forum 不是 tabBar 页，「去逛论坛」仍应走 navigateTo'
+  );
 });
