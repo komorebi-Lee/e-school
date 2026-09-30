@@ -2,6 +2,8 @@ const { request, userId } = require('../../services/api');
 const { loadBusinessConfig } = require('../../services/business');
 const { payPaymentOrder } = require('../../services/payment');
 const loadState = require('../../utils/load-state');
+// 订单页是 tabBar 页，跳转必须走 openLink（focusId 经 Storage 传递）。
+const { openLink } = require('../../utils/navigation');
 const {
   readRentalPlan,
   rentalUnitLabel,
@@ -211,23 +213,66 @@ Page({
     this.setData({ submitting: true });
     request('/api/orders', { method: 'POST', header: { 'Idempotency-Key': this.data.payToken }, data: { userId: userId(), items: [orderItem], fulfillment: { type: 'DELIVERY', address: deliveryAddress, date, timeSlot: this.data.deliveryTimeSlots[this.data.deliveryTimeIndex] || '', contactName: name, contactPhone: phone } } })
       .then(({ data, paymentOrder }) => {
-        if (!paymentOrder || !paymentOrder.id) throw new Error('支付单创建失败');
-        return payPaymentOrder(paymentOrder).then(({ data: result }) => {
-          return this.saveNewAddress().then(() => {
-            wx.showModal({
-              title: '支付成功',
-              // 租赁单不能说「购车订单 / 购车牌照辅助」，否则用户会以为押金是消费。
-              content: this.data.isRental
-                ? `订单 ${result.order.orderNo} 已支付。押金将在归还核验后原路退回，不计入商家分账。`
-                : `订单 ${result.order.orderNo} 已支付。平台购车订单会同步生成免费校园牌照辅助。`,
-              confirmText: '查看订单',
-              showCancel: false,
-              success: () => wx.switchTab({ url: '/pages/orders/orders' })
-            });
-          });
-        });
+        // ★ 走到这一行，订单**已经创建**（库存已预占，30 分钟未支付会自动关闭）。
+        // 从这里往后的一切失败，性质都与「订单没创建」完全不同：必须明确告诉用户
+        // 「订单已存在」，否则用户会以为什么都没发生，然后重复下单。
+        const orderId = (data && data.id) || '';
+        if (!paymentOrder || !paymentOrder.id) {
+          return this.showPaymentPending(orderId, '支付单创建失败');
+        }
+        // 内层 catch 只挂在支付调用上 —— 它一旦触发，订单必然已经存在。
+        // 这个结构本身就是「两种失败」的区分：外层 catch 只可能来自 POST /api/orders。
+        return payPaymentOrder(paymentOrder)
+          .then(({ data: result }) => this.showPaymentSuccess(result))
+          .catch((error) => this.showPaymentPending(orderId, (error && error.message) || '支付未完成'));
       })
-      .catch((error) => { this.setData({ submitting: false }); wx.showToast({ title: error.message || '提交失败', icon: 'none' }); });
+      .catch((error) => {
+        // 只有 `POST /api/orders` 本身失败才会到这里 —— 订单**没有**创建，toast 是正确提示。
+        this.setData({ submitting: false });
+        wx.showToast({ title: (error && error.message) || '提交失败', icon: 'none' });
+      });
+  },
+  /** 支付成功后的确认弹窗（文案区分租赁单与售卖单，与改造前逐字一致）。 */
+  showPaymentSuccess(result) {
+    return this.saveNewAddress().then(() => {
+      wx.showModal({
+        title: '支付成功',
+        // 租赁单不能说「购车订单 / 购车牌照辅助」，否则用户会以为押金是消费。
+        content: this.data.isRental
+          ? `订单 ${result.order.orderNo} 已支付。押金将在归还核验后原路退回，不计入商家分账。`
+          : `订单 ${result.order.orderNo} 已支付。平台购车订单会同步生成免费校园牌照辅助。`,
+        confirmText: '查看订单',
+        showCancel: false,
+        success: () => wx.switchTab({ url: '/pages/orders/orders' })
+      });
+    });
+  },
+  /**
+   * 订单已创建但支付未完成。
+   *
+   * 与「订单根本没创建」是两种性质完全不同的失败：此时库存已预占、订单真实存在，
+   * 只 toast 一句「提交失败」会让用户以为无事发生，进而重复下单。
+   *
+   * `submitting` 在这里就复位：弹窗是异步的，用户可能点「稍后再说」直接离开，
+   * 不能把按钮一直锁在提交中。
+   *
+   * @param {string} orderId 已创建订单的 id（可能为空，此时无法定位）。
+   * @param {string} reason 失败原因，用于向用户解释。
+   */
+  showPaymentPending(orderId, reason) {
+    this.setData({ submitting: false });
+    wx.showModal({
+      title: '订单已创建，支付未完成',
+      content: `${reason || '支付未完成'}。订单已经生成，30 分钟内未支付会自动关闭；可以到订单页继续支付。`,
+      confirmText: '去支付',
+      cancelText: '稍后再说',
+      success: (result) => {
+        if (!result || !result.confirm) return;
+        // 订单页是 tabBar 页，不能带 query —— focusId 由 openLink 经 Storage 传递，
+        // 订单页 onShow 读回并高亮，这里不重复实现一套跳转 + Storage 传递。
+        openLink(orderId ? `/pages/orders/orders?focusId=${orderId}` : '/pages/orders/orders');
+      }
+    });
   },
   toggleAgreement() { this.setData({ agreed: !this.data.agreed }); },
   openAgreement() { wx.navigateTo({ url: '/pages/agreement/agreement?type=service' }); },
