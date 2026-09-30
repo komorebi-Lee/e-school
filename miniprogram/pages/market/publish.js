@@ -15,6 +15,10 @@ const conditionOptions = [
   { key: 'USED', label: '有使用痕迹' }
 ];
 
+// 联系方式的最小长度（去空白后）。与服务端 `POST /api/market/items` 的 `minLength: 5`
+// 是同一个口径 —— 前端拦截只是为了「不白跑一趟网络」，服务端那道才是真正的防线。
+const CONTACT_MIN_LENGTH = 5;
+
 function uploadMarketImage(file) {
   return upload.uploadImage(file, request).then((data) => data.url);
 }
@@ -30,6 +34,8 @@ Page({
     selectedCategory: categoryOptions[0],
     selectedCondition: conditionOptions[0],
     images: [],
+    // 控制联系方式输入框的聚焦。提交被本地拦下时置 true，把光标直接送到该输入框。
+    contactFocus: false,
     submitting: false
   },
 
@@ -37,6 +43,15 @@ Page({
   setDescription(event) { this.setData({ description: event.detail.value }); },
   setContact(event) { this.setData({ contact: event.detail.value }); },
   setPrice(event) { this.setData({ priceInput: event.detail.value }); },
+
+  /**
+   * 输入框失焦时复位聚焦标记。
+   *
+   * `focus` 是「置 true 时聚焦」的一次性指令：若不复位，用户第二次提交时
+   * `setData({ contactFocus: true })` 因为值没变而不会触发聚焦 ——
+   * 表现就是「第一次会跳过去，之后就再也不跳了」。
+   */
+  blurContact() { this.setData({ contactFocus: false }); },
 
   setCategory(event) {
     const selected = this.data.categoryOptions.find((option) => option.key === event.currentTarget.dataset.key);
@@ -88,6 +103,13 @@ Page({
     if (!title.trim()) return wx.showToast({ title: '请填写闲置标题', icon: 'none' });
     if (!description.trim()) return wx.showToast({ title: '请描述闲置情况', icon: 'none' });
     if (!Number.isFinite(price) || price <= 0) return wx.showToast({ title: '请填写正确的价格', icon: 'none' });
+    // ★ 本地拦截：没有联系方式就不发请求。
+    // 为什么要在本地拦而不是等服务端 400：服务端拒绝意味着用户已经等了一趟网络往返，
+    // 而且错误只能以 toast 呈现、光标还停在别处。这里直接聚焦到该输入框，用户少走一步。
+    if (contact.trim().length < CONTACT_MIN_LENGTH) {
+      this.setData({ contactFocus: true });
+      return wx.showToast({ title: '请填写联系方式（微信号或手机号）', icon: 'none' });
+    }
     this.setData({ submitting: true });
     request('/api/market/items', {
       method: 'POST',

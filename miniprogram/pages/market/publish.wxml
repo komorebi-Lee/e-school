@@ -26,8 +26,8 @@
       <textarea class="input textarea" placeholder="使用时长、瑕疵、自提地点等" value="{{description}}" bindinput="setDescription" maxlength="500"></textarea>
     </view>
     <view class="field">
-      <text class="field-label">联系方式（选填）</text>
-      <input class="input" placeholder="微信号 / 手机号，买家可见" value="{{contact}}" bindinput="setContact" maxlength="50" />
+      <text class="field-label">联系方式</text>
+      <input class="input" placeholder="微信号 / 手机号，买家可见" value="{{contact}}" bindinput="setContact" bindblur="blurContact" focus="{{contactFocus}}" maxlength="50" />
     </view>
     <view class="field">
       <text class="field-label">图片（选填，最多 6 张）</text>

@@ -1223,3 +1223,69 @@ test('M3-P1-01：支付失败时用户必须知道订单已存在（与「下单
     '⑤ 成功路径仍走 switchTab 跳订单页（订单页是 tabBar 页）'
   );
 });
+
+test('M6-P0-01：市集发布不填联系方式时本地拦截（不发请求）并聚焦输入框', async (t) => {
+  const harness = createHarness();
+  t.after(() => harness.restore());
+
+  // 记录页面真正发出的请求。**这是「本地拦截」与「发出去被服务端拒」唯一的分界证据** ——
+  // 只断言 toast 文案的话，两种实现都会通过。
+  const requests = [];
+  harness.setApiHandler((requestPath, options) => {
+    requests.push({ path: requestPath, data: (options && options.data) || {} });
+    return Promise.resolve({ data: { id: 'market_new_1' } });
+  });
+
+  const publish = harness.loadPage(path.join('pages', 'market', 'publish.js'));
+  // 其余字段全部合法：一旦请求计数为 0，原因只可能是联系方式被本地拦下。
+  publish.setData({
+    title: '宿舍台灯（可调亮度）',
+    description: '用了半年，功能完好，荟园自提',
+    priceInput: '29',
+    contact: ''
+  });
+
+  // ==================== ⑦ ★ 本地拦截：请求计数必须为 0 ====================
+  publish.submit();
+  await settle();
+  assert.equal(
+    requests.length, 0,
+    '⑦ ★★ 未填联系方式必须在本地拦下 —— 请求计数应为 0。'
+    + '若变成 1，说明拦截被挪到了服务端：用户白等一趟网络往返，且错误只能以 toast 呈现'
+  );
+
+  // ==================== ⑧ 聚焦输入框 + 不锁按钮 + 文案正确 ====================
+  assert.equal(publish.data.contactFocus, true, '⑧ 被拦下时必须把光标送到联系方式输入框');
+  assert.equal(
+    publish.data.submitting, false,
+    '被拦下时不得把按钮锁在「正在发布…」—— 用户还没发出任何请求'
+  );
+  assert.equal(
+    harness.getToasts().at(-1)?.title, '请填写联系方式（微信号或手机号）',
+    '提示必须告诉用户填什么，而不是笼统的「提交失败」'
+  );
+
+  // 边界：4 字符仍在拦截侧（下界是 5）。
+  publish.setData({ contact: '1234' });
+  publish.submit();
+  await settle();
+  assert.equal(requests.length, 0, '4 字符低于下界 5，仍应被本地拦下');
+  assert.equal(publish.data.contactFocus, true, '4 字符被拦下时同样应聚焦');
+
+  // ==================== ⑨ ★ 正向控制：填了合法值必须真的发请求 ====================
+  // 没有这条，⑦ 的「计数为 0」也可能只是因为「任何输入都不发请求」。
+  publish.setData({ contact: '12345' });
+  publish.submit();
+  await settle();
+  assert.equal(
+    requests.length, 1,
+    '⑨ ★ 填了合法联系方式必须真的发出请求 —— 否则⑦的「计数为 0」不成立'
+  );
+  assert.equal(requests[0].path, '/api/market/items', '⑨ 应打到市集发布端点');
+  assert.equal(requests[0].data.contact, '12345', '⑨ 联系方式应原样带在请求体里');
+  assert.equal(requests[0].data.priceInCents, 2900, '⑨ 其余字段不得因本次改动而变形');
+
+  // 成功路径有 `setTimeout(..., 600)` 的跳转，等它跑完再结束用例，
+  // 否则定时器会在 harness.restore() 之后触发（那时 global.wx 已被还原）。
+  await new Promise((resolve) => { setTimeout(resolve, 700); });
+});
