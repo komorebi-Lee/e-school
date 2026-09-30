@@ -1,5 +1,6 @@
 const { request: apiRequest, userId } = require('../../services/api');
 const loadState = require('../../utils/load-state');
+const upload = require('../../utils/upload');
 
 const orderStatusLabels = {
   PENDING_PAYMENT: '待支付',
@@ -660,25 +661,16 @@ Page({
           return;
         }
         this.setData({ uploadingRenewalEvidence: true });
-        wx.getFileSystemManager().readFile({
-          filePath: file.tempFilePath,
-          encoding: 'base64',
-          success: ({ data }) => {
-            const extension = String(file.tempFilePath || '').split('.').pop().toLowerCase();
-            const mimeType = extension === 'png' ? 'image/png' : extension === 'webp' ? 'image/webp' : 'image/jpeg';
-            this.request('/api/uploads', { method: 'POST', data: { dataBase64: data, mimeType } })
-              .then(({ data: upload }) => {
-                this.setData({ renewalEvidence: [upload.url] });
-                wx.showToast({ title: '执照已上传', icon: 'success' });
-              })
-              .catch((error) => wx.showToast({ title: error.message || '上传失败', icon: 'none' }))
-              .finally(() => this.setData({ uploadingRenewalEvidence: false }));
-          },
-          fail: () => {
-            this.setData({ uploadingRenewalEvidence: false });
-            wx.showToast({ title: '读取照片失败', icon: 'none' });
-          }
-        });
+        // 读图失败 → 文案「读取照片失败」（由 readErrorMessage 保证，与改造前一致）；
+        // 上传失败 → `error.message || '上传失败'`（同改造前）。
+        upload.readImagePayload(file, { readErrorMessage: '读取照片失败' })
+          .then((payload) => this.request('/api/uploads', { method: 'POST', data: payload }))
+          .then(({ data: uploaded }) => {
+            this.setData({ renewalEvidence: [uploaded.url] });
+            wx.showToast({ title: '执照已上传', icon: 'success' });
+          })
+          .catch((error) => wx.showToast({ title: error.message || '上传失败', icon: 'none' }))
+          .finally(() => this.setData({ uploadingRenewalEvidence: false }));
       }
     });
   },
@@ -809,23 +801,14 @@ Page({
       success: ({ tempFiles = [] }) => {
         if (!tempFiles.length) return;
         this.setData({ uploadingScoreEvidence: true });
-        const uploadOne = (file) => new Promise((resolve, reject) => {
-          if ((file.size || 0) > 5 * 1024 * 1024) {
-            reject(new Error('凭证图片不能超过 5MB'));
-            return;
-          }
-          const extension = String(file.tempFilePath || '').split('.').pop().toLowerCase();
-          const mimeType = extension === 'png' ? 'image/png' : extension === 'webp' ? 'image/webp' : 'image/jpeg';
-          wx.getFileSystemManager().readFile({
-            filePath: file.tempFilePath,
-            encoding: 'base64',
-            success: ({ data }) => resolve({ dataBase64: data, mimeType }),
-            fail: () => reject(new Error('读取凭证图片失败'))
-          });
-        }).then((payload) => this.request('/api/uploads', { method: 'POST', data: payload }))
-          .then(({ data }) => {
-            this.setData({ scoreEvidence: [...this.data.scoreEvidence, data.url] });
-          });
+        const uploadOne = (file) => {
+          if ((file.size || 0) > 5 * 1024 * 1024) return Promise.reject(new Error('凭证图片不能超过 5MB'));
+          return upload.readImagePayload(file, { readErrorMessage: '读取凭证图片失败' })
+            .then((payload) => this.request('/api/uploads', { method: 'POST', data: payload }))
+            .then(({ data }) => {
+              this.setData({ scoreEvidence: [...this.data.scoreEvidence, data.url] });
+            });
+        };
         tempFiles.reduce((task, file) => task.then(() => uploadOne(file)), Promise.resolve())
           .catch((error) => wx.showToast({ title: error.message || '凭证上传失败', icon: 'none' }))
           .finally(() => this.setData({ uploadingScoreEvidence: false }));

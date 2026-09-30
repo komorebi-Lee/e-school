@@ -9,6 +9,8 @@ const loadState = require('../../utils/load-state');
 const format = require('../../utils/format');
 // 订单卡片装饰层：`card(item)` 与其文案表已抽出，页面只负责「取数 → map(card) → setData」。
 const orderCard = require('../../utils/order-card');
+// 图片读取 + 上传的唯一入口（原先此处手抄了两份 readFile）。
+const upload = require('../../utils/upload');
 
 const consultQuestions = {
   PHONE_PLAN: ['实名审核需要多久？','实名信息填错了怎么修改？','订单进度请帮忙查询'],
@@ -23,35 +25,12 @@ const COUNTDOWN_INTERVAL_URGENT = 1000;
 const COUNTDOWN_INTERVAL_IDLE = 30000;
 
 function uploadReviewImage(file) {
-  const extension = file.tempFilePath.split('.').pop().toLowerCase();
-  const mimeType = extension === 'png' ? 'image/png' : extension === 'webp' ? 'image/webp' : 'image/jpeg';
-  return new Promise((resolve, reject) => {
-    wx.getFileSystemManager().readFile({
-      filePath: file.tempFilePath,
-      encoding: 'base64',
-      success: ({ data }) => resolve(data),
-      fail: () => reject(new Error('图片读取失败'))
-    });
-  }).then((dataBase64) => request('/api/uploads', {
-    method: 'POST',
-    data: { dataBase64, mimeType }
-  }).then(({ data }) => data.url));
+  return upload.uploadImage(file, request).then((data) => data.url);
 }
 
 function uploadPlateMaterial(file) {
-  const extension = file.tempFilePath.split('.').pop().toLowerCase();
-  const mimeType = extension === 'png' ? 'image/png' : extension === 'webp' ? 'image/webp' : 'image/jpeg';
-  return new Promise((resolve, reject) => {
-    wx.getFileSystemManager().readFile({
-      filePath: file.tempFilePath,
-      encoding: 'base64',
-      success: ({ data }) => resolve(data),
-      fail: () => reject(new Error('材料图片读取失败'))
-    });
-  }).then((dataBase64) => request('/api/uploads', {
-    method: 'POST',
-    data: { dataBase64, mimeType }
-  }).then(({ data }) => data.url));
+  // 牌照材料沿用原文案「材料图片读取失败」，避免用户可见提示发生回归。
+  return upload.uploadImage(file, request, { readErrorMessage: '材料图片读取失败' }).then((data) => data.url);
 }
 
 function previewAfterSaleImages(event) {

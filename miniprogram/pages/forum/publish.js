@@ -1,4 +1,5 @@
 const { request } = require('../../services/api');
+const upload = require('../../utils/upload');
 
 const boardOptions = [
   { key: 'CAMPUS', label: '校园生活' },
@@ -9,19 +10,7 @@ const boardOptions = [
 ];
 
 function uploadPostImage(file) {
-  const extension = file.tempFilePath.split('.').pop().toLowerCase();
-  const mimeType = extension === 'png' ? 'image/png' : extension === 'webp' ? 'image/webp' : 'image/jpeg';
-  return new Promise((resolve, reject) => {
-    wx.getFileSystemManager().readFile({
-      filePath: file.tempFilePath,
-      encoding: 'base64',
-      success: ({ data }) => resolve(data),
-      fail: () => reject(new Error('图片读取失败'))
-    });
-  }).then((dataBase64) => request('/api/uploads', {
-    method: 'POST',
-    data: { dataBase64, mimeType }
-  }).then(({ data }) => data.url));
+  return upload.uploadImage(file, request).then((data) => data.url);
 }
 
 Page({

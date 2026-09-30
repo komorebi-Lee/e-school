@@ -1,4 +1,5 @@
 const { request: apiRequest } = require('../../services/api');
+const upload = require('../../utils/upload');
 
 const categories = [
   { value: 'E_BIKE_NEW', label: '电动车整车' },
@@ -194,24 +195,24 @@ Page({
       success: ({ tempFiles }) => {
         const file = tempFiles && tempFiles[0];
         if (!file) return;
-        const extension = file.tempFilePath.split('.').pop().toLowerCase();
-        const mimeType = extension === 'png' ? 'image/png' : extension === 'webp' ? 'image/webp' : 'image/jpeg';
-        wx.getFileSystemManager().readFile({
-          filePath: file.tempFilePath,
-          encoding: 'base64',
-          success: ({ data }) => {
+        // 读图失败时 `showLoading` 尚未调用，此时若调 `hideLoading` 会把别人的
+        // loading 关掉 —— 改造前也只在真正发请求后才 hideLoading，这里保持同一约定。
+        let readDone = false;
+        upload.readImagePayload(file)
+          .then((payload) => {
+            readDone = true;
             wx.showLoading({ title: '上传中' });
-            apiRequest('/api/uploads', { method:'POST', data:{ dataBase64:data, mimeType } }).then(({ data: result }) => {
-              wx.hideLoading();
-              this.setData({ 'form.imageUrl': result.url });
-              wx.showToast({ title: '图片已上传', icon: 'success' });
-            }).catch((error) => {
-              wx.hideLoading();
-              wx.showToast({ title: error.message || '图片上传失败', icon: 'none' });
-            });
-          },
-          fail: () => wx.showToast({ title: '图片读取失败', icon: 'none' })
-        });
+            return apiRequest('/api/uploads', { method: 'POST', data: payload });
+          })
+          .then(({ data: result }) => {
+            wx.hideLoading();
+            this.setData({ 'form.imageUrl': result.url });
+            wx.showToast({ title: '图片已上传', icon: 'success' });
+          })
+          .catch((error) => {
+            if (readDone) wx.hideLoading();
+            wx.showToast({ title: readDone ? (error.message || '图片上传失败') : '图片读取失败', icon: 'none' });
+          });
       }
     });
   },

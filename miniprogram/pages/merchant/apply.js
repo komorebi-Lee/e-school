@@ -1,4 +1,5 @@
 const { request, userId } = require('../../services/api');
+const upload = require('../../utils/upload');
 
 const categories = [
   { value: 'E_BIKE', label: '电动车/维修服务', extra: '如销售整车，请确认车辆来源与保修责任；如维修，请确认服务范围。' },
@@ -128,26 +129,25 @@ Page({
       mediaType: ['image'],
       success: (response) => {
         const file = response.tempFiles[0];
-        wx.getFileSystemManager().readFile({
-          filePath: file.tempFilePath,
-          encoding: 'base64',
-          success: ({ data }) => {
-            const extension = file.tempFilePath.split('.').pop().toLowerCase();
-            const mimeType = extension === 'png' ? 'image/png' : extension === 'webp' ? 'image/webp' : 'image/jpeg';
+        if (!file) return;
+        // `readDone` 用来区分「读图失败」与「上传失败」—— 改造前这两条路径分别弹
+        // 「读取照片失败」和「upload failed」，合并成一个 catch 后必须保留这个区分，
+        // 否则用户看到的提示会退化。
+        let readDone = false;
+        upload.readImagePayload(file, { readErrorMessage: '读取照片失败' })
+          .then((payload) => {
+            readDone = true;
             this.setData({ licenseFile: { name: '营业执照照片', uploading: true, progress: '正在上传…' } });
-            request('/api/uploads', {
-              method: 'POST',
-              data: { dataBase64: data, mimeType }
-            }).then((body) => {
-              const { url, size } = body.data;
-              this.setData({ licenseFile: { name: 'license', path: file.tempFilePath, url, size, uploading: false } });
-            }).catch(() => {
-              this.setData({ licenseFile: null });
-              wx.showToast({ title: 'upload failed', icon: 'none' });
-            });
-          },
-          fail: () => wx.showToast({ title: '读取照片失败', icon: 'none' })
-        });
+            return request('/api/uploads', { method: 'POST', data: payload });
+          })
+          .then((body) => {
+            const { url, size } = body.data;
+            this.setData({ licenseFile: { name: 'license', path: file.tempFilePath, url, size, uploading: false } });
+          })
+          .catch((error) => {
+            this.setData({ licenseFile: null });
+            wx.showToast({ title: readDone ? 'upload failed' : (error.message || '读取照片失败'), icon: 'none' });
+          });
       }
     });
   },

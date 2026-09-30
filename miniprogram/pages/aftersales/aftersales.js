@@ -1,6 +1,7 @@
 const { request, userId } = require('../../services/api');
 const { loadBusinessConfig } = require('../../services/business');
 const loadState = require('../../utils/load-state');
+const upload = require('../../utils/upload');
 
 const typeOptions = [
   { key:'REFUND', label:'申请退款', copy:'未发货、商品异常或双方协商退款', reasons:['商家未按时配送，申请退款','商品与描述不一致，申请退款','临时不需要了，和商家已沟通'] },
@@ -23,19 +24,7 @@ function formatDate(value) {
 }
 
 function uploadAfterSaleImage(file) {
-  const extension = file.tempFilePath.split('.').pop().toLowerCase();
-  const mimeType = extension === 'png' ? 'image/png' : extension === 'webp' ? 'image/webp' : 'image/jpeg';
-  return new Promise((resolve, reject) => {
-    wx.getFileSystemManager().readFile({
-      filePath: file.tempFilePath,
-      encoding: 'base64',
-      success: ({ data }) => resolve(data),
-      fail: () => reject(new Error('图片读取失败'))
-    });
-  }).then((dataBase64) => request('/api/uploads', {
-    method: 'POST',
-    data: { dataBase64, mimeType }
-  }).then(({ data }) => data.url));
+  return upload.uploadImage(file, request).then((data) => data.url);
 }
 
 Page({
