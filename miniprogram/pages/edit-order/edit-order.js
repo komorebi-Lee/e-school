@@ -66,6 +66,14 @@ Page({
       setTimeout(() => wx.navigateBack(), 500);
     }).catch((error) => {
       this.setData({ submitting: false });
+      // 订单已进入终态 / 钱已退过 → 服务端返回 ORDER_NOT_MODIFIABLE。
+      // 这时留在本页没有意义：用户无论怎么改都会被拒，改一次拒一次。
+      // 所以给一句明确的提示后直接退回订单页，而不是让他在这里反复试。
+      if (error && error.code === 'ORDER_NOT_MODIFIABLE') {
+        wx.showToast({ title: '当前订单状态不支持改约', icon: 'none' });
+        setTimeout(() => wx.navigateBack(), 500);
+        return;
+      }
       wx.showToast({ title: error.message || '保存失败', icon: 'none' });
     });
   }

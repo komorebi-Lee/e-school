@@ -65,6 +65,7 @@ function createHarness() {
   const modalCalls = [];
   const toastCalls = [];
   const switchTabCalls = [];
+  const navigateBackCalls = [];
   const wxStub = new Proxy({
     getStorageSync: (key) => storage[key],
     setStorageSync: (key, value) => { storage[key] = value; },
@@ -75,6 +76,7 @@ function createHarness() {
     showModal: (options) => { modalCalls.push(options); },
     showToast: (options) => { toastCalls.push(options); },
     navigateBack: (options) => {
+      navigateBackCalls.push({ options });
       if (navigateBackShouldFail && typeof options?.fail === 'function') options.fail({ errMsg: 'navigateBack:fail' });
     },
     env: { USER_DATA_PATH: '/tmp' },
@@ -138,6 +140,9 @@ function createHarness() {
     getToasts() { return toastCalls.slice(); },
     /** 记录到的 `wx.switchTab` 目标（成功路径的跳转回归用）。 */
     getSwitchTabCalls() { return switchTabCalls.slice(); },
+    /** 记录到的 `wx.navigateBack` 调用（改约被拒后应退回上一页）。 */
+    getNavigateBackCalls() { return navigateBackCalls.map((call) => ({ ...call })); },
+    clearNavigateBackCalls() { navigateBackCalls.length = 0; },
     clearModals() { modalCalls.length = 0; },
     clearToasts() { toastCalls.length = 0; },
     clearSwitchTabCalls() { switchTabCalls.length = 0; },
@@ -1288,4 +1293,55 @@ test('M6-P0-01：市集发布不填联系方式时本地拦截（不发请求）
   // 成功路径有 `setTimeout(..., 600)` 的跳转，等它跑完再结束用例，
   // 否则定时器会在 harness.restore() 之后触发（那时 global.wx 已被还原）。
   await new Promise((resolve) => { setTimeout(resolve, 700); });
+});
+
+test('M3-P1-03：改约被拒（ORDER_NOT_MODIFIABLE）时提示并退回订单页', async (t) => {
+  const harness = createHarness();
+  t.after(() => harness.restore());
+
+  const editOrder = harness.loadPage(path.join('pages', 'edit-order', 'edit-order.js'));
+  editOrder.setData({
+    orderId: 'o-1', orderNo: 'CG1',
+    name: '李同学', phone: '15527111396', date: '2026-09-01', address: '荟园学生社区 7 栋',
+    timeSlot: '今天 12:00-14:00', submitting: false
+  });
+
+  // ==================== ⑨ 订单已终态 / 钱已退过 → 固定文案 + 退回上一页 ====================
+  harness.setApiHandler(() => Promise.reject(Object.assign(
+    new Error('当前订单状态（已完成）不支持改约'),
+    { code: 'ORDER_NOT_MODIFIABLE', statusCode: 409 }
+  )));
+  editOrder.save();
+  await settle();
+  assert.equal(
+    harness.getToasts().at(-1)?.title, '当前订单状态不支持改约',
+    '⑨ 改约被拒必须给一句用户能懂的话（而不是把服务端那句带状态标签的长文案原样弹出来）'
+  );
+  assert.equal(
+    editOrder.data.submitting, false,
+    '⑨ 被拒后必须解锁按钮 —— 否则 navigateBack 万一失败，用户会卡在一个按钮永远灰着的页面上'
+  );
+  // navigateBack 走的是 `setTimeout(..., 500)`，等它跑完再断言。
+  await new Promise((resolve) => { setTimeout(resolve, 600); });
+  assert.equal(
+    harness.getNavigateBackCalls().length, 1,
+    '⑨ ★ 必须退回订单页 —— 留在本页用户只会「改一次被拒一次」，无论怎么改都是 409'
+  );
+
+  // ==================== ⑨ 正向控制：只有该错误码才退回 ====================
+  // 没有这一条，「navigateBack 被调用过」也可能来自一个「catch 里无条件 navigateBack」的实现 ——
+  // 那会把网络抖动、参数错误也变成「把你踢回订单页」，用户看不懂为什么被退出来。
+  harness.clearToasts();
+  harness.clearNavigateBackCalls();
+  harness.setApiHandler(() => Promise.reject(Object.assign(
+    new Error('服务器开小差了'), { code: 'INTERNAL_ERROR', statusCode: 500 }
+  )));
+  editOrder.save();
+  await settle();
+  assert.equal(harness.getToasts().at(-1)?.title, '服务器开小差了', '⑨ 其他错误应原样展示服务端文案，不得被替换');
+  await new Promise((resolve) => { setTimeout(resolve, 600); });
+  assert.equal(
+    harness.getNavigateBackCalls().length, 0,
+    '⑨ ★ 正向控制：只有 ORDER_NOT_MODIFIABLE 才退回 —— 否则「一律 navigateBack」也会让上一条通过'
+  );
 });
