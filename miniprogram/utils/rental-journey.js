@@ -384,8 +384,8 @@ function shouldRefreshCountdown(records) {
  * 「售卖单仍走 `ebikeJourney`」这两件事都能被**运行时**断言，
  * 而不是只能在页面源码里 grep `ebikeJourney`。
  *
- * `ebikeJourney` / `afterSaleJourney` 由调用方注入（仍归 `orders.js` 所有），
- * 本模块不复制售卖文案，避免两处维护同一份文案。
+ * `ebikeJourney` / `afterSaleJourney` 由调用方注入（归 `order-card.js` 所有 ——
+ * 订单卡片装饰层，M3-P1-05 从 `orders.js` 抽出），本模块不复制售卖文案，避免两处维护同一份文案。
  *
  * @param {object} [options] 入参。
  * @param {object|null} [options.order] 订单记录。
