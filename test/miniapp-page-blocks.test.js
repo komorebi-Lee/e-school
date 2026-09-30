@@ -59,12 +59,21 @@ function createHarness() {
   let redirectUrl = '';
   // `navigateBack` 默认静默成功；置 true 时回调 `fail`，用于验证「无上一页」的兜底分支。
   let navigateBackShouldFail = false;
+  // `wx.showModal` / `wx.showToast` 的调用记录。
+  // 不自动回调 `success`：由用例显式调用 `modal.success({ confirm: true })`，
+  // 才能分别覆盖「点去支付」与「点稍后再说」两条分支。
+  const modalCalls = [];
+  const toastCalls = [];
+  const switchTabCalls = [];
   const wxStub = new Proxy({
     getStorageSync: (key) => storage[key],
     setStorageSync: (key, value) => { storage[key] = value; },
     removeStorageSync: (key) => { delete storage[key]; },
     nextTick: (fn) => fn(),
     redirectTo: (options) => { redirectUrl = options.url; },
+    switchTab: (options) => { switchTabCalls.push(options.url); },
+    showModal: (options) => { modalCalls.push(options); },
+    showToast: (options) => { toastCalls.push(options); },
     navigateBack: (options) => {
       if (navigateBackShouldFail && typeof options?.fail === 'function') options.fail({ errMsg: 'navigateBack:fail' });
     },
@@ -83,6 +92,8 @@ function createHarness() {
   });
 
   let apiHandler = () => Promise.resolve({ data: {} });
+  // 支付调用默认成功；用例可置为 reject 来模拟「订单已创建但支付失败」。
+  let paymentHandler = () => Promise.resolve({});
   // 记录页面把跳转委托给 openLink 的调用（tabBar 页必须走它，不能自己调 navigateTo）。
   const openLinkCalls = [];
   const stubs = new Map([
@@ -95,7 +106,8 @@ function createHarness() {
       loadBusinessConfig: () => Promise.resolve({ phoneCardActivationHours: 48 })
     }],
     [require.resolve(path.join(miniprogramDirectory, 'services', 'payment.js')), {
-      payPaymentOrder: () => Promise.resolve({})
+      payPaymentOrder: (paymentOrder) => paymentHandler(paymentOrder),
+      payPaymentOrderById: (orderId) => paymentHandler({ id: orderId })
     }],
     [require.resolve(path.join(miniprogramDirectory, 'utils', 'navigation.js')), {
       openLink: (url, options) => { openLinkCalls.push({ url, options }); }
@@ -118,6 +130,17 @@ function createHarness() {
   return {
     storage,
     setApiHandler(handler) { apiHandler = handler; },
+    /** 设置支付调用的行为（resolve = 支付成功；reject = 订单已创建但支付失败）。 */
+    setPaymentHandler(handler) { paymentHandler = handler; },
+    /** 记录到的 `wx.showModal` 调用（`success` 回调保留，由用例显式触发）。 */
+    getModals() { return modalCalls.slice(); },
+    /** 记录到的 `wx.showToast` 调用。 */
+    getToasts() { return toastCalls.slice(); },
+    /** 记录到的 `wx.switchTab` 目标（成功路径的跳转回归用）。 */
+    getSwitchTabCalls() { return switchTabCalls.slice(); },
+    clearModals() { modalCalls.length = 0; },
+    clearToasts() { toastCalls.length = 0; },
+    clearSwitchTabCalls() { switchTabCalls.length = 0; },
     getRedirectUrl() { return redirectUrl; },
     /** 控制 `wx.navigateBack` 是否回调 `fail`（验证「无上一页」的兜底分支）。 */
     setNavigateBackFailure(value) { navigateBackShouldFail = Boolean(value); },
@@ -1054,4 +1077,119 @@ test('M1-P1-02：市集提为 tabBar 页后 forum / market-item 的 goMarket 走
   await settle();
   assert.equal(catalogCalls, 1, '⑥ reloadCatalog 必须真的重新发起请求（而不是只把 catalogError 清掉）');
   assert.equal(home.data.catalogError, true, '⑥ 重试再次失败应保持错误态');
+});
+
+test('M3-P1-01：支付失败时用户必须知道订单已存在（与「下单失败」区分）', async (t) => {
+  const harness = createHarness();
+  t.after(() => harness.restore());
+
+  const checkout = harness.loadPage(path.join('pages', 'checkout', 'checkout.js'));
+  checkout.setData({
+    name: '张三', phone: '13800000000', date: '2026-09-01', deliveryAddress: '东区 1 栋 101',
+    scooter: { id: 'p1', sellableStock: 5 }, quantity: 1, payToken: 'tok-1',
+    deliveryTimeSlots: ['09:00-12:00'], deliveryTimeIndex: 0,
+    // `submit()` 的第一道门就是协议勾选，未勾选会直接 return（默认 false）。
+    agreed: true,
+    // 关掉「保存常用地址」，让成功路径不再多发一个无关请求。
+    saveAddress: false
+  });
+
+  // ==================== ① ★ 支付失败（订单已创建）→ 必须弹窗，而不是只 toast ====================
+  harness.setApiHandler((requestPath) => {
+    if (requestPath === '/api/orders') {
+      return Promise.resolve({ data: { id: 'o-777' }, paymentOrder: { id: 'pay-1' } });
+    }
+    return Promise.resolve({ data: {} });
+  });
+  harness.setPaymentHandler(() => Promise.reject(new Error('支付被取消')));
+  harness.clearModals();
+  harness.clearToasts();
+
+  checkout.submit();
+  await settle();
+
+  const pendingModal = harness.getModals().at(-1);
+  assert.ok(pendingModal, '① ★ 订单已创建但支付失败时必须弹窗 —— 只 toast「提交失败」会让用户以为什么都没发生');
+  assert.equal(pendingModal.title, '订单已创建，支付未完成', '① 弹窗标题必须点明「订单已创建」');
+  assert.equal(pendingModal.confirmText, '去支付', '① 主按钮应为「去支付」');
+  assert.equal(pendingModal.cancelText, '稍后再说', '① 次按钮应为「稍后再说」');
+  assert.ok(
+    String(pendingModal.content || '').includes('30 分钟'),
+    '① 文案应说明订单会超时关闭，让用户知道不处理的后果'
+  );
+  assert.equal(
+    checkout.data.submitting, false,
+    '④ ★ 弹窗出现时 submitting 就必须复位 —— 弹窗是异步的，用户可能直接离开，不能把按钮锁住'
+  );
+
+  // ==================== ② ★ 点「去支付」→ 委托 openLink 并带 focusId ====================
+  harness.clearOpenLinkCalls();
+  pendingModal.success({ confirm: true });
+  const openCalls = harness.getOpenLinkCalls();
+  assert.equal(openCalls.length, 1, '② ★ 点「去支付」应恰好委托一次 openLink（不自己写一套跳转）');
+  assert.equal(
+    openCalls[0].url, '/pages/orders/orders?focusId=o-777',
+    '② ★ 必须带上该订单的 focusId，订单页才能定位到这笔待支付订单'
+  );
+
+  // ==================== ④ 点「稍后再说」→ 不跳转 ====================
+  harness.clearOpenLinkCalls();
+  pendingModal.success({ confirm: false, cancel: true });
+  assert.equal(harness.getOpenLinkCalls().length, 0, '④ 点「稍后再说」不得跳转');
+  assert.equal(checkout.data.submitting, false, '④ 取消后提交态仍须为已复位');
+
+  // ==================== ③ ★★ 核心区分：POST /api/orders 失败 → 订单没创建，不得弹该弹窗 ====================
+  let paymentCalls = 0;
+  harness.setApiHandler((requestPath) => {
+    if (requestPath === '/api/orders') return Promise.reject(new Error('库存不足'));
+    return Promise.resolve({ data: {} });
+  });
+  harness.setPaymentHandler(() => { paymentCalls += 1; return Promise.resolve({}); });
+  harness.clearModals();
+  harness.clearToasts();
+
+  checkout.submit();
+  await settle();
+
+  assert.equal(paymentCalls, 0, '③ 下单都没成功，绝不该走到支付');
+  assert.equal(
+    harness.getModals().length, 0,
+    '③ ★★ 订单根本没创建时不得弹「订单已创建，支付未完成」—— 那是在向用户断言一个不存在的订单'
+  );
+  const failureToast = harness.getToasts().at(-1);
+  assert.ok(failureToast, '③ 下单失败仍必须有提示（不能因为改了弹窗就变成静默失败）');
+  assert.equal(failureToast.title, '库存不足', '③ 下单失败应 toast 接口错误文案，与改造前一致');
+  assert.equal(checkout.data.submitting, false, '③ 下单失败后提交态必须复位');
+
+  // ==================== ⑤ 回归：支付成功路径的弹窗与跳转不变 ====================
+  harness.setApiHandler((requestPath) => {
+    if (requestPath === '/api/orders') {
+      return Promise.resolve({ data: { id: 'o-888' }, paymentOrder: { id: 'pay-2' } });
+    }
+    return Promise.resolve({ data: {} });
+  });
+  harness.setPaymentHandler(() => Promise.resolve({ data: { order: { orderNo: 'CG20260901001' } } }));
+  harness.clearModals();
+  harness.clearSwitchTabCalls();
+
+  checkout.submit();
+  await settle();
+
+  const successModal = harness.getModals().at(-1);
+  assert.ok(successModal, '⑤ 支付成功应弹确认弹窗');
+  assert.equal(successModal.title, '支付成功', '⑤ 成功弹窗标题不得回归');
+  assert.equal(successModal.confirmText, '查看订单', '⑤ 成功弹窗按钮不得回归');
+  assert.equal(successModal.showCancel, false, '⑤ 成功弹窗不应有取消按钮');
+  assert.ok(String(successModal.content).includes('CG20260901001'), '⑤ 成功弹窗应含订单号');
+  assert.ok(String(successModal.content).includes('校园牌照辅助'), '⑤ 售卖单文案不得回归');
+  assert.equal(
+    harness.getModals().length, 1,
+    '⑤ 成功路径只应有一个弹窗（不得混入「订单已创建，支付未完成」）'
+  );
+
+  successModal.success();
+  assert.deepEqual(
+    harness.getSwitchTabCalls(), ['/pages/orders/orders'],
+    '⑤ 成功路径仍走 switchTab 跳订单页（订单页是 tabBar 页）'
+  );
 });

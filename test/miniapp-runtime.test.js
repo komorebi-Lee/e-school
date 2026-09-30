@@ -36,6 +36,8 @@ const loadState = require(path.join(miniprogramDirectory, 'utils', 'load-state.j
 const format = require(path.join(miniprogramDirectory, 'utils', 'format.js'));
 // 订单卡片装饰层（`card` 及其文案表）：纯函数模块，M3-P1-05 从 `orders.js` 抽出。
 const orderCard = require(path.join(miniprogramDirectory, 'utils', 'order-card.js'));
+// 图片读取 + 上传的唯一入口（M3-P2-01）：只在调用期访问 `wx`，可在 Node 中真实加载断言。
+const upload = require(path.join(miniprogramDirectory, 'utils', 'upload.js'));
 
 const ORDER_FOCUS_KEY = 'campusGoOrderFocusId';
 const ORDER_RECORD_TYPE_KEY = 'campusGoOrderFocusRecordType';
@@ -86,7 +88,7 @@ function createWxStub(config = {}) {
   };
 
   const calls = {};
-  for (const api of [...ASYNC_APIS, ...SYNC_APIS, 'cloudCallContainer']) calls[api] = [];
+  for (const api of [...ASYNC_APIS, ...SYNC_APIS, 'cloudCallContainer', 'getFileSystemManager', 'readFile']) calls[api] = [];
 
   const storage = new Map(Object.entries(config.initialStorage || {}));
 
@@ -125,6 +127,33 @@ function createWxStub(config = {}) {
       calls.removeStorageSync.push({ key });
       if (storageResults.removeStorageSync === 'fail') throw new Error(`removeStorageSync:fail ${key}`);
       storage.delete(key);
+    },
+
+    /**
+     * 文件系统桩（M3-P2-01 抽出 `utils/upload.js` 后新增）。
+     *
+     * 三种形态都要能造出来，因为 upload.js 对它们的处理各不相同：
+     * - 正常返回 `{ readFile }`；
+     * - `config.fileSystemResult === 'missing'` → 返回没有 `readFile` 的对象；
+     * - `config.fileSystemResult === 'throw'` → **同步抛错**（真实环境会出现，
+     *   也是 upload.js 必须把它落成 reject 的原因）。
+     */
+    getFileSystemManager() {
+      calls.getFileSystemManager.push({});
+      if (config.fileSystemResult === 'throw') throw new Error('getFileSystemManager:fail');
+      if (config.fileSystemResult === 'missing') return {};
+      return {
+        readFile(params = {}) {
+          calls.readFile.push({ ...params });
+          if (config.readFileResult === 'fail') {
+            if (typeof params.fail === 'function') params.fail({ errMsg: 'readFile:fail 读取失败' });
+            return;
+          }
+          if (typeof params.success === 'function') {
+            params.success({ data: config.readFileData === undefined ? 'QkFTRTY0' : config.readFileData });
+          }
+        }
+      };
     },
 
     cloud: {
@@ -1978,4 +2007,148 @@ test('M3-P1-05：订单卡片装饰覆盖退款 / 超时 / 售后 / 商家 / 租
   assert.equal(collaborated.timeline[0].roleLabel, '平台', '⑯ 轨迹角色应映射中文名');
   assert.equal(collaborated.messages.length, 1, '⑯ 留言应透传');
   assert.equal(collaborated.messageStatus, '已提交留言，预计 24 小时内回复', '⑯ 有未回复留言应给出响应预期');
+});
+
+// ===========================================================================
+// M3-P1-01：订单已创建但支付未完成 → 「去支付」的跳转链路
+// ===========================================================================
+
+test('M3-P1-01：openLink 带 focusId 跳订单页 —— 经 Storage 传递且走 switchTab', () => {
+  const stub = createWxStub();
+  withWx(stub, () => navigation.openLink('/pages/orders/orders?focusId=o-777'));
+
+  // 订单页是 tabBar 页：`switchTab` 不支持 query，所以 focusId 必须经 Storage 传。
+  // 这条断言证明 checkout 的「去支付」不需要自己写一套跳转 + Storage 传递。
+  assert.equal(stub.calls.switchTab.length, 1, '订单页是 tabBar 页，必须走 switchTab');
+  assert.equal(stub.calls.switchTab[0].url, '/pages/orders/orders', 'switchTab 的目标不得带 query');
+  assert.equal(stub.calls.navigateTo.length, 0, '★ 不得调用 navigateTo —— 对 tabBar 页它必然失败');
+
+  assert.equal(stub.calls.setStorageSync.length, 1, 'focusId 应经 Storage 传递');
+  assert.equal(stub.calls.setStorageSync[0].key, ORDER_FOCUS_KEY, '应写入订单焦点键');
+  assert.equal(stub.calls.setStorageSync[0].value, 'o-777', '写入的必须是该订单 id');
+  assert.equal(stub.storageGet(ORDER_FOCUS_KEY), 'o-777', 'Storage 里应真的存在该焦点值');
+});
+
+test('M3-P1-01：switchTab 失败时焦点参数必须回滚（否则下次进订单页会错误定位）', () => {
+  const stub = createWxStub({ switchTabResult: 'fail' });
+  withWx(stub, () => navigation.openLink('/pages/orders/orders?focusId=o-777'));
+
+  assert.equal(stub.calls.switchTab.length, 1, '应尝试 switchTab');
+  assert.equal(
+    stub.storageGet(ORDER_FOCUS_KEY), '',
+    '★ 跳转失败后必须清掉刚写入的 focusId —— 残留值会被下一次 onShow 当作本次意图'
+  );
+  assert.equal(stub.calls.showToast.length, 1, '跳转失败不应静默，应给出提示');
+});
+
+// ===========================================================================
+// M3-P2-01：utils/upload.js —— 全仓唯一的图片读取入口
+// ===========================================================================
+
+test('M3-P2-01：readFileAsBase64 成功返回 base64、失败 reject 且错误可读', async () => {
+  // ① 成功：返回 base64，并以 base64 编码读取
+  const okStub = createWxStub({ readFileData: 'QUJD' });
+  const data = await withWxAsync(okStub, () => upload.readFileAsBase64({ tempFilePath: '/tmp/a.png' }));
+  assert.equal(data, 'QUJD', '① 成功时应原样返回 base64 字符串');
+  assert.equal(okStub.calls.readFile.length, 1, '① 应真的调用一次 readFile');
+  assert.equal(okStub.calls.readFile[0].filePath, '/tmp/a.png', '① 应把路径透传给 readFile');
+  assert.equal(okStub.calls.readFile[0].encoding, 'base64', '① 必须按 base64 读取，否则上传内容会错');
+
+  // ② 直接给路径字符串也应可用（页面之外复用）
+  const stringStub = createWxStub({ readFileData: 'WFla' });
+  const fromString = await withWxAsync(stringStub, () => upload.readFileAsBase64('/tmp/b.jpg'));
+  assert.equal(fromString, 'WFla', '② 字符串入参应被接受并原样返回读取结果');
+  assert.equal(stringStub.calls.readFile[0].filePath, '/tmp/b.jpg', '② 字符串入参应被当作路径');
+
+  // ③ readFile 回调 fail → reject，且 message 可读
+  const failStub = createWxStub({ readFileResult: 'fail' });
+  await assert.rejects(
+    () => withWxAsync(failStub, () => upload.readFileAsBase64({ tempFilePath: '/tmp/c.png' })),
+    (error) => {
+      assert.equal(error.message, '图片读取失败', '③ 失败文案应可读且与改造前一致');
+      assert.ok(error.cause, '③ 底层原因应挂在 cause 上，便于排查');
+      return true;
+    },
+    '③ readFile 失败必须 reject'
+  );
+
+  // ④ 自定义文案（各页面沿用原文案，避免用户可见提示回归）
+  const customStub = createWxStub({ readFileResult: 'fail' });
+  await assert.rejects(
+    () => withWxAsync(customStub, () => upload.readFileAsBase64({ tempFilePath: '/tmp/d.png' }, { readErrorMessage: '材料图片读取失败' })),
+    (error) => error.message === '材料图片读取失败',
+    '④ readErrorMessage 应生效'
+  );
+
+  // ⑤ readFile 成功但内容为空 → 必须 reject（不能把空串当成功传下去）
+  const emptyStub = createWxStub({ readFileData: '' });
+  await assert.rejects(
+    () => withWxAsync(emptyStub, () => upload.readFileAsBase64({ tempFilePath: '/tmp/e.png' })),
+    (error) => error.message === '图片读取失败' && String(error.cause).includes('空'),
+    '⑤ ★ 空内容必须 reject —— 否则会上传一个空图片并静默失败'
+  );
+
+  // ⑥ getFileSystemManager 同步抛错 → 必须 reject（不能变成同步异常，否则调用方 .catch 接不到）
+  const throwStub = createWxStub({ fileSystemResult: 'throw' });
+  await assert.rejects(
+    () => withWxAsync(throwStub, () => upload.readFileAsBase64({ tempFilePath: '/tmp/f.png' })),
+    (error) => error.message === '图片读取失败' && String(error.cause).includes('getFileSystemManager'),
+    '⑥ ★ 同步抛错必须落成 reject，否则会变成未捕获异常'
+  );
+
+  // ⑦ 拿不到 readFile 能力 → reject
+  const missingStub = createWxStub({ fileSystemResult: 'missing' });
+  await assert.rejects(
+    () => withWxAsync(missingStub, () => upload.readFileAsBase64({ tempFilePath: '/tmp/g.png' })),
+    (error) => error.message === '图片读取失败',
+    '⑦ 文件系统不可用时应 reject 而不是静默'
+  );
+
+  // ⑧ 空路径 → reject，且不应触碰文件系统
+  const noPathStub = createWxStub();
+  await assert.rejects(
+    () => withWxAsync(noPathStub, () => upload.readFileAsBase64('')),
+    (error) => error.message === '图片读取失败',
+    '⑧ 空路径应 reject'
+  );
+  assert.equal(noPathStub.calls.readFile.length, 0, '⑧ 空路径不该调用 readFile');
+});
+
+test('M3-P2-01：mimeTypeForPath 按扩展名推断，未知扩展名回落 JPEG', () => {
+  assert.equal(upload.mimeTypeForPath('/tmp/a.png'), 'image/png', 'png → image/png');
+  assert.equal(upload.mimeTypeForPath('/tmp/a.webp'), 'image/webp', 'webp → image/webp');
+  assert.equal(upload.mimeTypeForPath('/tmp/a.jpg'), 'image/jpeg', 'jpg → image/jpeg');
+  assert.equal(upload.mimeTypeForPath('/tmp/a.JPEG'), 'image/jpeg', '★ 大写扩展名也应识别');
+  assert.equal(upload.mimeTypeForPath('/tmp/a'), 'image/jpeg', '未知/无扩展名回落 image/jpeg');
+  // ★ 带 query 的临时路径：改造前 `split('.').pop()` 会取到 `jpg?x=1`
+  assert.equal(upload.mimeTypeForPath('/tmp/a.jpg?x=1'), 'image/jpeg', '★ 带 query 的路径应正确取扩展名');
+  assert.equal(upload.mimeTypeForPath('/tmp/a.png?width=10'), 'image/png', '★ 带 query 的路径应正确取扩展名');
+});
+
+test('M3-P2-01：uploadImage 读取 + 上传一体，且拒绝未注入 request', async () => {
+  const stub = createWxStub({ readFileData: 'QUJD' });
+  const sent = [];
+  const url = await withWxAsync(stub, () => upload.uploadImage(
+    { tempFilePath: '/tmp/a.png' },
+    (requestPath, options) => {
+      sent.push({ requestPath, options });
+      return Promise.resolve({ data: { url: 'https://cdn/x.png', size: 123 } });
+    }
+  ));
+
+  assert.equal(sent.length, 1, '应恰好发起一次上传');
+  assert.equal(sent[0].requestPath, '/api/uploads', '应打到上传接口');
+  assert.equal(sent[0].options.method, 'POST', '上传应为 POST');
+  assert.deepEqual(
+    sent[0].options.data, { dataBase64: 'QUJD', mimeType: 'image/png' },
+    '★ 上传载荷必须与改造前逐字段一致（dataBase64 + mimeType）'
+  );
+  assert.equal(url.url, 'https://cdn/x.png', '应 resolve 服务端返回的 data');
+  assert.equal(url.size, 123, '★ 应保留 size —— merchant/apply 需要它，只返回 url 会逼它再读一次响应');
+
+  assert.throws(
+    () => upload.uploadImage({ tempFilePath: '/tmp/a.png' }, undefined),
+    /需要注入 request 函数/,
+    '未注入 request 应同步抛错（接线错误应立刻暴露）'
+  );
 });

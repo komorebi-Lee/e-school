@@ -1874,3 +1874,63 @@ test('M1-P1-02：市集是第 5 个 tabBar 项（只追加，地图项位置不�
     'forum 不是 tabBar 页，「去逛论坛」仍应走 navigateTo'
   );
 });
+
+test('M3-P2-01：图片读取只有 utils/upload.js 一处，7 个页面全部改为调用它', () => {
+  const files = listMiniappFiles();
+
+  // ---------- ⑥ `readFile({filePath: file.tempFilePath` 只出现在 utils/upload.js ----------
+  // ★ 不能用不带空白容错的字面串：改造前的写法是
+  //     wx.getFileSystemManager().readFile({
+  //       filePath: file.tempFilePath,
+  //   `{` 与 `filePath` 之间本来就隔着换行，那个字面串在改造前也是 0 次命中。
+  //   必须让正则容忍空白，否则这条断言会「恒真」，等于没断言。
+  const readFilePattern = /readFile\(\s*\{\s*filePath:\s*file\.tempFilePath/g;
+  const readFileHits = files
+    .map((file) => ({
+      file: path.relative(miniappDirectory, file).split(path.sep).join('/'),
+      count: (fs.readFileSync(file, 'utf8').match(readFilePattern) || []).length
+    }))
+    .filter((item) => item.count > 0);
+  assert.deepEqual(
+    readFileHits,
+    [{ file: 'utils/upload.js', count: 1 }],
+    '★ 图片读取必须收敛到唯一一处，且只在 utils/upload.js —— 散落 9 处时服务端白名单一变必然漏改'
+  );
+
+  // ---------- ⑧ 页面里不得再出现裸 `getFileSystemManager().readFile` ----------
+  const pages = files.filter((file) => file.split(path.sep).includes('pages'));
+  assert.ok(pages.length >= 30, '应遍历到页面文件（当前 32 个），实得 ' + pages.length + ' 个');
+  const offenders = pages
+    .filter((file) => /getFileSystemManager\(\)\s*\.\s*readFile/.test(fs.readFileSync(file, 'utf8')))
+    .map((file) => path.relative(miniappDirectory, file));
+  assert.deepEqual(
+    offenders, [],
+    '以下页面仍在自己调 readFile，应改为 require utils/upload：' + offenders.join(', ')
+  );
+
+  // ---------- ⑧ 7 个页面逐个断言确实接上了 utils/upload.js ----------
+  // 调用次数与原 readFile 处数一一对应（合计 9 处），少一处就说明有页面漏改。
+  const wired = [
+    { file: path.join('pages', 'aftersales', 'aftersales.js'), calls: 1 },
+    { file: path.join('pages', 'forum', 'publish.js'), calls: 1 },
+    { file: path.join('pages', 'market', 'publish.js'), calls: 1 },
+    { file: path.join('pages', 'merchant', 'apply.js'), calls: 1 },
+    { file: path.join('pages', 'merchant', 'index.js'), calls: 2 },
+    { file: path.join('pages', 'merchant', 'products.js'), calls: 1 },
+    { file: path.join('pages', 'orders', 'orders.js'), calls: 2 }
+  ];
+  let totalCalls = 0;
+  for (const entry of wired) {
+    const source = readMiniappFile(entry.file);
+    assert.match(
+      source, /require\(['"][^'"]*utils\/upload['"]\)/,
+      entry.file + ' 应 require utils/upload'
+    );
+    // 空白容错：允许 `upload .uploadImage(` / 换行后接 `.uploadImage(`，
+    // 否则换个排版这条断言会静默少算。
+    const calls = (source.match(/upload\s*\.\s*(uploadImage|readImagePayload)\s*\(/g) || []).length;
+    assert.equal(calls, entry.calls, entry.file + ' 应调用 ' + entry.calls + ' 次 utils/upload（实得 ' + calls + '）');
+    totalCalls += calls;
+  }
+  assert.equal(totalCalls, 9, '★ 7 个页面合计应有 9 处调用，与改造前 9 处 readFile 一一对应');
+});
