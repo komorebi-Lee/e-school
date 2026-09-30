@@ -16,7 +16,8 @@ const TABBAR_PAGES = [
   '/pages/home/home',
   '/pages/map/map',
   '/pages/orders/orders',
-  '/pages/profile/profile'
+  '/pages/profile/profile',
+  '/pages/market/market'
 ];
 
 const FOCUS_STORAGE_KEY = 'campusGoOrderFocusId';

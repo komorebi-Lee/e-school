@@ -70,6 +70,10 @@
         "pagePath": "pages/profile/profile",
         "text": "我的"
       }
+      ,{
+        "pagePath": "pages/market/market",
+        "text": "市集"
+      }
     ]
   },
   "sitemapLocation": "sitemap.json"

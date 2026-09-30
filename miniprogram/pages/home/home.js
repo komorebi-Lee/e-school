@@ -104,7 +104,9 @@ Page({
   },
   goMap() { openLink("/pages/map/map"); },
   goPlate() { wx.navigateTo({ url: "/pages/plate/plate" }); },
-  goMarket() { wx.navigateTo({ url: "/pages/market/market" }); },
+  // 市集已是第 5 个 tabBar 页（M1-P1-02）。tabBar 页用 `wx.navigateTo` 跳转**必然失败**，
+  // 必须走 openLink —— 它会按 TABBAR_PAGES 自动改走 switchTab。
+  goMarket() { openLink("/pages/market/market"); },
   goScooters() { wx.navigateTo({ url: "/pages/scooters/scooters" }); },
   loadFavorites() {
     request('/api/my/favorites').then(({ data }) => {
