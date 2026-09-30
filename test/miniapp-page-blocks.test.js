@@ -771,6 +771,36 @@ test('第四批：orders / addresses / aftersales 失败不再清空数据；租
   assert.equal(rentalRecord.nextStep, '凭交付码到校内取车点取车，按租期归还', '⑥ 租赁下一步文案不得改动');
   assert.ok(rentalRecord.rentalCountdownText, '⑥ 应还倒计时不得改动（应有值）');
 
+  // ==================== ⑥ ★★ 页面级也要覆盖「不可申请归还」的两态 ====================
+  // 上面只断言了 RENTING 一张单。页面级测的是「页面确实接上了判定」，所以它必须对
+  // **判定结果本身**有检出能力 —— 只覆盖 true 时，「RETURN_REQUESTED / PENDING_PAYMENT
+  // 也返回 true」这类变异能从页面级整体溜过去（runtime 用例能拦，但那是另一层）。
+  harness.setApiHandler((requestPath) => (
+    requestPath === '/api/my/orders'
+      ? Promise.resolve({
+        data: {
+          ebikeOrders: [
+            RENTAL,
+            // 已申请归还：再显示「申请归还」就是重复提交。
+            { ...RENTAL, id: 'o-returning', orderNo: 'R002', rental: { ...RENTAL.rental, status: 'RETURN_REQUESTED' } },
+            // 未支付：租期还没起算，谈不上归还。
+            { ...RENTAL, id: 'o-unpaid', orderNo: 'R003', status: 'PENDING_PAYMENT', rental: { ...RENTAL.rental, status: 'PENDING_PAYMENT' } }
+          ],
+          serviceRecords: []
+        }
+      })
+      : Promise.resolve({ data: [] })
+  ));
+  const ordersRentalStates = harness.loadPage(path.join('pages', 'orders', 'orders.js'));
+  ordersRentalStates.loadRecords();
+  await settle();
+  assert.equal(ordersRentalStates.data.records.length, 3, '⑥ 前置：三张租赁单都应加载出来（否则下面两条会假通过）');
+  const canReturnById = Object.fromEntries(
+    ordersRentalStates.data.records.map((record) => [record.id, record.canReturnRequest])
+  );
+  assert.equal(canReturnById['o-returning'], false, '⑥ ★★ 已申请归还的单不得再显示「申请归还」—— 那是重复提交');
+  assert.equal(canReturnById['o-unpaid'], false, '⑥ ★★ 未支付租赁单不得显示「申请归还」—— 租期还没起算');
+
   // ==================== ② orders：失败且无旧数据 → 空列表但 error 非空 ====================
   const ordersCold = harness.loadPage(path.join('pages', 'orders', 'orders.js'));
   harness.setApiHandler(() => Promise.reject(new Error('首次就挂了')));
