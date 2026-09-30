@@ -1636,19 +1636,50 @@ test('静默失败修复第二批：5 个列表页的空态必须同时排除「
 });
 
 test('★ 全仓不变量：miniprogram 下不存在任何空 catch', () => {
+  // 两类空 catch 都必须拦住，缺一类就会留下一整片沉默失败的盲区。
+  //
+  // ① promise 式 `.catch(() => {})`
   // 空格容错：`}).catch(()=>{});`（plate.js:28 那种无空格写法）也必须命中。
-  const emptyCatch = /catch\(\s*\(\s*\)\s*=>\s*\{\s*\}\s*\)/;
+  const promiseEmptyCatch = /catch\(\s*\(\s*\)\s*=>\s*\{\s*\}\s*\)/;
+  //
+  // ② try/catch 式 `catch (e) {}` —— 块内只有空白即算空块。
+  // - `\s*` 含换行，故单行 `catch (e) {}` 与多行 `catch (e) {\n}` 都会命中；
+  // - 块内只要有**一行注释**就不再算空块 —— 这正是「显式声明可忽略」的形式；
+  // - 可选参数组兼顾 `catch {}`（optional catch binding）；
+  // - 该正则不会误命中 `.catch(() => {})`：`() => ` 之后不是 `{`，回溯后仍不匹配。
+  const tryEmptyCatch = /catch\s*(?:\([^)]*\))?\s*\{\s*\}/g;
+
   const files = listMiniappFiles();
   // 必须遍历**全部** miniprogram JS 文件，不能只查改动过的 ——
   // 否则将来任何一处新写的空 catch 都不会被这条断言拦住。
   assert.ok(files.length >= 46, `应遍历全部 miniprogram JS 文件，实得 ${files.length} 个`);
-  const offenders = files
-    .filter((file) => emptyCatch.test(fs.readFileSync(file, 'utf8')))
+
+  const promiseOffenders = files
+    .filter((file) => promiseEmptyCatch.test(fs.readFileSync(file, 'utf8')))
     .map((file) => path.relative(miniappDirectory, file));
   assert.deepEqual(
-    offenders, [],
+    promiseOffenders, [],
     `空 catch 会让失败彻底沉默（无提示、无重试）。要么改成三态（loadBlock + 错误占位 + 重试），`
-    + `要么写成 .catch(ignoreSilently) 并紧跟一行注释说明理由。违规文件：${offenders.join(', ')}`
+    + `要么写成 .catch(ignoreSilently) 并紧跟一行注释说明理由。违规文件：${promiseOffenders.join(', ')}`
+  );
+
+  // try/catch 型同理不允许「无声忽略」。同步 storage 这类调用失败时不影响主流程，
+  // 但**必须在块内写明为什么忽略是安全的** —— 与 ignoreSilently 同一原则：
+  // 忽略可以是正确的决定，但必须是**显式的**决定。
+  // 用 `match` 而不是带 g 的 `test` 逐个调用：`test` 在 /g 下会保留 lastIndex，
+  // 连续调用同一正则会出现真假交替（同一类「判据写错导致假通过」的坑）。
+  const tryOffenders = files
+    .map((file) => ({
+      file: path.relative(miniappDirectory, file),
+      count: (fs.readFileSync(file, 'utf8').match(tryEmptyCatch) || []).length
+    }))
+    .filter((item) => item.count > 0)
+    .map((item) => `${item.file}（${item.count} 处）`);
+  assert.deepEqual(
+    tryOffenders, [],
+    `try/catch 空块同样会让失败彻底沉默。若忽略是安全的（例如存储写入失败不应阻断主流程），`
+    + `请在 catch 块内写一行注释说明理由；否则应改为三态（错误占位 + 重试）。`
+    + `违规文件：${tryOffenders.join(', ')}`
   );
 });
 
