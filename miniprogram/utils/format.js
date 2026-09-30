@@ -14,7 +14,7 @@
  * | --- | --- |
  * | `> 60 分钟` | `请在 X 小时 Y 分钟内完成支付` |
  * | `5 分钟 ~ 60 分钟` | `请在 X 分钟内完成支付，超时自动取消` |
- * | `< 5 分钟` | `请在 X 分 Y 秒内完成支付` |
+ * | `< 5 分钟` | `请在 X 分 Y 秒内完成支付`；`X === 0` 时写作 `请在 Y 秒内完成支付` |
  * | `≤ 0` | `支付已超时，刷新后订单将关闭` |
  *
  * 为什么 5 分钟以内精确到秒：这是「还能再想想」与「现在就得点」的分界。
@@ -90,7 +90,7 @@ function resolveNowTimestamp(now) {
  * 待支付倒计时文案（分级）。
  *
  * - `≤ 0`：`支付已超时，刷新后订单将关闭`
- * - `< 5 分钟`：`请在 X 分 Y 秒内完成支付`
+ * - `< 5 分钟`：`请在 X 分 Y 秒内完成支付`（`X === 0` 时省略「0 分」，写作 `请在 Y 秒内完成支付`）
  * - `< 60 分钟`：`请在 X 分钟内完成支付，超时自动取消`
  * - 其余：`请在 X 小时 Y 分钟内完成支付`
  *
@@ -107,7 +107,9 @@ function paymentCountdownText(expiresAt, now) {
   if (remainMs < PAYMENT_URGENT_MS) {
     const minutes = Math.floor(remainMs / MINUTE_MS);
     const seconds = Math.floor((remainMs % MINUTE_MS) / SECOND_MS);
-    return `请在 ${minutes} 分 ${seconds} 秒内完成支付`;
+    // 不足 1 分钟时省略「0 分」：「请在 0 分 30 秒内完成支付」读起来不自然，
+    // 而这一档恰恰是用户最紧张、最需要一眼读懂的时候。
+    return minutes > 0 ? `请在 ${minutes} 分 ${seconds} 秒内完成支付` : `请在 ${seconds} 秒内完成支付`;
   }
   if (remainMs < PAYMENT_HOUR_MS) {
     return `请在 ${Math.floor(remainMs / MINUTE_MS)} 分钟内完成支付，超时自动取消`;

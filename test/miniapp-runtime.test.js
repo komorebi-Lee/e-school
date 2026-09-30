@@ -1787,16 +1787,25 @@ test('M3-P1-05：待支付倒计时分级文案与紧急判定（format.js）', 
   assert.equal(minuteText, '请在 30 分钟内完成支付，超时自动取消', '② 剩余 30 分应走分钟档');
   assert.equal(minuteText.includes('秒'), false, '② 分钟档不得出现秒');
 
-  // ③ <5 分钟 → 秒档（含「分」与「秒」）。
+  // ③ <5 分钟 → 秒档（含秒；不足 1 分钟时省略「0 分」）。
   assert.equal(
     format.paymentCountdownText(at(4 * MINUTE + 59 * 1000), NOW),
     '请在 4 分 59 秒内完成支付',
     '③ 剩余 4 分 59 秒必须精确到秒 —— 分钟粒度在最后 60 秒里数字不动，会被当成卡死'
   );
   assert.equal(
+    format.paymentCountdownText(at(4 * MINUTE + 30 * 1000), NOW),
+    '请在 4 分 30 秒内完成支付',
+    '③ 还有整分时保留「X 分」—— ≥1 分钟这一侧的口径不变'
+  );
+  assert.equal(
     format.paymentCountdownText(at(30000), NOW),
-    '请在 0 分 30 秒内完成支付',
-    '③ 秒档统一走「X 分 Y 秒」格式，不因不足 1 分钟就换另一套文案'
+    '请在 30 秒内完成支付',
+    '③ ★ 不足 1 分钟时应省略「0 分」—— 「请在 0 分 30 秒内完成支付」读起来不自然'
+  );
+  assert.equal(
+    /0\s*分/.test(format.paymentCountdownText(at(30000), NOW)), false,
+    '③ ★ minutes === 0 时文案不得出现「0 分」（正则容错空格，避免只匹配字面量）'
   );
 
   // ④ ≤0 → 超时文案。
