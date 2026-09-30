@@ -1,4 +1,5 @@
 const { request } = require('../../services/api');
+const loadState = require('../../utils/load-state');
 
 const categoryOptions = [
   { key: '', label: '全部' },
@@ -30,9 +31,11 @@ Page({
     query: '',
     activeCategory: '',
     categoryOptions,
-    items: [],
     filtered: [],
-    loading: true
+    // ★ 三态块（加载中 / 失败 / 无数据）。
+    // 改造前失败时 `setData({ items: [], loading: false })` —— 页面会显示
+    // 「暂时没有符合条件的闲置」，把「我们没取到」说成了「确实没有」。
+    itemsBlock: loadState.initialListBlock()
   },
 
   onShow() {
@@ -46,14 +49,25 @@ Page({
     };
   },
 
+  /**
+   * 加载市集列表。
+   *
+   * 失败时 `loadBlock` 只写 `error` 文案，**上一次的列表原样保留**。
+   *
+   * @returns {Promise<void>} 加载（或失败）完成后解析。
+   */
   loadItems() {
-    request('/api/market/items').then(({ data }) => {
-      this.setData({ items: (data || []).map(decorateItem), loading: false });
-      this.applyFilters();
-    }).catch(() => {
-      this.setData({ items: [], loading: false });
-      this.applyFilters();
-    });
+    return loadState.loadBlock({
+      setData: (patch) => this.setData(patch),
+      stateKey: 'itemsBlock',
+      prev: this.data.itemsBlock,
+      loader: () => request('/api/market/items').then(({ data }) => (data || []).map(decorateItem))
+    }).then(() => this.applyFilters());
+  },
+
+  /** 重新加载：市集列表。 */
+  retryItems() {
+    return this.loadItems();
   },
 
   setSearch(event) {
@@ -67,7 +81,8 @@ Page({
   },
 
   applyFilters() {
-    const { items, query, activeCategory } = this.data;
+    const items = this.data.itemsBlock.data || [];
+    const { query, activeCategory } = this.data;
     const keyword = String(query || '').toLowerCase();
     const filtered = items.filter((item) => (
       (!activeCategory || item.categoryText === (categoryOptions.find((option) => option.key === activeCategory) || {}).label)

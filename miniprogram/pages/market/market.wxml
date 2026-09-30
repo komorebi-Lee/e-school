@@ -20,7 +20,13 @@
     </view>
   </scroll-view>
 
-  <view wx:if="{{loading}}" class="empty card"><view class="muted">正在加载市集好物…</view></view>
+  <!-- 失败占位：接口挂了必须说出来，并且能重试。旧列表（若有）仍显示在下方。 -->
+  <view wx:if="{{itemsBlock.error}}" class="load-error card">
+    <view class="muted">{{itemsBlock.error}}</view>
+    <button size="mini" class="ghost-button" bindtap="retryItems">重试</button>
+  </view>
+
+  <view wx:if="{{itemsBlock.loading && !filtered.length}}" class="empty card"><view class="muted">正在加载市集好物…</view></view>
   <block wx:else>
     <view class="item card" wx:for="{{filtered}}" wx:key="id" data-id="{{item.id}}" bindtap="goItem">
       <image class="item-cover" src="{{item.cover}}" mode="aspectFill" wx:if="{{item.cover}}" />
@@ -38,7 +44,8 @@
         </view>
       </view>
     </view>
-    <view wx:if="{{!filtered.length}}" class="empty card">
+    <!-- 空态：必须同时「不在加载」且「没有错误」，否则失败会被说成「没有闲置」 -->
+    <view wx:if="{{!itemsBlock.loading && !itemsBlock.error && !filtered.length}}" class="empty card">
       <view class="empty-title">暂时没有符合条件的闲置</view>
       <view class="muted">换个分类看看，或者发布你的闲置。</view>
       <view class="empty-actions">

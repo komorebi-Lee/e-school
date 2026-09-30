@@ -29,8 +29,8 @@
  *
  * ## 纯函数 + 一个薄包装
  *
- * `initialBlock` / `beginBlock` / `resolveBlock` / `rejectBlock` / `blockErrorText`
- * 都是纯函数，可以在 Node 里真实断言；`loadBlock` 是唯一的薄包装，
+ * `initialBlock` / `initialListBlock` / `beginBlock` / `resolveBlock` / `rejectBlock` /
+ * `blockErrorText` 都是纯函数，可以在 Node 里真实断言；`loadBlock` 是唯一的薄包装，
  * 它只依赖注入进来的 `setData`，不访问 `wx`。
  *
  * 本模块不访问 `wx` / `getApp` / `Page`，不修改入参。
@@ -55,6 +55,31 @@ const MAX_ERROR_TEXT_LENGTH = 60;
  */
 function initialBlock() {
   return { loading: true, error: '' };
+}
+
+/**
+ * 初始「列表」块：加载中、无错误、**数据为空数组**。
+ *
+ * 为什么列表块必须显式给 `data: []`（而不是用 {@link initialBlock}）：
+ *
+ * `rejectBlock` 的「不清空」是靠把 `prev.data` 原样带回实现的 —— 也就是说，
+ * 只有 `prev` **有** `data` 时它才带得回来。若初始块没有 `data` 字段，
+ * 那么「首次加载就失败」之后，块里依旧没有 `data`。于是模板里的
+ * `xxx.data.length` 会取到 `undefined`，而 `undefined` 在 `wx:if` 里是假值 ——
+ * **「失败」被渲染成了「空列表」**，正是本次要消灭的那个误导。
+ *
+ * 给一个空数组兜底后，模板层可以永远这样区分三态：
+ *
+ * ```html
+ * <view wx:if="{{xxx.loading && !xxx.data.length}}">加载中…</view>
+ * <view wx:elif="{{!xxx.data.length && !xxx.error}}">暂无数据</view>
+ * <view wx:else>列表</view>
+ * ```
+ *
+ * @returns {{loading: boolean, error: string, data: Array}} 初始列表块状态。
+ */
+function initialListBlock() {
+  return { ...initialBlock(), data: [] };
 }
 
 /**
@@ -156,6 +181,7 @@ module.exports = {
   DEFAULT_ERROR_TEXT,
   MAX_ERROR_TEXT_LENGTH,
   initialBlock,
+  initialListBlock,
   beginBlock,
   resolveBlock,
   rejectBlock,

@@ -291,3 +291,300 @@ test('真实页面逻辑：块之间互相独立，失败不清空数据，且�
   );
   assert.equal(unapproved.data.loading, false, 'merchant：降级路径也应退出 loading');
 });
+
+/**
+ * 第二批：5 个「失败时显示空列表」的页面。
+ *
+ * 为什么这批比模式 A（完全静默）更急：模式 A 用户至少知道「没东西」，
+ * 而**模式 B 是在向用户断言一个假事实** —— 接口失败时显示空列表，
+ * 用户会相信「确实没有帖子 / 闲置 / 足迹 / 评价 / 收藏」。**误导比沉默更糟。**
+ *
+ * 每条断言都遵守上一批的教训：**否定式断言必须附带「对象确实被初始化过」的证据**
+ * （`loading === false` / `Array.isArray` / `deepEqual([], ...)`），
+ * 否则一个「压根没被加载过」的块会让 `error === ''` 这类断言**假通过**。
+ */
+test('第二批：5 个列表页失败时不清空数据，且「加载中 / 失败 / 无数据」三态互不混淆', async (t) => {
+  const harness = createHarness();
+  t.after(() => harness.restore());
+
+  /** 每个页面的接线信息。`seed` 用于制造「已有旧数据」的场景。 */
+  const pages = [
+    {
+      name: 'forum', file: path.join('pages', 'forum', 'forum.js'),
+      load: 'loadPosts', retry: 'retryPosts', key: 'postsBlock', endpoint: '/api/forum/posts',
+      seed: [{ id: 's1', title: '帖子一' }, { id: 's2', title: '帖子二' }]
+    },
+    {
+      name: 'market', file: path.join('pages', 'market', 'market.js'),
+      load: 'loadItems', retry: 'retryItems', key: 'itemsBlock', endpoint: '/api/market/items',
+      seed: [{ id: 's1', title: '闲置一' }, { id: 's2', title: '闲置二' }]
+    },
+    {
+      name: 'footprints', file: path.join('pages', 'footprints', 'footprints.js'),
+      load: 'load', retry: 'retryFootprints', key: 'footprintsBlock', endpoint: '/api/my/footprints',
+      seed: [{ id: 's1', name: '商品一' }, { id: 's2', name: '商品二' }]
+    },
+    {
+      name: 'reviews', file: path.join('pages', 'reviews', 'reviews.js'),
+      load: 'load', retry: 'retryReviews', key: 'reviewsBlock', endpoint: '/api/my/product-reviews',
+      seed: [{ id: 's1', productName: '商品一', rating: 5 }, { id: 's2', productName: '商品二', rating: 4 }]
+    },
+    {
+      name: 'favorites', file: path.join('pages', 'favorites', 'favorites.js'),
+      load: 'loadFavorites', retry: 'retryFavorites', key: 'favoritesBlock', endpoint: '/api/my/favorites',
+      seed: [{ id: 's1', name: '商品一' }, { id: 's2', name: '商品二' }]
+    }
+  ];
+
+  /** 只让目标接口有数据，其余一律空数组。 */
+  const serving = (endpoint, payload) => (requestPath) => (
+    requestPath === endpoint ? Promise.resolve({ data: payload }) : Promise.resolve({ data: [] })
+  );
+
+  // ==================== ① 有旧数据时失败 → 旧数据保留 + error 可见 ====================
+  harness.setApiHandler(serving('/api/forum/posts', pages[0].seed));
+  const forum = harness.loadPage(pages[0].file);
+  await forum.loadPosts();
+  assert.equal(forum.data.postsBlock.data.length, 2, '① forum 首次加载应有 2 条');
+  assert.equal(forum.data.postsBlock.error, '', '① forum 成功时不应有错误');
+  assert.equal(forum.data.filtered.length, 2, '① forum 派生列表应同步');
+
+  harness.setApiHandler(() => Promise.reject(new Error('论坛接口挂了')));
+  await forum.loadPosts();
+  assert.equal(forum.data.postsBlock.error, '论坛接口挂了', '① ★ forum 失败必须暴露错误，不能沉默');
+  assert.equal(forum.data.postsBlock.loading, false, '⑧ forum 必须确实跑完过一轮（否则下面的断言会假通过）');
+  assert.equal(
+    forum.data.postsBlock.data.length, 2,
+    '① ★★ forum 失败时不得清空旧帖子 —— 清空等于告诉用户「确实没有帖子」'
+  );
+  assert.equal(forum.data.filtered.length, 2, '① forum 派生列表也不得被清空');
+
+  // ==================== ② 无旧数据时失败 → 列表为空，但 error 非空 ====================
+  // 关键：必须能区分「失败」与「无数据」——两者列表都为空，只有 error 不同。
+  const forumCold = harness.loadPage(pages[0].file);
+  harness.setApiHandler(() => Promise.reject(new Error('首次就挂了')));
+  await forumCold.loadPosts();
+  assert.deepEqual(
+    forumCold.data.postsBlock.data, [],
+    '② forum 首次失败时列表为空（且必须是真数组，不是 undefined）'
+  );
+  assert.equal(
+    forumCold.data.postsBlock.error, '首次就挂了',
+    '② ★★ forum 首次失败时 error 必须非空 —— 这是「失败」与「无数据」唯一的区分点'
+  );
+  assert.equal(forumCold.data.postsBlock.loading, false, '⑧ forum 首次失败后也必须结束加载态');
+
+  // ==================== ③ market 同上两条 ====================
+  harness.setApiHandler(serving('/api/market/items', pages[1].seed));
+  const market = harness.loadPage(pages[1].file);
+  await market.loadItems();
+  assert.equal(market.data.itemsBlock.data.length, 2, '③ market 首次加载应有 2 条');
+  harness.setApiHandler(() => Promise.reject(new Error('市集接口挂了')));
+  await market.loadItems();
+  assert.equal(market.data.itemsBlock.error, '市集接口挂了', '③ ★ market 失败必须暴露错误');
+  assert.equal(market.data.itemsBlock.loading, false, '⑧ market 必须确实跑完过一轮');
+  assert.equal(
+    market.data.itemsBlock.data.length, 2,
+    '③ ★★ market 失败时不得清空旧闲置 —— 否则页面会说「暂时没有符合条件的闲置」'
+  );
+  assert.equal(market.data.filtered.length, 2, '③ market 派生列表也不得被清空');
+
+  const marketCold = harness.loadPage(pages[1].file);
+  await marketCold.loadItems();
+  assert.deepEqual(marketCold.data.itemsBlock.data, [], '③ market 首次失败时列表为空');
+  assert.equal(marketCold.data.itemsBlock.error, '市集接口挂了', '③ ★★ market 首次失败时 error 必须非空');
+  assert.equal(marketCold.data.itemsBlock.loading, false, '⑧ market 首次失败后也必须结束加载态');
+
+  // ==================== ④ footprints / reviews：失败 → 数据保留 + error 非空 ====================
+  for (const name of ['footprints', 'reviews']) {
+    const spec = pages.find((item) => item.name === name);
+    harness.setApiHandler(serving(spec.endpoint, spec.seed));
+    const page = harness.loadPage(spec.file);
+    await page[spec.load]();
+    assert.equal(page.data[spec.key].data.length, 2, `④ ${name} 首次加载应有 2 条`);
+
+    harness.setApiHandler(() => Promise.reject(new Error(`${name} 接口挂了`)));
+    await page[spec.load]();
+    assert.equal(page.data[spec.key].error, `${name} 接口挂了`, `④ ★ ${name} 失败必须暴露错误`);
+    assert.equal(page.data[spec.key].loading, false, `⑧ ${name} 必须确实跑完过一轮`);
+    assert.equal(
+      page.data[spec.key].data.length, 2,
+      `④ ★★ ${name} 失败时不得清空旧数据 —— 改造前它连 error 都不写，旧数据静默滞留`
+    );
+  }
+
+  // ==================== ⑤ favorites：失败 → 数据保留 + error 非空 ====================
+  const favoritesSpec = pages.find((item) => item.name === 'favorites');
+  harness.setApiHandler(serving('/api/my/favorites', favoritesSpec.seed));
+  const favorites = harness.loadPage(favoritesSpec.file);
+  await favorites.loadFavorites();
+  assert.equal(favorites.data.favoritesBlock.data.length, 2, '⑤ favorites 首次加载应有 2 条');
+  harness.setApiHandler(() => Promise.reject(new Error('收藏接口挂了')));
+  await favorites.loadFavorites();
+  assert.equal(favorites.data.favoritesBlock.error, '收藏接口挂了', '⑤ ★ favorites 失败必须暴露错误');
+  assert.equal(favorites.data.favoritesBlock.loading, false, '⑧ favorites 必须确实跑完过一轮');
+  assert.equal(
+    favorites.data.favoritesBlock.data.length, 2,
+    '⑤ ★★ favorites 失败时不得清空收藏 —— 改造前它是「半对」：有 toast 但仍然清空'
+  );
+
+  // ==================== ⑥ 重试必须真的重新发起请求 ====================
+  let forumCalls = 0;
+  harness.setApiHandler((requestPath) => {
+    if (requestPath !== '/api/forum/posts') return Promise.resolve({ data: [] });
+    forumCalls += 1;
+    return forumCalls === 1
+      ? Promise.reject(new Error('第一次挂'))
+      : Promise.resolve({ data: [{ id: 'r1', title: '恢复的帖子' }] });
+  });
+  const forumRetry = harness.loadPage(pages[0].file);
+  await forumRetry.loadPosts();
+  assert.equal(forumRetry.data.postsBlock.error, '第一次挂', '⑥ 前置：第一次应失败');
+  assert.equal(forumCalls, 1, '⑥ 前置：应只请求过一次');
+  await forumRetry.retryPosts();
+  assert.equal(forumCalls, 2, '⑥ ★★ 重试必须真的重新发起请求（而不是只把 error 清掉）');
+  assert.equal(forumRetry.data.postsBlock.error, '', '⑥ 重试成功后应清掉错误');
+  assert.equal(forumRetry.data.postsBlock.data.length, 1, '⑥ 重试成功后应写入新数据');
+  assert.equal(forumRetry.data.postsBlock.loading, false, '⑥ 重试成功后应结束加载态');
+
+  // ==================== ⑦ ★ 反向护栏：5 个页面都不得在失败路径清空数据 ====================
+  for (const spec of pages) {
+    harness.setApiHandler(serving(spec.endpoint, spec.seed));
+    const page = harness.loadPage(spec.file);
+    await page[spec.load]();
+    assert.equal(page.data[spec.key].data.length, spec.seed.length, `⑦ ${spec.name} 前置：应先加载成功`);
+
+    harness.setApiHandler(() => Promise.reject(new Error('boom')));
+    await page[spec.load]();
+    assert.equal(page.data[spec.key].loading, false, `⑧ ${spec.name} 必须确实跑完过一轮`);
+    assert.equal(page.data[spec.key].error, 'boom', `⑦ ${spec.name} 失败应暴露错误`);
+    assert.equal(
+      page.data[spec.key].data.length, spec.seed.length,
+      `⑦ ★★ ${spec.name} 的失败路径不得 setData 出空数组（清空 = 向用户断言「本来就没有」）`
+    );
+    assert.deepEqual(
+      page.data[spec.key].data.map((item) => item.id), spec.seed.map((item) => item.id),
+      `⑦ ★ ${spec.name} 保留的必须是原来那批数据，而不是空壳`
+    );
+  }
+});
+
+/**
+ * 从 wxml 里抽出与「三态」有关的条件分支，并按 WXML 的**链**语义分组。
+ *
+ * WXML 的 `wx:elif` / `wx:else` 只与**紧邻的** `wx:if` 成链；因此一个 `wx:if`
+ * 会开启新链，`elif` / `else` 续在当前链上。链内第一个为真的分支胜出。
+ *
+ * @param {string} wxml 模板源码。
+ * @returns {Array<Array<{kind: string, expr: string, label: string}>>} 每条链的分支列表。
+ */
+function extractStateChains(wxml) {
+  const isStateLine = (line) => (
+    line.includes('load-error')
+    || line.includes('class="empty card"')
+    || line.includes('class="loading muted"')
+    || line.includes('sale-banner')
+    || /<block wx:else/.test(line)
+  );
+  const branches = [];
+  for (const line of wxml.split('\n')) {
+    if (!isStateLine(line)) continue;
+    // 注意：加载占位复用了 `empty card` 这个类，只能靠文案区分，
+    // 否则「加载中」会被误标成「空态」—— 探针第一版就是这么标错的。
+    const label = line.includes('load-error') ? '错误占位(含重试)'
+      : line.includes('sale-banner') ? '促销横幅'
+        : /正在加载|正在同步/.test(line) ? '加载中占位'
+          : line.includes('class="empty card"') ? '空态(暂无数据)'
+            : line.includes('<block') ? '列表'
+              : '其他';
+    const matched = line.match(/wx:(if|elif)="\{\{([^}]+)\}\}"/);
+    if (matched) branches.push({ kind: matched[1], expr: matched[2].trim(), label });
+    else if (line.includes('wx:else')) branches.push({ kind: 'else', expr: 'true', label });
+  }
+  const chains = [];
+  for (const branch of branches) {
+    if (branch.kind === 'if' || chains.length === 0) chains.push([]);
+    chains[chains.length - 1].push(branch);
+  }
+  return chains;
+}
+
+/**
+ * 按链语义求值，返回**真正会渲染出来**的分支标签。
+ *
+ * @param {Array<Array<{expr: string, label: string}>>} chains 分支链。
+ * @param {object} data 页面 data。
+ * @returns {Array<string>} 每条链胜出的分支标签（无分支命中时为空）。
+ */
+function renderStateChains(chains, data) {
+  const rendered = [];
+  for (const chain of chains) {
+    for (const branch of chain) {
+      let value = false;
+      try {
+        // 求值的是 wxml 里的**原始表达式文本**，不是我重写的一份判断。
+        value = Boolean(new Function('data', `with (data) { return (${branch.expr}); }`)(data));
+      } catch (error) {
+        value = false;
+      }
+      if (value) { rendered.push(branch.label); break; }
+    }
+  }
+  return rendered;
+}
+
+/**
+ * 「三态互不混淆」的模板级验证。
+ *
+ * 为什么必须有这一层：`test/miniapp.test.js` 只检查空态条件文本**存在**，
+ * 但一段正确的文本若落在错误的 `wx:if` / `wx:elif` **链**里，渲染结果依然是错的。
+ * 这里把 wxml 里真实的条件文本抽出来求值，验证三种输入下**真正渲染出来的分支**。
+ */
+test('三态互不混淆：5 个页面在「加载中 / 失败 / 无数据」下渲染的分支互不串台', () => {
+  const pages = [
+    { name: '论坛', wxml: path.join('pages', 'forum', 'forum.wxml'), key: 'postsBlock', hasFiltered: true },
+    { name: '市集', wxml: path.join('pages', 'market', 'market.wxml'), key: 'itemsBlock', hasFiltered: true },
+    { name: '足迹', wxml: path.join('pages', 'footprints', 'footprints.wxml'), key: 'footprintsBlock' },
+    { name: '评价', wxml: path.join('pages', 'reviews', 'reviews.wxml'), key: 'reviewsBlock' },
+    { name: '收藏', wxml: path.join('pages', 'favorites', 'favorites.wxml'), key: 'favoritesBlock' }
+  ];
+
+  for (const page of pages) {
+    const chains = extractStateChains(fs.readFileSync(path.join(miniprogramDirectory, page.wxml), 'utf8'));
+    /** 构造页面 data：列表块 + 该页依赖的派生字段。 */
+    const fixture = (block, extra = {}) => {
+      const data = { [page.key]: block, ...extra };
+      if (page.hasFiltered) data.filtered = block.data;
+      if (page.key === 'favoritesBlock') data.saleCount = 0;
+      return data;
+    };
+
+    const loading = renderStateChains(chains, fixture({ loading: true, error: '', data: [] }));
+    const failed = renderStateChains(chains, fixture({ loading: false, error: '接口 500', data: [] }));
+    const empty = renderStateChains(chains, fixture({ loading: false, error: '', data: [] }));
+    const stale = renderStateChains(chains, fixture({ loading: false, error: '接口 500', data: [{ id: 'a' }, { id: 'b' }] }));
+
+    // 注意：失败且无数据时，「列表」容器本身仍会渲染 —— 但它有 0 条数据，
+    // 屏幕上什么也不显示。真正要守住的是**空态不许出现**（见下一条 ★）。
+    // 加载中：只出加载占位，绝不能出现错误占位或空态。
+    assert.ok(
+      loading.includes('加载中占位') && !loading.includes('错误占位(含重试)') && !loading.includes('空态(暂无数据)'),
+      `${page.name}：加载中应只渲染加载占位，实得 ${JSON.stringify(loading)}`
+    );
+    // ★★ 失败：出错误占位，且**绝不能**出现「空态」—— 那是把「没取到」说成「确实没有」。
+    assert.ok(
+      failed.includes('错误占位(含重试)') && !failed.includes('空态(暂无数据)'),
+      `${page.name}：失败必须渲染错误占位，且不得渲染空态，实得 ${JSON.stringify(failed)}`
+    );
+    // 无数据：确实没有数据时才出空态，且不得出现错误占位。
+    assert.ok(
+      empty.includes('空态(暂无数据)') && !empty.includes('错误占位(含重试)'),
+      `${page.name}：只有确实没有数据时才渲染空态，实得 ${JSON.stringify(empty)}`
+    );
+    // 失败 + 旧数据：错误占位与旧列表并存，不得出现空态。
+    assert.ok(
+      stale.includes('错误占位(含重试)') && stale.includes('列表') && !stale.includes('空态(暂无数据)'),
+      `${page.name}：失败时旧列表必须继续可见，且不得渲染空态，实得 ${JSON.stringify(stale)}`
+    );
+  }
+});

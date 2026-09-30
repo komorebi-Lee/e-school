@@ -1,9 +1,16 @@
 <view class="page">
-  <view wx:if="{{loading}}" class="empty card"><view class="muted">正在加载评价…</view></view>
-  <view wx:elif="{{!reviews.length}}" class="empty card"><view class="muted">暂无评价，完成订单后可对商品进行评价</view></view>
+  <!-- 失败占位：接口挂了必须说出来，并且能重试。旧列表（若有）仍显示在下方。 -->
+  <view wx:if="{{reviewsBlock.error}}" class="load-error card">
+    <view class="muted">{{reviewsBlock.error}}</view>
+    <button size="mini" class="ghost-button" bindtap="retryReviews">重试</button>
+  </view>
+
+  <view wx:if="{{reviewsBlock.loading && !reviewsBlock.data.length}}" class="empty card"><view class="muted">正在加载评价…</view></view>
+  <!-- 空态：必须同时「不在加载」且「没有错误」，否则失败会被说成「暂无评价」 -->
+  <view wx:elif="{{!reviewsBlock.data.length && !reviewsBlock.error}}" class="empty card"><view class="muted">暂无评价，完成订单后可对商品进行评价</view></view>
   <block wx:else>
-    <view class="summary card">共 {{reviews.length}} 条评价</view>
-    <view id="my-review-{{item.id}}" class="review card" wx:for="{{reviews}}" wx:key="id">
+    <view class="summary card" wx:if="{{reviewsBlock.data.length}}">共 {{reviewsBlock.data.length}} 条评价</view>
+    <view id="my-review-{{item.id}}" class="review card" wx:for="{{reviewsBlock.data}}" wx:key="id">
       <view class="head">
         <view>
           <view class="product" bindtap="goDetail" data-id="{{item.productId}}">{{item.productName}} ›</view>

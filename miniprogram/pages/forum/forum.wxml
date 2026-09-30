@@ -16,7 +16,13 @@
     </view>
   </scroll-view>
 
-  <view wx:if="{{loading}}" class="empty card"><view class="muted">正在加载帖子…</view></view>
+  <!-- 失败占位：接口挂了必须说出来，并且能重试。旧列表（若有）仍显示在下方。 -->
+  <view wx:if="{{postsBlock.error}}" class="load-error card">
+    <view class="muted">{{postsBlock.error}}</view>
+    <button size="mini" class="ghost-button" bindtap="retryPosts">重试</button>
+  </view>
+
+  <view wx:if="{{postsBlock.loading && !filtered.length}}" class="empty card"><view class="muted">正在加载帖子…</view></view>
   <block wx:else>
     <view class="post card" wx:for="{{filtered}}" wx:key="id" data-id="{{item.id}}" bindtap="goPost">
       <view class="post-head">
@@ -33,7 +39,9 @@
         </view>
       </view>
     </view>
-    <view wx:if="{{!filtered.length}}" class="empty card">
+    <!-- 空态：必须同时「不在加载」且「没有错误」。
+         否则加载失败时这里会显示「还没有帖子」—— 把「没取到」说成「确实没有」。 -->
+    <view wx:if="{{!postsBlock.loading && !postsBlock.error && !filtered.length}}" class="empty card">
       <view class="empty-title">这个板块还没有帖子</view>
       <view class="muted">来发第一帖，和同学交流吧。</view>
       <view class="empty-actions">

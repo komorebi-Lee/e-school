@@ -1543,3 +1543,65 @@ test('静默失败修复：merchant/card 不再有空 catch，每块都有可见
     assert.ok(cardSource.includes(`${key}: loadState.initialBlock()`), `card 的 ${key} 必须独立初始化`);
   }
 });
+
+/**
+ * 静默失败修复第二批：5 个「失败时显示空列表」的页面。
+ *
+ * 运行时行为由 `test/miniapp-page-blocks.test.js` 覆盖（它直接调用重试函数）；
+ * 这里守的是运行时测不到的两件事：**wxml 有没有把重试函数绑上**、
+ * **空态有没有同时排除「加载中」与「失败」**。
+ *
+ * 后者是本批的核心：改造前失败时页面显示「还没有帖子 / 暂时没有闲置」——
+ * 那是在向用户断言一个假事实。只要空态的 `wx:if` 少写一个 `!xxx.error`，
+ * 这个误导就会回来，所以必须逐页钉死。
+ */
+test('静默失败修复第二批：5 个列表页的空态必须同时排除「加载中」与「失败」', () => {
+  const emptyCatch = /catch\(\s*\(\s*\)\s*=>\s*\{\s*\}\s*\)/;
+
+  const pages = [
+    {
+      name: '论坛', directory: 'forum', retry: 'retryPosts', key: 'postsBlock',
+      // 空态：不在加载 且 没有错误 且 列表为空 —— 三个条件缺一不可
+      guard: '!postsBlock.loading && !postsBlock.error && !filtered.length'
+    },
+    {
+      name: '市集', directory: 'market', retry: 'retryItems', key: 'itemsBlock',
+      guard: '!itemsBlock.loading && !itemsBlock.error && !filtered.length'
+    },
+    {
+      name: '足迹', directory: 'footprints', retry: 'retryFootprints', key: 'footprintsBlock',
+      guard: '!footprintsBlock.data.length && !footprintsBlock.error'
+    },
+    {
+      name: '评价', directory: 'reviews', retry: 'retryReviews', key: 'reviewsBlock',
+      guard: '!reviewsBlock.data.length && !reviewsBlock.error'
+    },
+    {
+      name: '收藏', directory: 'favorites', retry: 'retryFavorites', key: 'favoritesBlock',
+      guard: '!favoritesBlock.data.length && !favoritesBlock.error'
+    }
+  ];
+
+  for (const page of pages) {
+    const base = path.join('pages', page.directory, page.directory);
+    const source = readMiniappFile(`${base}.js`);
+    const markup = readMiniappFile(`${base}.wxml`);
+    const styles = readMiniappFile(`${base}.wxss`);
+
+    assert.equal(emptyCatch.test(source), false, `${page.name}（${page.directory}.js）不得再出现空 catch`);
+    assert.ok(source.includes('utils/load-state'), `${page.name} 应复用共享的三态工具`);
+    assert.ok(
+      source.includes('loadState.initialListBlock()'),
+      `${page.name} 的列表块必须用 initialListBlock（保证 data 始终是数组，失败不会被误判成空态）`
+    );
+    assert.ok(source.includes(`${page.retry}()`), `${page.name} 应提供 ${page.retry} 重试入口`);
+    assert.ok(markup.includes(`bindtap="${page.retry}"`), `${page.name} 的 wxml 应把 ${page.retry} 绑到错误占位`);
+    assert.ok(markup.includes(`${page.key}.error`), `${page.name} 的 wxml 应渲染 ${page.key}.error`);
+    assert.ok(markup.includes('load-error'), `${page.name} 应有错误占位`);
+    assert.ok(styles.includes('.load-error'), `${page.name} 的 wxss 应定义 .load-error`);
+    assert.ok(
+      markup.includes(page.guard),
+      `${page.name} 的空态条件必须同时排除「加载中」与「失败」：缺一个就会把「没取到」说成「确实没有」`
+    );
+  }
+});

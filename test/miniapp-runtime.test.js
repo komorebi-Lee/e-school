@@ -1672,6 +1672,18 @@ test('load-state：失败不清空数据、块之间互相独立', async () => {
   // ① 初始块 = 加载中且无错误。
   assert.deepEqual(initialBlock(), { loading: true, error: '' }, '① 初始块应为「加载中、无错误」');
 
+  // ①b 初始列表块：额外带 `data: []`，让「失败」与「无数据」在模板层永远可区分。
+  assert.deepEqual(
+    loadState.initialListBlock(), { loading: true, error: '', data: [] },
+    '①b 初始列表块必须带空数组 data —— 否则首次加载失败后块里没有 data 字段，'
+    + '模板里的 data.length 取到 undefined，会被 wx:if 当成假值，'
+    + '「失败」就被渲染成了「空列表」'
+  );
+  assert.deepEqual(
+    rejectBlock(new Error('挂了'), loadState.initialListBlock()).data, [],
+    '①b 列表块首次失败后 data 仍须是数组（而不是 undefined）'
+  );
+
   // ② 进入加载中必须保留上一次的数据 —— 重试期间旧列表不能闪成空白。
   const prev = { loading: false, error: '', data: [1, 2, 3] };
   const begun = beginBlock(prev);
