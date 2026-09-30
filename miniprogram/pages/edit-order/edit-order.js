@@ -1,4 +1,5 @@
 const { request } = require('../../services/api');
+const loadState = require('../../utils/load-state');
 
 Page({
   data: { orderId: '', orderNo: '', name: '', phone: '', date: '', timeSlot: '', address: '', deliveryTimeSlots: [], deliveryTimeIndex: 0, loading: true, submitting: false },
@@ -26,6 +27,8 @@ Page({
     this.loadSlots();
   },
   loadSlots() {
+    // 配置加载：失败时 `onLoad` 已用 ['尽快配送'] 兜底，配送时段列表非空，
+    // 用户看到的内容仍然有效，故显式忽略。
     request('/api/business-config').then(({ data }) => {
       const slots = Array.isArray(data.deliveryTimeSlots) && data.deliveryTimeSlots.length ? data.deliveryTimeSlots : ['尽快配送'];
       const current = this.data.deliveryTimeSlots[this.data.deliveryTimeIndex];
@@ -33,7 +36,7 @@ Page({
         deliveryTimeSlots: slots,
         deliveryTimeIndex: Math.max(0, slots.indexOf(current))
       });
-    }).catch(() => {});
+    }).catch(loadState.ignoreSilently);
   },
   today() {
     const now = new Date();

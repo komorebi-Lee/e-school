@@ -124,6 +124,21 @@ function rejectBlock(error, prev) {
 }
 
 /**
+ * 显式忽略一个「动作类」请求的失败。
+ *
+ * 与「`.catch` 后面接一个空函数体」的写法**语义相同，但意图可被检索**：
+ * 前者是「没想过失败会怎样」，后者是「已经判定过 —— 失败不影响用户可见内容」。
+ * 全仓扫描 `catch\(\s*\(\s*\)\s*=>\s*\{\s*\}\s*\)` 应该为 0；凡是确实可以忽略的，
+ * 都必须写成 `.catch(ignoreSilently)` 并紧跟一行注释说明理由。
+ *
+ * @param {unknown} error 捕获到的错误（**有意不使用**）。
+ * @returns {void}
+ */
+function ignoreSilently(error) { // eslint-disable-line no-unused-vars
+  // 有意为空：调用方已用注释声明「该失败不影响用户可见内容」。
+}
+
+/**
  * 从任意错误对象里提取可读文案，并做长度截断。
  *
  * @param {unknown} error 捕获到的错误。
@@ -186,5 +201,6 @@ module.exports = {
   resolveBlock,
   rejectBlock,
   blockErrorText,
+  ignoreSilently,
   loadBlock
 };

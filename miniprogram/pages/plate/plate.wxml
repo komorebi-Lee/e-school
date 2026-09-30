@@ -14,10 +14,20 @@
     <view class="step"><view class="step-no">3</view><view><view class="step-title">协助办理</view><view class="muted">按指定流程提交、领取或安装</view></view></view>
   </view>
 
-  <view wx:if="{{status}}" class="status card">
-    <view class="status-label">申请编号 {{status.id}}</view>
-    <view class="status-value">{{status.state}}</view>
-    <view class="muted">{{status.vehicleModel}} · {{status.name}} · {{status.fee === 0 ? '购车用户免费' : '已支付服务费 ¥' + status.fee}}</view>
+  <!-- 失败占位：接口挂了必须说出来，并且能重试。旧状态（若有）仍显示在下方。 -->
+  <view wx:if="{{statusBlock.error}}" class="load-error card">
+    <view class="muted">{{statusBlock.error}}</view>
+    <button size="mini" class="ghost-button" bindtap="retryStatus">重试</button>
+  </view>
+
+  <view wx:if="{{statusBlock.loading}}" class="status card">
+    <view class="status-value">正在同步申请状态…</view>
+  </view>
+
+  <view wx:elif="{{statusBlock.data}}" class="status card">
+    <view class="status-label">申请编号 {{statusBlock.data.id}}</view>
+    <view class="status-value">{{statusBlock.data.state}}</view>
+    <view class="muted">{{statusBlock.data.vehicleModel}} · {{statusBlock.data.name}} · {{statusBlock.data.fee === 0 ? '购车用户免费' : '已支付服务费 ¥' + statusBlock.data.fee}}</view>
   </view>
 
     <view class="charging card" id="charging-eligibility">

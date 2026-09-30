@@ -1,14 +1,19 @@
 const { request } = require('../../services/api');
 const { loadBusinessConfig } = require('../../services/business');
 const { payPaymentOrder } = require('../../services/payment');
+const loadState = require('../../utils/load-state');
 
 Page({
-  data:{source:'platform',vehicleModel:'',name:'',studentNo:'',phone:'',eligibleOrders:[],selectedOrderIndex:0,serviceFee:49,status:null,charging:{eligible:false,stateLabel:'',detail:''},submitting:false,serviceContact:'15527111396'},
+  data:{source:'platform',vehicleModel:'',name:'',studentNo:'',phone:'',eligibleOrders:[],selectedOrderIndex:0,serviceFee:49,statusBlock:loadState.initialBlock(),charging:{eligible:false,stateLabel:'',detail:''},submitting:false,serviceContact:'15527111396'},
   onShow(){this.loadOrders();this.loadStatus();this.loadCharging()},
-  onLoad(){loadBusinessConfig().then((config) => this.setData({
-    serviceFee: Number(config.externalPlateFee ?? 49),
-    serviceContact: config.servicePhone || config.serviceWechat || '15527111396'
-  })).catch(() => {});},
+  onLoad(){
+    // 配置加载：`loadBusinessConfig` 内部已用缓存/默认值兜底、永不 reject，
+    // 失败也不影响可见内容（服务费/联系电话回落到默认值），故显式忽略。
+    loadBusinessConfig().then((config) => this.setData({
+      serviceFee: Number(config.externalPlateFee ?? 49),
+      serviceContact: config.servicePhone || config.serviceWechat || '15527111396'
+    })).catch(loadState.ignoreSilently);
+  },
   loadOrders(){
     request('/api/my/orders').then(({data})=>{
       const ebikeOrders=(data?.ebikeOrders||[])
@@ -22,11 +27,19 @@ Page({
     }).catch(()=>this.setData({eligibleOrders:[]}));
   },
   loadStatus(){
-    request('/api/service-records').then(({data})=>{
-      const plate=(data?.serviceRecords||[]).find(item=>item.type==='PLATE');
-      this.setData({status:plate?{id:plate.id,state:plate.statusLabel,vehicleModel:plate.title,name:'',fee:plate.amountInCents/100}:null});
-    }).catch(()=>{});
+    // ★ 加载类：改造前失败时静默，`status` 停在 null，页面会把「没取到」
+    // 渲染成「你还没申请」—— 用户可能因此重复提交。改为三态（失败不清空 + 可见错误 + 重试）。
+    return loadState.loadBlock({
+      setData:(patch)=>this.setData(patch),
+      stateKey:'statusBlock',
+      prev:this.data.statusBlock,
+      loader:()=>request('/api/service-records').then(({data})=>{
+        const plate=(data?.serviceRecords||[]).find(item=>item.type==='PLATE');
+        return plate?{id:plate.id,state:plate.statusLabel,vehicleModel:plate.title,name:'',fee:plate.amountInCents/100}:null;
+      })
+    });
   },
+  retryStatus(){return this.loadStatus()},
   loadCharging(){
     request('/api/my/charging-eligibility').then(({data})=>{
       this.setData({charging:{eligible:data.eligible===true,stateLabel:data.stateLabel||'',detail:data.detail||''}});

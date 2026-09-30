@@ -1,6 +1,7 @@
 const { request, userId } = require('../../services/api');
 const { loadBusinessConfig } = require('../../services/business');
 const { payPaymentOrder } = require('../../services/payment');
+const loadState = require('../../utils/load-state');
 const {
   readRentalPlan,
   rentalUnitLabel,
@@ -182,6 +183,8 @@ Page({
   setSaveAddress() { this.setData({ saveAddress: !this.data.saveAddress }); },
   saveNewAddress() {
     if (!this.data.saveAddress || this.data.selectedAddressId) return Promise.resolve();
+    // 「保存常用地址」是动作、不是加载：下单已成功，失败只影响下次是否预填，
+    // 不影响用户看到的任何内容，故显式忽略。
     return request('/api/my/addresses', {
       method: 'POST',
       data: {
@@ -190,7 +193,7 @@ Page({
         address: this.data.deliveryAddress,
         campusName: this.data.config?.campusName || ''
       }
-    }).then(() => this.setData({ saveAddress: false })).catch(() => {});
+    }).then(() => this.setData({ saveAddress: false })).catch(loadState.ignoreSilently);
   },
   submit() {
     if (!this.data.agreed) return wx.showToast({ title: '请先阅读并同意协议', icon: 'none' });

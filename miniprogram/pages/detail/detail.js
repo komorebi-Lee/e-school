@@ -2,6 +2,7 @@ const { request } = require('../../services/api');
 const { getScooter } = require('../../services/store');
 const { loadBusinessConfig } = require('../../services/business');
 const { toDetailView } = require('../../utils/product-view');
+const loadState = require('../../utils/load-state');
 
 function normalizeProduct(product, config = {}, reviewFilter = 'ALL') {
   const description = product.description || '支持校内配送和校园牌照辅助。';
@@ -160,7 +161,8 @@ Page({
       this.setData({ scooter: normalizeProduct(data, this.data.config || {}, this.data.reviewFilter), loading: false });
       this.loadRestockState(data.id);
       this.loadFavoriteState(data.id);
-      request(`/api/my/footprints`, { method: 'POST', data: { productId: data.id } }).catch(() => {});
+      // 记录足迹是动作、不是加载：失败不影响商品页展示，故显式忽略。
+      request(`/api/my/footprints`, { method: 'POST', data: { productId: data.id } }).catch(loadState.ignoreSilently);
     }).catch(() => {
       const cached = getScooter(options.id);
       this.rawProduct = cached;

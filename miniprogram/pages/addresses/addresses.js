@@ -1,5 +1,6 @@
 const { request } = require('../../services/api');
 const { loadBusinessConfig } = require('../../services/business');
+const loadState = require('../../utils/load-state');
 
 Page({
   data: {
@@ -18,9 +19,11 @@ Page({
   },
 
   onLoad() {
+    // 配置加载：`loadBusinessConfig` 内部已用缓存/默认值兜底、永不 reject，
+    // 失败也不影响可见内容（校区名回落到空、由用户自行填写），故显式忽略。
     loadBusinessConfig().then((config) => {
       this.setData({ 'form.campusName': config.campusName || '' });
-    }).catch(() => {});
+    }).catch(loadState.ignoreSilently);
     this.loadAddresses();
   },
 

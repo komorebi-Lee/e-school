@@ -1,5 +1,6 @@
 const { request, userId } = require('../../services/api');
 const { loadBusinessConfig } = require('../../services/business');
+const loadState = require('../../utils/load-state');
 
 function decodeParam(value, fallback = '') {
   if (!value) return fallback;
@@ -17,12 +18,14 @@ function decodeParam(value, fallback = '') {
 Page({
   data: { type: '电动车', interest: '', sourceType: '', sourceId: '', sourceNo: '', name: '', phone: '', time: '', note: '', submitting: false, responseHours: 24, contact: '15527111396' },
   onLoad(options) {
+    // 配置加载：`loadBusinessConfig` 内部已用缓存/默认值兜底、永不 reject，
+    // 失败也不影响可见内容（响应时长/联系电话回落到默认值），故显式忽略。
     loadBusinessConfig().then((config) => {
       this.setData({
         responseHours: Number(config.leadResponseHours || 24),
         contact: config.servicePhone || config.serviceWechat || '15527111396'
       });
-    }).catch(() => {});
+    }).catch(loadState.ignoreSilently);
     this.setData({
       type: decodeParam(options.type, '电动车'),
       interest: decodeParam(options.interest),

@@ -1,5 +1,6 @@
 const { request, userId } = require('../../services/api');
 const { loadBusinessConfig } = require('../../services/business');
+const loadState = require('../../utils/load-state');
 
 const typeOptions = [
   { key:'REFUND', label:'申请退款', copy:'未发货、商品异常或双方协商退款', reasons:['商家未按时配送，申请退款','商品与描述不一致，申请退款','临时不需要了，和商家已沟通'] },
@@ -45,11 +46,13 @@ Page({
   },
   onLoad(options) {
     this.setData({ orderId: options.id || '' });
+    // 配置加载：`loadBusinessConfig` 内部已用缓存/默认值兜底、永不 reject，
+    // 失败也不影响可见内容（响应时长/联系电话回落到默认值），故显式忽略。
     loadBusinessConfig().then((config) => this.setData({
       afterSaleResponseHours: Number(config.afterSaleResponseHours || 24),
       afterSaleResolutionHours: Number(config.afterSaleResolutionHours || 72),
       contact: config.servicePhone || config.serviceWechat || ''
-    })).catch(() => {});
+    })).catch(loadState.ignoreSilently);
     this.loadContext();
   },
   loadContext() {

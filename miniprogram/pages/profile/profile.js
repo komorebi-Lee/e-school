@@ -2,6 +2,7 @@ const { request, userId } = require("../../services/api");
 const { loginWeChat } = require("../../lib/cloud-request");
 const { loadBusinessConfig } = require("../../services/business");
 const { openLink } = require("../../utils/navigation");
+const loadState = require("../../utils/load-state");
 
 function maskUserId(id) {
   if (!id) return "";
@@ -23,9 +24,11 @@ Page({
   },
   onShow() { this.refreshLoginState(); this.loadMerchantBadge(); this.loadNotifications(); this.loadOrderMessageState(); },
   onLoad() {
+    // 配置加载：`loadBusinessConfig` 内部已用缓存/默认值兜底、永不 reject，
+    // 失败也不影响可见内容（客服电话回落到默认值），故显式忽略。
     loadBusinessConfig().then((config) => this.setData({
       customerService: config.servicePhone || config.serviceWechat || '15527111396'
-    })).catch(() => {});
+    })).catch(loadState.ignoreSilently);
   },
   refreshLoginState() {
     const stored = wx.getStorageSync("campusGoUserId") || "";
@@ -72,7 +75,8 @@ Page({
   },
   markNotificationsRead() {
     if (!this.data.unreadNotificationCount) return;
-    request("/api/my/notifications/read", { method: "POST" }).then(() => this.loadNotifications()).catch(() => {});
+    // 「上报已读」是动作、不是加载：失败不影响用户看到的通知列表，故显式忽略。
+    request("/api/my/notifications/read", { method: "POST" }).then(() => this.loadNotifications()).catch(loadState.ignoreSilently);
   },
   openNotification(event) {
     const link = event.currentTarget.dataset.link;

@@ -4,6 +4,7 @@ const { loadBusinessConfig } = require('../../services/business');
 // 租赁订单展示层：进度条 / 应还倒计时 / 卡片文案 / 归还入口判定。
 // 全部是纯函数，可被 test/miniapp-runtime.test.js 真实加载断言。
 const rentalJourney = require('../../utils/rental-journey');
+const loadState = require('../../utils/load-state');
 
 const DEFAULT_RESPONSE_HOURS = 24;
 
@@ -319,10 +320,12 @@ Page({
   onLoad(options = {}){
     if (options.focusId) this.focusId = options.focusId;
     if (options.recordType) this.focusRecordType = options.recordType;
+    // 配置加载：`loadBusinessConfig` 内部已用缓存/默认值兜底、永不 reject，
+    // 失败也不影响可见内容（客服电话/响应时长回落到默认值），故显式忽略。
     loadBusinessConfig().then((config) => this.setData({
       serviceContact: config.servicePhone || config.serviceWechat || '15527111396',
       responseHours: Number(config.leadResponseHours || 24)
-    })).catch(() => {});
+    })).catch(loadState.ignoreSilently);
   },
   startCountdownTimer(){
     if (this.countdownTimer) return;

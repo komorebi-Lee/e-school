@@ -588,3 +588,92 @@ test('三态互不混淆：5 个页面在「加载中 / 失败 / 无数据」下
     );
   }
 });
+
+test('第三批：plate 申请状态三态化；动作类失败不得产生错误占位', async (t) => {
+  const harness = createHarness();
+  t.after(() => harness.restore());
+
+  // ==================== 一、plate：加载类 → 三态 ====================
+  const servingStatus = (records) => (requestPath) => (
+    requestPath === '/api/service-records'
+      ? Promise.resolve({ data: { serviceRecords: records } })
+      : Promise.resolve({ data: [] })
+  );
+  const plateRecord = { id: 'pl1', type: 'PLATE', statusLabel: '审核中', title: '轻风 通勤版', amountInCents: 4900 };
+
+  // ① 有旧数据时失败 → 旧数据保留 + error 可见
+  harness.setApiHandler(servingStatus([plateRecord]));
+  const plate = harness.loadPage(path.join('pages', 'plate', 'plate.js'));
+  await plate.loadStatus();
+  assert.equal(plate.data.statusBlock.data.id, 'pl1', 'plate：首次加载应写入申请状态');
+  assert.equal(plate.data.statusBlock.error, '', 'plate：成功时不应有错误');
+  assert.equal(plate.data.statusBlock.loading, false, '⑧ plate：状态块必须确实跑完过一轮');
+
+  harness.setApiHandler(() => Promise.reject(new Error('状态接口 500')));
+  await plate.loadStatus();
+  assert.equal(plate.data.statusBlock.error, '状态接口 500', '★ plate：失败必须暴露错误，不能沉默');
+  assert.equal(plate.data.statusBlock.loading, false, '⑧ plate：失败后必须结束加载态');
+  assert.equal(
+    plate.data.statusBlock.data.id, 'pl1',
+    '★ plate：失败时不得清空已加载的状态 —— 否则「没取到」会被渲染成「你还没申请」，用户可能重复提交'
+  );
+
+  // ② 无旧数据时失败 → 无状态数据，但 error 非空（能区分「失败」与「还没申请」）
+  const plateCold = harness.loadPage(path.join('pages', 'plate', 'plate.js'));
+  harness.setApiHandler(() => Promise.reject(new Error('首次就挂了')));
+  await plateCold.loadStatus();
+  assert.equal(
+    plateCold.data.statusBlock.data, undefined,
+    'plate：首次失败时不应有状态数据（且必须真的是 undefined，不是空壳）'
+  );
+  assert.equal(
+    plateCold.data.statusBlock.error, '首次就挂了',
+    '★ plate：首次失败时 error 必须非空 —— 这是「失败」与「还没申请」唯一的区分点'
+  );
+  assert.equal(plateCold.data.statusBlock.loading, false, '⑧ plate：首次失败后也必须结束加载态');
+
+  // ③ 重试必须真的重新发起请求
+  let statusCalls = 0;
+  harness.setApiHandler((requestPath) => {
+    if (requestPath !== '/api/service-records') return Promise.resolve({ data: [] });
+    statusCalls += 1;
+    return statusCalls === 1
+      ? Promise.reject(new Error('第一次挂'))
+      : Promise.resolve({ data: { serviceRecords: [] } });
+  });
+  const plateRetry = harness.loadPage(path.join('pages', 'plate', 'plate.js'));
+  await plateRetry.loadStatus();
+  assert.equal(plateRetry.data.statusBlock.error, '第一次挂', 'plate：前置，第一次应失败');
+  assert.equal(statusCalls, 1, 'plate：前置，应只请求过一次');
+  await plateRetry.retryStatus();
+  assert.equal(statusCalls, 2, '★ plate：重试必须真的重新发起请求（而不是只把 error 清掉）');
+  assert.equal(plateRetry.data.statusBlock.error, '', 'plate：重试成功后应清掉错误');
+  assert.equal(plateRetry.data.statusBlock.loading, false, 'plate：重试成功后应结束加载态');
+
+  // ==================== 二、动作类：失败不得产生错误占位 ====================
+  // profile 的「上报已读」是动作：失败既不清空列表，也不该产生任何错误态。
+  harness.setApiHandler((requestPath) => {
+    if (requestPath === '/api/my/notifications') {
+      return Promise.resolve({ data: [{ id: 'n1', title: 'a', read: false }, { id: 'n2', title: 'b', read: true }] });
+    }
+    if (requestPath === '/api/my/notifications/read') return Promise.reject(new Error('上报失败'));
+    return Promise.resolve({ data: [] });
+  });
+  const profile = harness.loadPage(path.join('pages', 'profile', 'profile.js'));
+  await profile.loadNotifications();
+  // ★ 先用**肯定式**证明列表确实被初始化过（不是空壳），再做「未被牵连」的判断 ——
+  // 否则「列表没变」这种否定式断言在「压根没加载过」时会假通过。
+  assert.ok(Array.isArray(profile.data.notifications), '★ profile：通知列表必须是数组（证明它确实被初始化过）');
+  assert.equal(profile.data.notifications.length, 2, 'profile：前置，通知应加载 2 条');
+  assert.equal(profile.data.unreadNotificationCount, 1, 'profile：前置，未读数应为 1');
+
+  const before = JSON.parse(JSON.stringify(profile.data));
+  await profile.markNotificationsRead();
+  await settle();
+  assert.equal(profile.data.notifications.length, 2, '★ 动作类失败不得清空列表 —— 上报已读失败与「列表内容」无关');
+  assert.equal(profile.data.unreadNotificationCount, 1, '★ 动作类失败不得篡改未读数');
+  assert.deepEqual(
+    profile.data, before,
+    '★ 动作类（上报已读）失败不得改动页面任何可见状态 —— 既不清空列表，也不产生错误占位'
+  );
+});

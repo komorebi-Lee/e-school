@@ -1,4 +1,5 @@
 const { loadBusinessConfig } = require('../../services/business');
+const loadState = require('../../utils/load-state');
 
 const docTypes = {
   privacy: {
@@ -27,9 +28,11 @@ Page({
     const key = options.type === 'service' ? 'service' : 'privacy';
     this.setData({ doc: docTypes[key] });
     wx.setNavigationBarTitle({ title: docTypes[key].title });
+    // 配置加载：`loadBusinessConfig` 内部已用缓存/默认值兜底、永不 reject，
+    // 失败也不影响可见内容（正文是本地文案，客服电话回落到默认值），故显式忽略。
     loadBusinessConfig().then((config) => this.setData({
       contact: config.servicePhone || config.serviceWechat || '15527111396'
-    })).catch(() => {});
+    })).catch(loadState.ignoreSilently);
   },
   contactService() {
     wx.makePhoneCall({ phoneNumber: this.data.contact || '15527111396' });

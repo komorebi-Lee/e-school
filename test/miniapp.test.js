@@ -1605,3 +1605,67 @@ test('静默失败修复第二批：5 个列表页的空态必须同时排除「
     );
   }
 });
+
+test('★ 全仓不变量：miniprogram 下不存在任何空 catch', () => {
+  // 空格容错：`}).catch(()=>{});`（plate.js:28 那种无空格写法）也必须命中。
+  const emptyCatch = /catch\(\s*\(\s*\)\s*=>\s*\{\s*\}\s*\)/;
+  const files = listMiniappFiles();
+  // 必须遍历**全部** miniprogram JS 文件，不能只查改动过的 ——
+  // 否则将来任何一处新写的空 catch 都不会被这条断言拦住。
+  assert.ok(files.length >= 46, `应遍历全部 miniprogram JS 文件，实得 ${files.length} 个`);
+  const offenders = files
+    .filter((file) => emptyCatch.test(fs.readFileSync(file, 'utf8')))
+    .map((file) => path.relative(miniappDirectory, file));
+  assert.deepEqual(
+    offenders, [],
+    `空 catch 会让失败彻底沉默（无提示、无重试）。要么改成三态（loadBlock + 错误占位 + 重试），`
+    + `要么写成 .catch(ignoreSilently) 并紧跟一行注释说明理由。违规文件：${offenders.join(', ')}`
+  );
+});
+
+test('第三批：11 处显式忽略（配置加载 / 动作类）必须走 ignoreSilently 而不是内联空函数', () => {
+  const emptyCatch = /catch\(\s*\(\s*\)\s*=>\s*\{\s*\}\s*\)/;
+  // 8 处配置加载：`loadBusinessConfig` 内部已用缓存/默认值兜底、永不 reject；
+  // 3 处动作类：上报已读 / 记录足迹 / 保存常用地址 —— 失败不影响用户可见内容。
+  const sites = [
+    { file: path.join('pages', 'profile', 'profile.js'), why: '配置加载 + 上报已读（动作）' },
+    { file: path.join('pages', 'plate', 'plate.js'), why: '配置加载' },
+    { file: path.join('pages', 'orders', 'orders.js'), why: '配置加载' },
+    { file: path.join('pages', 'edit-order', 'edit-order.js'), why: '配置加载（配送时段，主加载已兜底）' },
+    { file: path.join('pages', 'detail', 'detail.js'), why: '记录足迹（动作）' },
+    { file: path.join('pages', 'consult', 'consult.js'), why: '配置加载' },
+    { file: path.join('pages', 'checkout', 'checkout.js'), why: '保存常用地址（动作）' },
+    { file: path.join('pages', 'agreement', 'agreement.js'), why: '配置加载' },
+    { file: path.join('pages', 'aftersales', 'aftersales.js'), why: '配置加载' },
+    { file: path.join('pages', 'addresses', 'addresses.js'), why: '配置加载' }
+  ];
+  for (const site of sites) {
+    const source = readMiniappFile(site.file);
+    assert.ok(
+      source.includes('loadState.ignoreSilently'),
+      `${site.file}（${site.why}）的失败必须显式声明可忽略，写成 .catch(loadState.ignoreSilently)`
+    );
+    assert.equal(emptyCatch.test(source), false, `${site.file} 不得再出现空 catch`);
+    assert.ok(
+      source.includes("require('../../utils/load-state')") || source.includes('require("../../utils/load-state")'),
+      `${site.file} 应引入共享工具 load-state`
+    );
+  }
+});
+
+test('第三批：plate 申请状态是加载类，必须三态化（块 + 错误占位 + 重试）', () => {
+  const source = readMiniappFile(path.join('pages', 'plate', 'plate.js'));
+  const markup = readMiniappFile(path.join('pages', 'plate', 'plate.wxml'));
+  const styles = readMiniappFile(path.join('pages', 'plate', 'plate.wxss'));
+
+  assert.ok(source.includes('loadState.loadBlock('), 'plate 状态加载应复用 loadBlock');
+  assert.ok(
+    source.includes('statusBlock:loadState.initialBlock()'),
+    'plate 应使用 statusBlock 三态块（改造前失败时 status 停在 null，会把「没取到」渲染成「还没申请」）'
+  );
+  assert.ok(source.includes('retryStatus()'), 'plate 应提供 retryStatus 重试入口');
+  assert.ok(markup.includes('bindtap="retryStatus"'), 'plate.wxml 应把 retryStatus 绑到错误占位');
+  assert.ok(markup.includes('statusBlock.error'), 'plate.wxml 应渲染 statusBlock.error');
+  assert.ok(markup.includes('statusBlock.loading'), 'plate.wxml 应渲染加载态');
+  assert.ok(styles.includes('.load-error'), 'plate.wxss 应定义 .load-error');
+});

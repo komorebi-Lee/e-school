@@ -12,3 +12,7 @@
 .charging-main .muted { margin-top: 6rpx; line-height: 1.5; font-size: 21rpx; }
 .charging-state { color: #9a7c00; background: #fff1b8; border-radius: 999rpx; padding: 8rpx 18rpx; font-size: 20rpx; font-weight: 800; white-space: nowrap; }
 .charging-state.done { color: #157552; background: #d9f7ea; }
+/* 失败占位：接口挂掉必须「看得见、点得动」，而不是安静地把「没取到」当成「还没申请」。 */
+.load-error { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; padding: 20rpx 24rpx; margin: 22rpx 0 0; background: #fff4f2; border: 2rpx solid #ffd9d3; border-radius: 18rpx; }
+.load-error .muted { flex: 1; min-width: 0; color: #a3341f; line-height: 1.45; }
+.load-error .ghost-button { min-width: 120rpx; margin: 0; flex-shrink: 0; }
