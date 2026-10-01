@@ -2865,3 +2865,64 @@ test('M6-P1-02 ⑧ 草稿读取抛错时页面仍能进，且不销毁 Storage �
   retry.onLoad();
   assert.equal(retry.data.title, MARKET_DRAFT_EXPECTED.title, '⑧ ★ 读取恢复正常后草稿必须还能恢复（失败不销毁数据）');
 });
+
+test('★ M6-P1-02（T44）contact 下限必须单点同源：页面不得手抄数字', async (t) => {
+  const harness = createHarness();
+  t.after(() => harness.restore());
+
+  const requests = [];
+  harness.setApiHandler((requestPath, options) => {
+    requests.push({ path: requestPath, data: (options && options.data) || {} });
+    return Promise.resolve({ data: { id: 'market_min_1' } });
+  });
+
+  const publish = harness.loadPage(marketPublishPath);
+  // ★ 判据自己也不写数字：边界由**共享常量**推出。这样测试文件里不会出现第二份副本，
+  // 常量一改，这里的边界跟着改 —— 否则「测试跟着实现一起错」就无人能发现。
+  const min = publishDraft.CONTACT_MIN_LENGTH;
+
+  // ==================== 边界：min - 1 字符 → 必须本地拦下 ====================
+  // 先测被拦的一侧：它不发请求、不起定时器，用例不必等跳转。
+  publish.setData({
+    title: '标题', description: '描述', priceInput: '9',
+    contact: 'x'.repeat(min - 1)
+  });
+  publish.submit();
+  await settle();
+  assert.equal(
+    requests.length, 0,
+    `★ ${min - 1} 字符（= 共享常量 - 1）必须被本地拦下（请求计数 0）——`
+    + '若变成 1，说明页面的下限与共享常量不是同一个值（手抄的副本漂移了），'
+    + '用户会白跑一趟网络往返吃 400'
+  );
+  assert.equal(publish.data.contactFocus, true, '被拦下时必须把光标送到联系方式输入框');
+  assert.equal(publish.data.submitting, false, '被拦下时不得把按钮锁在「正在发布…」');
+
+  // ==================== 边界：恰好 min 字符 → 必须真的发出去 ====================
+  // 没有这条，「计数为 0」也可能只是因为「任何长度都不发请求」。
+  publish.setData({ contact: 'x'.repeat(min), submitting: false });
+  publish.submit();
+  await settle();
+  assert.equal(
+    requests.length, 1,
+    `★ 恰好 ${min} 字符（= 共享常量）必须放行 —— 否则用户会被拦在一个服务端本来接受的值上`
+  );
+  assert.equal(requests[0].data.contact, 'x'.repeat(min), '放行时联系方式应原样带在请求体里');
+
+  // ==================== 源码级：确认页面真的**引用**共享常量 ====================
+  // 为什么光有行为断言不够：它无法区分「读共享常量」与「两处各写一个恰好相同的数字」——
+  // 前者服务端一动就跟着动，后者不会。而后者正是 T44 要消灭的东西。
+  // 所以必须再看一眼源码（与防漂移用例里 wxml `maxlength` 的做法同一路数）。
+  const pageSource = fs.readFileSync(path.join(miniprogramDirectory, marketPublishPath), 'utf8');
+  assert.ok(
+    pageSource.includes('publishDraft.CONTACT_MIN_LENGTH'),
+    '★ 页面必须引用 publishDraft.CONTACT_MIN_LENGTH（否则服务端上调下限时前端不会跟）'
+  );
+  assert.ok(
+    !/CONTACT_MIN_LENGTH\s*=\s*\d/.test(pageSource),
+    '★ 页面里不得再出现 `CONTACT_MIN_LENGTH = <数字>` 的手抄副本 —— 那正是 T44 要消灭的东西'
+  );
+
+  // 成功路径有 `setTimeout(..., 600)` 的跳转，等它跑完再结束用例（否则定时器会在 restore 之后触发）。
+  await new Promise((resolve) => { setTimeout(resolve, 700); });
+});

@@ -28,10 +28,14 @@
  * ## 字段上限与服务端逐条对齐
  *
  * `FIELD_LIMITS` 的每个数字都对应 `server/src/app.js` 里一处 `requireString` 的
- * `maxLength`，价格区间对应 `priceInCents > 0 && <= 10000000`。
+ * `maxLength`，`CONTACT_MIN_LENGTH` 对应唯一的 `minLength`，
+ * 价格区间对应 `priceInCents > 0 && <= 10000000`。
  * 前端计数若与服务端口径不同，就会出现「界面显示 60/60 但服务端说太长」——
  * 所以计数用的是**和服务端同一个表达式**：`String.prototype.length`（UTF-16 码元数），
  * 不是「字符数」也不是「码点数」。
+ *
+ * 这些数字不是「我核对过一次」就完了：`test/miniapp-runtime.test.js` 里有一条
+ * 常驻用例直接从 `server/src/app.js` 提取它们逐一比对，服务端改了而前端没跟即转红。
  *
  * ## 失败一律不抛，但**绝不静默**
  *
@@ -48,18 +52,35 @@ const DRAFT_KEYS = {
 };
 
 /**
- * 各页字段上限，逐条对应 `server/src/app.js` 的 `requireString(..., { maxLength })`。
+ * 各页字段**上限**，逐条对应 `server/src/app.js` 的 `requireString(..., { maxLength })`。
  *
  * - market.title → 60、market.description → 500、market.contact → 50
  * - forum.title → 60、forum.content → 1000
  *
  * `priceInput` 的 20 不是服务端约束（服务端收的是 `priceInCents`），
  * 纯粹是防御一个畸长的字符串被写进 Storage。
+ *
+ * ⚠️ 这里只有**上限**。`contact` 还另有一个**下限**，不在本表内 ——
+ * 见 {@link CONTACT_MIN_LENGTH}。别只看这张表就以为 contact 的约束齐了。
  */
 const FIELD_LIMITS = {
   market: { title: 60, description: 500, contact: 50, priceInput: 20 },
   forum: { title: 60, content: 1000 }
 };
+
+/**
+ * 联系方式的最小长度（去空白后），对应 `server/src/app.js:4413` 的
+ * `requireString(body.contact, 'contact', { minLength: 5, maxLength: 50, ... })`。
+ *
+ * 为什么单独一个常量而不是塞进 `FIELD_LIMITS.market.contact`：
+ * 那张表里每个值都是**标量上限**，改成 `{ min, max }` 会波及 wxml 的
+ * `maxlength` 与既有断言。所以按「只增不改」独立出来。
+ *
+ * 为什么必须单点化：这是**全仓唯一**一处服务端 `minLength`（已核实）。
+ * 若前端手抄一份，服务端把下限从 5 上调后前端仍会放 5 字符过去 ——
+ * 用户白跑一趟网络往返吃 400，正是 `market/publish.js` 本地拦截要避免的失效模式。
+ */
+const CONTACT_MIN_LENGTH = 5;
 
 /** 价格区间（元），对应服务端 `priceInCents > 0 && priceInCents <= 10000000`。 */
 const PRICE_MIN_YUAN = 0.01;
@@ -333,6 +354,7 @@ function clearDraft(key) {
 module.exports = {
   DRAFT_KEYS,
   FIELD_LIMITS,
+  CONTACT_MIN_LENGTH,
   IMAGE_LIMITS,
   PRICE_MIN_YUAN,
   PRICE_MAX_YUAN,

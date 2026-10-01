@@ -2563,7 +2563,7 @@ test('★ M6-P1-02 ⑧ 草稿读写容错：Storage 抛错时不得把异常抛�
   assert.equal(publishDraft.countText(oversized.title, 60).over, false, '⑧ 截断后不得再标记超限');
 });
 
-test('★ 前端上限必须与服务端源码逐条同源（防漂移：服务端改了而前端没跟 → 此用例转红）', () => {
+test('★ 前端字段约束（上限 + contact 下限）必须与服务端源码逐条同源（防漂移：服务端改了而前端没跟 → 此用例转红）', () => {
   const appPath = path.join(__dirname, '..', 'server', 'src', 'app.js');
   assert.ok(fs.existsSync(appPath), `服务端源码应存在（server/ 是 submodule，需先 checkout）：${appPath}`);
   const source = fs.readFileSync(appPath, 'utf8');
@@ -2597,10 +2597,62 @@ test('★ 前端上限必须与服务端源码逐条同源（防漂移：服务�
    */
   function serverMaxLength(endpoint, field) {
     const fragment = endpointSource(endpoint);
-    const match = fragment.match(new RegExp(`requireString\\(body\\.${field}, '${field}', \\{[\\s\\S]*?maxLength: (\\d+)`));
+    const match = fragment.match(new RegExp(`requireString\\(body\\.${field}, '${field}', \\{[^}]*?maxLength: (\\d+)`));
     assert.ok(match, `服务端 POST ${endpoint} 的 ${field} 应有 maxLength`);
     return Number(match[1]);
   }
+
+  /**
+   * 取出端点片段里某字段的 `minLength`（T44 新增，与 `serverMaxLength` 完全对称）。
+   *
+   * @param {string} endpoint 端点路径。
+   * @param {string} field 字段名。
+   * @returns {number} 服务端实际使用的下限。
+   */
+  function serverMinLength(endpoint, field) {
+    const fragment = endpointSource(endpoint);
+    const match = fragment.match(new RegExp(`requireString\\(body\\.${field}, '${field}', \\{[^}]*?minLength: (\\d+)`));
+    assert.ok(match, `服务端 POST ${endpoint} 的 ${field} 应有 minLength`);
+    return Number(match[1]);
+  }
+
+  // ★★ 为什么是 `[^}]*?` 而不是 `[\s\S]*?`（**T44 修掉的一个「绿在错误原因上」的洞**）
+  //
+  // `[\s\S]*?` 能跨过字段选项对象的 `}`，于是「找 A 字段的 minLength」会一路找到
+  // **B 字段**的 minLength。实测（`server/src/app.js` 的 POST /api/market/items 片段）：
+  //
+  //     minLength(title)       = 5   ← 错！title 根本没有 minLength，这是 contact 的
+  //     minLength(description) = 5   ← 错！同上
+  //     minLength(contact)     = 5   ← 对，但只是**碰巧**对
+  //
+  // 也就是说，用 `[\s\S]*?` 时上面那条 contact 断言**即使问错字段也照样绿** ——
+  // 判据会在「压根没查 contact」的情况下通过，属于本会话一直在追的那类失效。
+  // 收紧为 `[^}]*?`（不跨出选项对象）后：title / description 正确地「找不到」，
+  // contact 正确地取到 5。既有 5 条 maxLength 断言的取值**一个都没变**（60 / 500 / 50），
+  // 因为每个字段自己的 maxLength 本来就是最近的那个。
+  //
+  // ★ 判据自测：两种红必须可区分 —— 「找不到」与「数值不一致」。
+  // 没有这两条，就无法判断下面的断言是红在数值上，还是红在正则压根没命中上。
+  assert.throws(
+    () => serverMinLength('/api/market/items', 'title'),
+    /应有 minLength/,
+    '★ 判据自测：title 只有 maxLength，问它的 minLength 必须以「找不到」失败（证明两种红可区分）'
+  );
+  assert.throws(
+    () => serverMinLength('/api/market/items', 'priceInCents'),
+    /应有 minLength/,
+    '★ 判据自测：非 requireString 字段必须以「找不到」失败，而不是返回邻居的值'
+  );
+  assert.throws(
+    () => serverMaxLength('/api/market/items', 'priceInCents'),
+    /应有 maxLength/,
+    '★ 判据自测：serverMaxLength 同样不得跨字段取值'
+  );
+  // ★ 正向控制：contact 必须**真的**取到值（否则上面三条「找不到」可以靠「永远找不到」通过）。
+  assert.equal(
+    typeof serverMinLength('/api/market/items', 'contact'), 'number',
+    '★ 正向控制：contact 必须真的能取到 minLength —— 否则上面的「找不到」是钝的'
+  );
 
   assert.equal(
     serverMaxLength('/api/market/items', 'title'),
@@ -2616,6 +2668,14 @@ test('★ 前端上限必须与服务端源码逐条同源（防漂移：服务�
     serverMaxLength('/api/market/items', 'contact'),
     publishDraft.FIELD_LIMITS.market.contact,
     '★ 联系方式上限必须等于服务端 maxLength'
+  );
+  // ★ T44：contact 的**下限**同样要同源。上限只拦住「太长」，
+  // 下限拦的是「太短」—— 服务端把 minLength 上调而前端仍放 5 字符过去，
+  // 用户就会白跑一趟网络往返吃 400，正是 `market/publish.js` 本地拦截要避免的失效模式。
+  assert.equal(
+    serverMinLength('/api/market/items', 'contact'),
+    publishDraft.CONTACT_MIN_LENGTH,
+    '★ 联系方式下限必须等于服务端 minLength —— 前端本地拦截用的是同一个常量，不得手抄'
   );
   assert.equal(
     serverMaxLength('/api/forum/posts', 'title'),

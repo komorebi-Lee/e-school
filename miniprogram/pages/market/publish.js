@@ -20,10 +20,6 @@ const conditionOptions = [
   { key: 'USED', label: '有使用痕迹' }
 ];
 
-// 联系方式的最小长度（去空白后）。与服务端 `POST /api/market/items` 的 `minLength: 5`
-// 是同一个口径 —— 前端拦截只是为了「不白跑一趟网络」，服务端那道才是真正的防线。
-const CONTACT_MIN_LENGTH = 5;
-
 function uploadMarketImage(file) {
   return upload.uploadImage(file, request).then((data) => data.url);
 }
@@ -212,7 +208,9 @@ Page({
     // ★ 本地拦截：没有联系方式就不发请求。
     // 为什么要在本地拦而不是等服务端 400：服务端拒绝意味着用户已经等了一趟网络往返，
     // 而且错误只能以 toast 呈现、光标还停在别处。这里直接聚焦到该输入框，用户少走一步。
-    if (contact.trim().length < CONTACT_MIN_LENGTH) {
+    // 下限取自共享模块（服务端 `minLength` 的唯一副本），所以服务端一旦上调，
+    // 这里跟着一起动 —— 不会出现「前端放过去、服务端必然 400」。
+    if (contact.trim().length < publishDraft.CONTACT_MIN_LENGTH) {
       this.setData({ contactFocus: true });
       return wx.showToast({ title: '请填写联系方式（微信号或手机号）', icon: 'none' });
     }
