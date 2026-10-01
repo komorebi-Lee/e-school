@@ -1,0 +1,17 @@
+.page { padding: 20rpx 24rpx; }
+.summary { padding: 22rpx; color: #536078; font-size: 22rpx; margin-bottom: 18rpx; }
+.mine-card { padding: 22rpx; margin-bottom: 15rpx; }
+.mine-head { display: flex; align-items: center; justify-content: space-between; gap: 12rpx; }
+.board-tag { background: #eaf0ff; color: #002fa7; border-radius: 999rpx; padding: 4rpx 14rpx; font-size: 19rpx; font-weight: 800; }
+.mine-title { margin-top: 12rpx; font-size: 27rpx; font-weight: 900; }
+.mine-content { margin-top: 6rpx; line-height: 1.45; }
+.mine-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 14rpx; }
+.status-tag { border-radius: 999rpx; padding: 4rpx 14rpx; font-size: 19rpx; font-weight: 800; }
+.status-live { background: #e8f6ec; color: #1f7a3d; }
+.status-hidden { background: #f2f3f6; color: #78849a; }
+.empty { padding: 40rpx 24rpx; display: flex; flex-direction: column; align-items: center; gap: 16rpx; }
+
+/* 失败占位：接口挂掉必须「看得见、点得动」，而不是安静地显示空列表。 */
+.load-error { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; padding: 20rpx 24rpx; margin: 0 0 18rpx; background: #fff4f2; border: 2rpx solid #ffd9d3; border-radius: 18rpx; }
+.load-error .muted { flex: 1; min-width: 0; color: #a3341f; line-height: 1.45; }
+.load-error .ghost-button { min-width: 120rpx; margin: 0; flex-shrink: 0; }

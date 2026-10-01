@@ -7,6 +7,8 @@ Page({
     comment: '',
     submitting: false,
     liking: false,
+    // 作者自管理（M7-P1-01）：隐藏 / 恢复进行中，用于禁用按钮防重复提交。
+    togglingStatus: false,
     loading: true
   },
 
@@ -58,6 +60,35 @@ Page({
   },
 
   setComment(event) { this.setData({ comment: event.detail.value }); },
+
+  /**
+   * 隐藏 / 恢复自己的帖子（M7-P1-01）。
+   *
+   * 按钮只在 `post.isOwner` 为真时渲染，但**真正的防线在服务端** ——
+   * 状态端点会独立校验作者，非作者拿 403。这里的开关只是界面。
+   *
+   * @returns {void}
+   */
+  toggleVisibility() {
+    const post = this.data.post;
+    if (!post || this.data.togglingStatus) return;
+    // 状态词汇与服务端一致：`PUBLISHED`（可见）/ `HIDDEN`（已隐藏）。
+    const nextStatus = post.status === 'HIDDEN' ? 'PUBLISHED' : 'HIDDEN';
+    this.setData({ togglingStatus: true });
+    request(`/api/forum/posts/${encodeURIComponent(this.data.id)}/status`, {
+      method: 'POST',
+      data: { status: nextStatus }
+    }).then(() => {
+      this.setData({ togglingStatus: false });
+      wx.showToast({ title: nextStatus === 'HIDDEN' ? '帖子已隐藏' : '帖子已恢复', icon: 'success' });
+      // 重新拉取而不是本地改 `status`：隐藏后服务端还会更新 `updatedAt` 并写审计，
+      // 本地改会让页面与库里的实际状态漂移。
+      this.loadPost();
+    }).catch((error) => {
+      this.setData({ togglingStatus: false });
+      wx.showToast({ title: error.message || '操作失败', icon: 'none' });
+    });
+  },
 
   submitComment() {
     const { comment, submitting } = this.data;

@@ -28,6 +28,7 @@
     ,"pages/forum/forum"
     ,"pages/forum/post"
     ,"pages/forum/publish"
+    ,"pages/forum/mine"
     ,"pages/favorites/favorites"
     ,"pages/footprints/footprints"
     ,"pages/reviews/reviews"

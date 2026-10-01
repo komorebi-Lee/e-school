@@ -1,0 +1,31 @@
+<view class="page">
+  <!-- 失败占位：接口挂了必须说出来，并且能重试。旧列表（若有）仍显示在下方。 -->
+  <view wx:if="{{postsBlock.error}}" class="load-error card">
+    <view class="muted">{{postsBlock.error}}</view>
+    <button size="mini" class="ghost-button" bindtap="retryPosts">重试</button>
+  </view>
+
+  <view wx:if="{{postsBlock.loading && !postsBlock.data.length}}" class="empty card"><view class="muted">正在加载你的帖子…</view></view>
+  <!-- 空态：必须同时「不在加载」且「没有错误」，否则失败会被说成「你还没有发过帖子」 -->
+  <view wx:elif="{{!postsBlock.data.length && !postsBlock.error}}" class="empty card">
+    <view class="muted">你还没有发过帖子</view>
+    <button size="mini" class="primary-button" bindtap="goPublish">去发帖</button>
+  </view>
+  <block wx:else>
+    <view class="summary card" wx:if="{{postsBlock.data.length}}">共 {{postsBlock.data.length}} 条帖子</view>
+    <view class="mine-card card" wx:for="{{postsBlock.data}}" wx:key="id" bindtap="goPost" data-id="{{item.id}}">
+      <view class="mine-head">
+        <text class="board-tag">{{item.boardText}}</text>
+        <text class="muted small">{{item.timeText}}</text>
+      </view>
+      <view class="mine-title">{{item.title}}</view>
+      <view class="muted small mine-content">{{item.content}}</view>
+      <view class="mine-foot">
+        <!-- 隐藏状态必须显示出来：这一页是「恢复」的唯一入口，
+             看不出哪条被隐藏，用户就不知道要恢复什么。 -->
+        <text class="status-tag {{item.hidden ? 'status-hidden' : 'status-live'}}">{{item.statusText}}</text>
+        <text class="muted small">♥ {{item.likes}} · 💬 {{item.commentCount}}</text>
+      </view>
+    </view>
+  </block>
+</view>

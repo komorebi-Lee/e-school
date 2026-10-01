@@ -18,7 +18,18 @@
       <view class="actions">
         <button size="mini" class="ghost-button {{post.liked ? 'liked' : ''}}" bindtap="toggleLike">{{post.liked ? '♥' : '♡'}} {{post.likes}}</button>
         <text class="muted small">💬 {{post.commentCount}} 条评论</text>
+        <!-- 作者自管理（M7-P1-01）：只有作者看得到这两个操作。 -->
+        <button
+          wx:if="{{post.isOwner}}"
+          size="mini"
+          class="ghost-button"
+          bindtap="toggleVisibility"
+          disabled="{{togglingStatus}}"
+        >{{post.status === 'HIDDEN' ? '恢复帖子' : '隐藏帖子'}}</button>
       </view>
+      <!-- 作者本人打开自己的隐藏帖时（服务端对作者放行）明确告知当前状态，
+           否则他会以为帖子还在正常展示。 -->
+      <view wx:if="{{post.isOwner && post.status === 'HIDDEN'}}" class="muted small">该帖子已隐藏，只有你自己能看到。</view>
     </view>
 
     <view class="section-title">评论</view>

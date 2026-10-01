@@ -127,6 +127,14 @@ Page({
   goAddresses() { wx.navigateTo({ url: "/pages/addresses/addresses" }); },
   goMyReviews() { wx.navigateTo({ url: "/pages/reviews/reviews" }); },
   goFootprints() { wx.navigateTo({ url: "/pages/footprints/footprints" }); },
+  /**
+   * 「我的帖子」（M7-P1-01）。
+   *
+   * 走 `openLink` 而不是裸 `wx.navigateTo`：站内跳转统一由它分发（tabBar 页要
+   * `switchTab`、失败要提示而不是静默）。`forum/mine` 目前不是 tabBar 页，
+   * `openLink` 会走 `navigateTo`；将来若它变成 tabBar 页，这里不用改。
+   */
+  goMyForumPosts() { openLink("/pages/forum/mine"); },
   goCard() { wx.navigateTo({ url: "/pages/card/card" }); },
   goMerchant() {
     if (this.data.latestApprovedAt) {

@@ -1934,3 +1934,117 @@ test('M3-P2-01：图片读取只有 utils/upload.js 一处，7 个页面全部�
   }
   assert.equal(totalCalls, 9, '★ 7 个页面合计应有 9 处调用，与改造前 9 处 readFile 一一对应');
 });
+
+test('M7-P1-01：帖子详情页的隐藏/恢复按钮只对作者渲染（模板守卫）', () => {
+  const wxml = readMiniappFile(path.join('pages', 'forum', 'post.wxml'));
+  const js = readMiniappFile(path.join('pages', 'forum', 'post.js'));
+
+  // ★ 结构性断言，不是「文件里出现过 post.isOwner」那种子串断言。
+  //
+  // 子串断言的问题是：把 `wx:if` 从按钮上挪走、或**新加一个没带守卫的按钮**，
+  // 它照样绿。所以这里先按 `bindtap="toggleVisibility"` 定位到那一个元素，
+  // 再检查**同一个元素的开标签**上是否带着守卫。
+  const marker = 'bindtap="toggleVisibility"';
+  const occurrences = wxml.split(marker).length - 1;
+  assert.equal(
+    occurrences, 1,
+    '★ 隐藏/恢复按钮应当只有一个 —— 多出来的那个极可能没带 isOwner 守卫，'
+    + '会让所有访客都看到「隐藏」按钮（点了才拿 403）'
+  );
+
+  const markerIndex = wxml.indexOf(marker);
+  const elementStart = wxml.lastIndexOf('<button', markerIndex);
+  assert.ok(elementStart !== -1, '★ 应能在 wxml 里定位到按钮的开标签');
+  const tagEnd = wxml.indexOf('>', markerIndex);
+  const openingTag = wxml.slice(elementStart, tagEnd + 1);
+
+  assert.ok(
+    openingTag.includes('wx:if="{{post.isOwner}}"'),
+    '★ 按钮必须被 wx:if="{{post.isOwner}}" 守住。注意不能只写 `post.isOwner`：'
+    + '服务端对 `authorId` 为 null/undefined 的脏数据必须判成「非作者」，'
+    + '前端这条守卫与它一一对应。实得开标签：' + openingTag
+  );
+  assert.ok(
+    openingTag.includes('disabled="{{togglingStatus}}"'),
+    '★ 按钮在请求进行中必须禁用（与 toggleVisibility 里的 togglingStatus 守卫配套，防重复提交）'
+  );
+  // 文案在**元素体**里，不在开标签上 —— 第一次写这条断言时我把它挂在了
+  // `openingTag` 上，于是它必然为假（断言自测当场逮住了这个写法错误，
+  // 而不是被测代码的错误）。
+  const elementEnd = wxml.indexOf('</button>', tagEnd);
+  assert.ok(elementEnd !== -1, '★ 应能定位到按钮的闭标签');
+  const elementText = wxml.slice(tagEnd + 1, elementEnd);
+  assert.ok(
+    elementText.includes("'恢复帖子'") && elementText.includes("'隐藏帖子'"),
+    '★ 按钮文案必须随当前状态切换（隐藏态显示「恢复帖子」，否则用户看不出它现在会做什么）。'
+    + '实得元素体：' + elementText
+  );
+
+  // 作者看到自己的隐藏帖时必须有常驻说明，否则他会以为帖子还在正常展示。
+  assert.ok(
+    wxml.includes("wx:if=\"{{post.isOwner && post.status === 'HIDDEN'}}\""),
+    '★ 作者打开自己的隐藏帖时必须给出常驻提示（不是 toast），说明只有他自己能看到'
+  );
+
+  // ★★ 状态词汇守卫：`ACTIVE` 只用于市集商品，论坛帖是 PUBLISHED / HIDDEN。
+  // 四处读取（列表 / 详情 / 点赞 / 评论）都判 `=== 'PUBLISHED'`，
+  // 一旦把「恢复」写成 ACTIVE，帖子会对**所有人**永久消失且没有任何测试会发现。
+  assert.equal(
+    js.includes("'ACTIVE'") || js.includes('"ACTIVE"'), false,
+    '★★ post.js 不得出现 ACTIVE —— 论坛帖的可见状态只有 PUBLISHED / HIDDEN'
+  );
+  // 运行时的真正防线在上一条用例里（断言实际发出的请求体），这里只挡住「写错词」。
+  assert.ok(
+    js.includes("'PUBLISHED'") && js.includes("'HIDDEN'"),
+    '★ post.js 必须使用既有词汇 PUBLISHED / HIDDEN'
+  );
+});
+
+test('M7-P1-01：「我的帖子」已注册，profile 有入口，且 tabBar 仍是 5 项', () => {
+  const appConfig = JSON.parse(readMiniappFile('app.json'));
+  const profileJs = readMiniappFile(path.join('pages', 'profile', 'profile.js'));
+  const profileWxml = readMiniappFile(path.join('pages', 'profile', 'profile.wxml'));
+
+  // ==================== ⑩ 页面注册 ====================
+  assert.ok(
+    appConfig.pages.includes('pages/forum/mine'),
+    '⑩ ★ 「我的帖子」必须在 app.json 里注册（否则跳过去是空白页）'
+  );
+  for (const extension of ['js', 'wxml', 'json', 'wxss']) {
+    const file = path.join(miniappDirectory, 'pages', 'forum', `mine.${extension}`);
+    assert.ok(fs.existsSync(file), `⑩ ★ pages/forum/mine.${extension} 必须存在`);
+  }
+
+  // ==================== ⑩ tabBar 不得被打断 ====================
+  const tabBarList = appConfig.tabBar?.list || [];
+  assert.equal(
+    tabBarList.length, 5,
+    '⑩ ★★ tabBar 必须仍是 5 项 —— 「我的帖子」是新页面，不是新的 tab'
+  );
+  assert.deepEqual(
+    tabBarList.map((item) => item.pagePath),
+    ['pages/home/home', 'pages/map/map', 'pages/orders/orders', 'pages/profile/profile', 'pages/market/market'],
+    '⑩ ★★ tabBar 的项与顺序都不得被这次改动影响'
+  );
+
+  // ==================== ⑩ 地图隐私配置不得被碰到 ====================
+  assert.deepEqual(
+    appConfig.requiredPrivateInfos, ['getLocation'],
+    '⑩ ★ requiredPrivateInfos 必须原样（绝对禁区）'
+  );
+  assert.equal(
+    appConfig.permission?.['scope.userLocation']?.desc,
+    '用于在校园地图中辅助你确认当前位置附近的建筑和路线。',
+    '⑩ ★ scope.userLocation 的说明文案必须原样（绝对禁区）'
+  );
+
+  // ==================== ⑩ profile 入口 ====================
+  assert.ok(profileJs.includes('goMyForumPosts'), '⑩ 「我的帖子」入口必须在 profile.js 里');
+  assert.ok(profileWxml.includes('bindtap="goMyForumPosts"'), '⑩ 「我的帖子」菜单项必须在 profile.wxml 里绑定');
+  // 走 openLink 而不是裸 wx.navigateTo：站内跳转统一由它分发（tabBar 页要 switchTab、
+  // 失败要提示而不是静默）。这里断言的是**接线**，不是字面串。
+  assert.match(
+    profileJs, /goMyForumPosts\s*\(\s*\)\s*\{\s*openLink\(/,
+    '⑩ ★ goMyForumPosts 必须走 openLink（将来该页若变成 tabBar 页，这里不用改）'
+  );
+});

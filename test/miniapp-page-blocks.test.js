@@ -1531,3 +1531,176 @@ test('M2-P1-03：已下架商品给出常驻的「该商品已下架」，而不
     '⑬ ★ 正向控制：网络故障仍保留原有提示'
   );
 });
+
+test('M7-P1-01：我的帖子页失败走三态，且失败绝不被说成「你还没有发过帖子」', async (t) => {
+  const harness = createHarness();
+  t.after(() => harness.restore());
+
+  // ==================== 第一段：首次加载就失败 ====================
+  let shouldFail = true;
+  const requestedPaths = [];
+  harness.setApiHandler((requestPath) => {
+    requestedPaths.push(requestPath);
+    if (shouldFail) return Promise.reject(new Error('论坛接口 500'));
+    return Promise.resolve({
+      data: [
+        { id: 'p_live', title: '在售帖', content: '正文 A', boardText: '校园生活', likes: 3, commentCount: 1, status: 'PUBLISHED', createdAt: '2026-09-01T10:00:00.000Z' },
+        { id: 'p_hidden', title: '被隐藏的帖', content: '正文 B', boardText: '学习交流', likes: 0, commentCount: 0, status: 'HIDDEN', createdAt: '2026-09-02T11:30:00.000Z' }
+      ]
+    });
+  });
+
+  const mine = harness.loadPage(path.join('pages', 'forum', 'mine.js'));
+  mine.onShow();
+  await settle();
+
+  assert.deepEqual(
+    requestedPaths, ['/api/forum/posts?mine=1'],
+    '⑧ ★ 「我的帖子」必须打 ?mine=1 —— 这是隐藏帖唯一的恢复入口，走主列表会一条都看不到'
+  );
+  assert.equal(mine.data.postsBlock.loading, false, '⑧ 失败后必须结束加载态，否则页面永远停在「正在加载」');
+  assert.equal(mine.data.postsBlock.error, '论坛接口 500', '⑧ ★ 失败必须成为一种可见状态（常驻占位 + 重试），而不是一闪而过的 toast');
+  // ★ 这一条是本用例的核心：`data` 必须仍是**数组**。
+  // 若失败时把它清成 `undefined`，模板里的 `!postsBlock.data.length` 会取到
+  // `undefined` —— 在 `wx:if` 里是假值 —— 于是「接口挂了」被渲染成「你还没有发过帖子」，
+  // 用户会以为自己发的帖子被删了。这是一个**假事实**，比空白更糟。
+  assert.ok(
+    Array.isArray(mine.data.postsBlock.data), '⑧ ★★ 失败时 data 必须仍是数组（否则「失败」会被渲染成「空」）'
+  );
+  assert.equal(mine.data.postsBlock.data.length, 0, '⑧ 首次加载失败时本就没有旧数据可留');
+
+  // ==================== 第二段：重试成功 ====================
+  shouldFail = false;
+  await mine.retryPosts();
+  await settle();
+
+  assert.equal(mine.data.postsBlock.error, '', '⑧ ★ 重试成功后必须清掉错误态');
+  assert.equal(mine.data.postsBlock.loading, false, '⑧ 重试成功后必须结束加载态');
+  assert.equal(mine.data.postsBlock.data.length, 2, '⑧ 重试成功后应渲染两条帖子');
+  assert.equal(mine.data.postsBlock.data[0].statusText, '已发布', '⑧ 未隐藏的帖子应标为「已发布」');
+  assert.equal(mine.data.postsBlock.data[0].hidden, false, '⑧ 未隐藏的帖子 hidden 为 false');
+  // ★ 隐藏态必须看得见：这一页是「恢复」的唯一入口，看不出哪条被隐藏，
+  // 用户就不知道要恢复什么，功能等于没有。
+  assert.equal(mine.data.postsBlock.data[1].hidden, true, '⑧ ★★ 隐藏的帖子必须被标出来');
+  assert.equal(mine.data.postsBlock.data[1].statusText, '已隐藏', '⑧ ★★ 隐藏帖的状态文案必须是「已隐藏」');
+  assert.equal(mine.data.postsBlock.data[1].boardText, '学习交流', '⑧ 板块文案应原样透传');
+
+  // ==================== 第三段：已有数据后再失败，旧列表不得被清空 ====================
+  shouldFail = true;
+  await mine.loadMine();
+  await settle();
+
+  assert.equal(mine.data.postsBlock.error, '论坛接口 500', '⑧ 再次失败应重新进入错误态');
+  assert.equal(
+    mine.data.postsBlock.data.length, 2,
+    '⑧ ★★ 失败绝不清空旧列表 —— 旧数据比「假装没有数据」有用得多'
+  );
+
+  // ==================== 第四段：跳转 ====================
+  harness.clearOpenLinkCalls();
+  mine.goPost({ currentTarget: { dataset: { id: 'post a&b' } } });
+  assert.equal(harness.getOpenLinkCalls().length, 1, '⑧ 点击帖子应跳转');
+  assert.equal(
+    harness.getOpenLinkCalls()[0].url, '/pages/forum/post?id=post%20a%26b',
+    '⑧ ★ id 必须转义后再拼进 query（否则含 & 的 id 会被截成另一个参数）'
+  );
+
+  harness.clearOpenLinkCalls();
+  mine.goPost({ currentTarget: { dataset: {} } });
+  assert.equal(harness.getOpenLinkCalls().length, 0, '⑧ 缺 id 时不得跳转到一个空详情的死页');
+
+  mine.goPublish();
+  assert.equal(harness.getOpenLinkCalls().length, 1, '⑧ 「去发帖」应跳转');
+  assert.equal(harness.getOpenLinkCalls()[0].url, '/pages/forum/publish', '⑧ 「去发帖」应进发帖页');
+});
+
+test('M7-P1-01：帖子详情页的隐藏/恢复只发给作者，且恢复用 PUBLISHED 而不是 ACTIVE', async (t) => {
+  const harness = createHarness();
+  t.after(() => harness.restore());
+
+  const makePost = (isOwner, status) => ({
+    id: 'post_1',
+    title: '标题',
+    content: '正文',
+    boardText: '校园生活',
+    likes: 0,
+    liked: false,
+    comments: [],
+    commentCount: 0,
+    status,
+    isOwner,
+    createdAt: '2026-09-01T10:00:00.000Z'
+  });
+
+  let payload = makePost(true, 'PUBLISHED');
+  const calls = [];
+  harness.setApiHandler((requestPath, options) => {
+    calls.push({ path: requestPath, options });
+    return Promise.resolve({ data: payload });
+  });
+
+  const page = harness.loadPage(path.join('pages', 'forum', 'post.js'));
+  page.onLoad({ id: 'post_1' });
+  page.onShow();
+  await settle();
+
+  // ==================== 方向一：作者本人 ====================
+  assert.equal(page.data.loading, false, '⑨ 前置：详情必须加载结束');
+  assert.equal(
+    page.data.post.isOwner, true,
+    '⑨ ★ 作者本人：isOwner 必须原样传进 data —— 模板的 wx:if="{{post.isOwner}}" 求值为真，按钮才渲染'
+  );
+  assert.equal(page.data.post.status, 'PUBLISHED', '⑨ 前置：当前是已发布状态');
+
+  // ==================== 方向二：非作者 ====================
+  payload = makePost(false, 'PUBLISHED');
+  page.loadPost();
+  await settle();
+  assert.equal(
+    page.data.post.isOwner, false,
+    '⑨ ★★ 非作者：isOwner 为 false —— 模板的 wx:if 求值为假，按钮不渲染'
+  );
+  assert.equal(page.data.post.title, '标题', '⑨ 前置：非作者同样能正常看到帖子内容');
+
+  // ==================== 隐藏：必须发 HIDDEN ====================
+  payload = makePost(true, 'PUBLISHED');
+  page.loadPost();
+  await settle();
+  calls.length = 0;
+  page.toggleVisibility();
+  // ★ 同步断言：`togglingStatus` 必须在**发请求之前**就置为 true，
+  // 否则用户连点两下会发出两次状态请求（后一次覆盖前一次）。
+  assert.equal(page.data.togglingStatus, true, '⑨ ★ 进行中必须立刻置 togglingStatus（按钮据此禁用）');
+  page.toggleVisibility(); // 重复点击：应被上面的守卫挡掉
+  await settle();
+  await settle();
+
+  const hideCalls = calls.filter((call) => call.path === '/api/forum/posts/post_1/status');
+  assert.equal(hideCalls.length, 1, '⑨ ★ 重复点击不得发出第二次状态请求');
+  assert.equal(hideCalls[0].options.method, 'POST', '⑨ 状态变更必须用 POST');
+  assert.equal(hideCalls[0].options.data.status, 'HIDDEN', '⑨ ★ 隐藏必须发 HIDDEN');
+  assert.equal(page.data.togglingStatus, false, '⑨ 完成后必须复位 togglingStatus');
+
+  // ==================== 恢复：必须是 PUBLISHED ====================
+  payload = makePost(true, 'HIDDEN');
+  page.loadPost();
+  await settle();
+  assert.equal(page.data.post.status, 'HIDDEN', '⑨ 前置：作者能看到自己隐藏帖的真实状态');
+
+  calls.length = 0;
+  page.toggleVisibility();
+  await settle();
+  await settle();
+
+  const restoreCalls = calls.filter((call) => call.path === '/api/forum/posts/post_1/status');
+  assert.equal(restoreCalls.length, 1, '⑨ 恢复也应发一次状态请求');
+  assert.equal(
+    restoreCalls[0].options.data.status, 'PUBLISHED',
+    '⑨ ★★ 恢复必须发 PUBLISHED（不是 ACTIVE）—— 列表/详情/点赞/评论四处读取都判 '
+    + '=== PUBLISHED，发 ACTIVE 会让帖子对所有人永久消失，连作者都恢复不回来'
+  );
+  assert.notEqual(
+    restoreCalls[0].options.data.status, 'ACTIVE',
+    '⑨ ★★ 正向控制：确认上一条断言不是恒真 —— 它确实区分 PUBLISHED 与 ACTIVE'
+  );
+});
