@@ -96,6 +96,10 @@ function createHarness() {
   let apiHandler = () => Promise.resolve({ data: {} });
   // 支付调用默认成功；用例可置为 reject 来模拟「订单已创建但支付失败」。
   let paymentHandler = () => Promise.resolve({});
+  // 业务配置的返回值。默认值与改造前**逐字一致**（既有用例依赖它），
+  // 所以把写死的字面量抽成变量对既有用例是零行为变化。
+  // 需要验证「上限随配置变化 / 配置缺失回落 / 配置后到」的用例用下面的 setter 覆盖。
+  let businessConfigHandler = () => Promise.resolve({ phoneCardActivationHours: 48 });
   // 记录页面把跳转委托给 openLink 的调用（tabBar 页必须走它，不能自己调 navigateTo）。
   const openLinkCalls = [];
   const stubs = new Map([
@@ -105,7 +109,7 @@ function createHarness() {
       userId: () => 'user-1'
     }],
     [require.resolve(path.join(miniprogramDirectory, 'services', 'business.js')), {
-      loadBusinessConfig: () => Promise.resolve({ phoneCardActivationHours: 48 })
+      loadBusinessConfig: () => businessConfigHandler()
     }],
     [require.resolve(path.join(miniprogramDirectory, 'services', 'payment.js')), {
       payPaymentOrder: (paymentOrder) => paymentHandler(paymentOrder),
@@ -132,6 +136,18 @@ function createHarness() {
   return {
     storage,
     setApiHandler(handler) { apiHandler = handler; },
+    /**
+     * 设置 `loadBusinessConfig` 的**返回值**（立即 resolve）。
+     *
+     * @param {object} value 业务配置对象；缺字段即为「配置未下发该字段」。
+     */
+    setBusinessConfig(value) { businessConfigHandler = () => Promise.resolve(value); },
+    /**
+     * 设置 `loadBusinessConfig` 的**行为**（可延迟 resolve，用于验证并发竞态）。
+     *
+     * @param {Function} handler 无参函数，返回 Promise。
+     */
+    setBusinessConfigHandler(handler) { businessConfigHandler = handler; },
     /** 设置支付调用的行为（resolve = 支付成功；reject = 订单已创建但支付失败）。 */
     setPaymentHandler(handler) { paymentHandler = handler; },
     /** 记录到的 `wx.showModal` 调用（`success` 回调保留，由用例显式触发）。 */
@@ -2209,4 +2225,139 @@ test('M8-P1-01：学生认证真实落库 —— profile 页真的发请求、�
     stripComments(jsSource).includes('identityBlock'), true,
     '⑫ 判据自测：去掉注释之后可执行代码仍在（否则上一条是恒真断言）'
   );
+});
+
+test('M3-P1-02：结算页单笔上限读运营配置、配置缺失回落 5（不是 NaN）、超限提示用实际配置值', async (t) => {
+  const harness = createHarness();
+  t.after(() => harness.restore());
+
+  const checkoutPath = path.join('pages', 'checkout', 'checkout.js');
+  const source = fs.readFileSync(path.join(miniprogramDirectory, checkoutPath), 'utf8');
+  // 商品库存刻意给 20（远高于任何上限）：这样 `maxQuantity` 只由**平台上限**决定，
+  // 库存不参与干扰，断言才直接指向「有没有读到配置」。
+  const product = {
+    id: 'prod_ebike_001', name: '轻风 通勤版', description: '45km参考续航',
+    priceInCents: 239900, stock: 20, availableStock: 20
+  };
+
+  // ==================== ⑩ 那段失效注释必须已更新 ====================
+  // 改造前写的是「该配置**在服务端尚不存在**（属于 T21）」—— T21 落地后这句就变成假的了。
+  assert.equal(
+    source.includes('属于 T21'), false,
+    '⑩ ★ 失效注释必须删掉（不能再把该配置说成「属于 T21」的待做项）'
+  );
+  assert.equal(
+    source.includes('在服务端尚不存在'), false,
+    '⑩ ★ 不能再声称该配置在服务端不存在'
+  );
+  assert.ok(
+    source.includes('M3-P1-02 已落地'),
+    '⑩ 注释必须明确说明配置已落地（只删不写会留下「为什么读这个字段」的空白）'
+  );
+  // 判据自测：证明上面那条判据真的能抓到旧文案，而不是恒真。
+  assert.equal(
+    '但该配置**在服务端尚不存在**（属于 T21）'.includes('属于 T21'), true,
+    '⑩ 判据自测：改造前那句注释确实命中该判据'
+  );
+  // 模块级写死常量必须消失（`MAX_ORDER_QUANTITY_PER_ITEM` 现在是方法内的局部量，
+  // 值来自配置解析，不再是写死的 5）。
+  assert.equal(
+    /^const MAX_ORDER_QUANTITY_PER_ITEM/m.test(source), false,
+    '⑩ ★ 模块级 `const MAX_ORDER_QUANTITY_PER_ITEM = 5` 必须消失 —— 它是「写死」的化身'
+  );
+
+  // ==================== ⑦ 上限取自配置，不是常量 ====================
+  // 库存 20 时：读配置 → 2；用写死的常量 → 5。断言 2 就能把两者分开。
+  harness.setBusinessConfig({ phoneCardActivationHours: 48, deliveryTimeSlots: ['尽快配送'], maxOrderQuantityPerItem: 2 });
+  harness.setApiHandler(() => Promise.resolve({ data: product }));
+  const configured = harness.loadPage(checkoutPath);
+  configured.onLoad({ id: 'prod_ebike_001' });
+  await settle();
+  assert.equal(
+    configured.data.maxQuantity, 2,
+    '⑦ ★★ 上限必须取自 config.maxOrderQuantityPerItem（库存 20、配置 2 → 2；若仍是写死的 5 则为 5）'
+  );
+  assert.equal(configured.data.scooter.stock, 20, '⑦ 判据自测：库存确实是 20，所以 2 只能来自配置');
+
+  // ==================== ⑨ 超限提示用**实际**配置值 ====================
+  harness.clearToasts();
+  configured.setQuantity({ currentTarget: { dataset: { action: 'increase' } } });
+  assert.equal(configured.data.quantity, 2, '⑨ 前置：1 → 2 在上限内，应当被接受');
+  configured.setQuantity({ currentTarget: { dataset: { action: 'increase' } } });
+  const limitToast = harness.getToasts().at(-1);
+  assert.equal(configured.data.quantity, 2, '⑨ 超限时不改变数量');
+  assert.ok(limitToast, '⑨ 超限必须给提示');
+  assert.ok(
+    String(limitToast.title).includes('2'),
+    `⑨ ★★ 提示里的 N 必须是实际配置值 2，实得 ${JSON.stringify(limitToast.title)}`
+  );
+  assert.equal(
+    String(limitToast.title).includes('5'), false,
+    `⑨ ★★ 提示里不得出现默认值 5（那说明 N 是写死的），实得 ${JSON.stringify(limitToast.title)}`
+  );
+  assert.ok(
+    String(limitToast.title).includes('平台规则'),
+    '⑨ 提示必须说明这是平台规则，而不是库存限制'
+  );
+
+  // ==================== ⑧ 配置缺失 → 回落 5，且**不是 NaN** ====================
+  // `loadBusinessConfig()` 在请求失败时回落到 `services/business.js` 的 `defaultConfig`，
+  // 那里没有这个字段 —— 这就是真实会发生的「配置缺失」。
+  harness.setBusinessConfig({ phoneCardActivationHours: 48, deliveryTimeSlots: ['尽快配送'] });
+  const fallback = harness.loadPage(checkoutPath);
+  fallback.onLoad({ id: 'prod_ebike_001' });
+  await settle();
+  assert.equal(fallback.data.maxQuantity, 5, '⑧ 配置缺失时必须回落到 5');
+  assert.equal(
+    Number.isNaN(fallback.data.maxQuantity), false,
+    '⑧ ★★ 反向护栏：绝不能是 NaN（`Math.min(20, undefined)` 得 NaN，会被 `|| 1` 静默压成 1）'
+  );
+  // 判据自测：证明上面那条反向护栏**有区分度** ——
+  // 照抄「去掉兜底」的写法，结果确实是 NaN，而不是「怎么算都不是 NaN」。
+  assert.equal(
+    Number.isNaN(Math.max(1, Math.min(20, undefined))), true,
+    '⑧ 判据自测：`Math.min(stock, undefined)` 确实得到 NaN —— 所以「不是 NaN」是一条真断言'
+  );
+  // 非法配置值同样回落（与服务端 `publicSettings` 同一判据，避免两侧错位）。
+  for (const bad of [0, -1, 'abc', 100]) {
+    harness.setBusinessConfig({ phoneCardActivationHours: 48, deliveryTimeSlots: ['尽快配送'], maxOrderQuantityPerItem: bad });
+    const dirty = harness.loadPage(checkoutPath);
+    dirty.onLoad({ id: 'prod_ebike_001' });
+    await settle();
+    assert.equal(dirty.data.maxQuantity, 5, `⑧ 非法配置 ${JSON.stringify(bad)} 必须回落 5`);
+    assert.equal(Number.isNaN(dirty.data.maxQuantity), false, `⑧ 非法配置 ${JSON.stringify(bad)} 不能是 NaN`);
+  }
+
+  // ==================== ★ 竞态：配置**先到**、商品后到 ====================
+  // `onLoad` 里两条请求是并发的，谁先返回不确定。让商品请求人为延迟，验证「配置先到」
+  // 这条路径也会收敛到配置值（否则配置会被随后到达的商品回调覆盖掉）。
+  harness.setBusinessConfig({ phoneCardActivationHours: 48, deliveryTimeSlots: ['尽快配送'], maxOrderQuantityPerItem: 2 });
+  harness.setApiHandler(() => new Promise((resolve) => setTimeout(() => resolve({ data: product }), 25)));
+  const configFirst = harness.loadPage(checkoutPath);
+  configFirst.onLoad({ id: 'prod_ebike_001' });
+  await settle();
+  assert.equal(configFirst.data.maxQuantity, 1, '★ 竞态前置：商品未到时上限还是初始值 1（此时算不了）');
+  await new Promise((resolve) => setTimeout(resolve, 60));
+  await settle();
+  assert.equal(configFirst.data.maxQuantity, 2, '★ 配置先到、商品后到：必须收敛到配置值 2');
+
+  // ==================== ★ 竞态：配置**后到**且把上限调低 ====================
+  // 用户可能已经选满 5 件；配置后到把它压到 2 时，**数量本身**也必须跟着降 ——
+  // 只截断展示而不同步 `quantity`，`submit()` 会把 5 原样发给服务端并被 400 拒绝。
+  harness.setApiHandler(() => Promise.resolve({ data: product }));
+  let releaseConfig = null;
+  harness.setBusinessConfigHandler(() => new Promise((resolve) => { releaseConfig = resolve; }));
+  const configLast = harness.loadPage(checkoutPath);
+  configLast.onLoad({ id: 'prod_ebike_001' });
+  await settle();
+  assert.equal(configLast.data.maxQuantity, 5, '★ 竞态前置：配置未到时先用兜底 5');
+  for (let index = 0; index < 4; index += 1) {
+    configLast.setQuantity({ currentTarget: { dataset: { action: 'increase' } } });
+  }
+  assert.equal(configLast.data.quantity, 5, '★ 竞态前置：用户已选满 5 件');
+  assert.ok(releaseConfig, '★ 竞态前置：配置请求的 resolve 已被捕获');
+  releaseConfig({ phoneCardActivationHours: 48, deliveryTimeSlots: ['尽快配送'], maxOrderQuantityPerItem: 2 });
+  await settle();
+  assert.equal(configLast.data.maxQuantity, 2, '★ 配置后到且调低：上限必须降到 2');
+  assert.equal(configLast.data.quantity, 2, '★★ 已选数量必须同时被夹回 2（否则 submit 会发出超限数量）');
 });

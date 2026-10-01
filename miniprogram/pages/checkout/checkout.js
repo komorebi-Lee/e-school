@@ -14,16 +14,35 @@ const {
 } = require('../../utils/product-view');
 
 /**
- * 单笔最多购买数量上限（售卖商品）。
+ * 单笔最多购买数量上限（售卖商品）的**兜底默认值**。
  *
- * ⚠️ 这里**暂时保留写死的 5**。PRD `M3-P1-02` 要求复用运营配置
- * `adminSettings.maxOrderQuantityPerItem`，但该配置**在服务端尚不存在**（属于 T21）。
- * 在它落地前不能凭空读取一个不存在的字段：`config.maxOrderQuantityPerItem` 会永远是
- * `undefined`，`Math.min(stock, undefined)` 得到 `NaN`，反而把上限静默压成 1。
- * 因此先抽成具名常量，待 T21 把配置下发到 `/api/business-config` 后，
- * 这里改为读取 `config.maxOrderQuantityPerItem` 即可（届时再补 `?? 5` 兜底）。
+ * 真正的上限来自运营配置 `adminSettings.maxOrderQuantityPerItem`，由服务端
+ * `GET /api/business-config` 下发（M3-P1-02 已落地，服务端侧含 1~99 的边界校验）。
+ *
+ * ⚠️ 这个常量是**兜底**，不是上限本身。配置请求失败时 `loadBusinessConfig()`
+ * 会回落到 `services/business.js` 的 `defaultConfig`，那里**没有**这个字段；
+ * 老服务端也不会下发它。两种情况都会得到 `undefined`。
+ *
+ * 为什么必须兜底而不能直接读：`Math.min(stock, undefined)` 得到 `NaN`，
+ * 而 `NaN` 会被 `updateTotals` 里的 `|| 1` 兜住 —— 用户会看到一个「只能买 1 件」
+ * 的页面，却完全不知道原因。**静默失效比明确报错更难排查。**
  */
-const MAX_ORDER_QUANTITY_PER_ITEM = 5;
+const DEFAULT_MAX_ORDER_QUANTITY_PER_ITEM = 5;
+
+/**
+ * 从业务配置里解析出平台单笔上限。
+ *
+ * 判据与服务端 `publicSettings` / 下单校验逐字同源：只有 **1~99 的整数**才算合法
+ * 配置值；其余（`undefined` / `0` / `-1` / `'abc'` / `NaN` / 越界）一律回落默认值。
+ * 两侧判据一致，才不会出现「服务端按 5 拦、前端按 2 提示」这种错位。
+ *
+ * @param {object|null} config `/api/business-config` 的响应体（可能尚未到达）。
+ * @returns {number} 平台单笔上限，恒为 ≥ 1 的整数。
+ */
+function resolveMaxOrderQuantityPerItem(config) {
+  const configured = Number(config && config.maxOrderQuantityPerItem);
+  return Number.isInteger(configured) && configured >= 1 && configured <= 99 ? configured : DEFAULT_MAX_ORDER_QUANTITY_PER_ITEM;
+}
 
 Page({
   data: { scooter: null, config: null, deliveryTimeSlots: [], deliveryTimeIndex: 0, name: '', phone: '', date: '', minDate: '', deliveryAddress: '', addresses: [], selectedAddressId: '', saveAddress: true, submitting: false, payToken: '', itemsFee: 0, deliveryFee: 0, totalFee: 0, agreed: false, quantity: 1, maxQuantity: 1, isRental: false, rentalPlan: null, rentalUnits: 1, rentalUnitLabel: '', rentalFees: null, rentalDue: null },
@@ -45,7 +64,6 @@ Page({
       // 当成「价格」展示，正是 T37 修掉的同类问题。
       const card = isRental ? toProductCard(data) : null;
       this.setData({
-        maxQuantity: Math.max(1, Math.min(sellableStock, MAX_ORDER_QUANTITY_PER_ITEM)),
         isRental,
         rentalPlan,
         rentalUnitLabel: rentalPlan ? rentalUnitLabel(rentalPlan.unit) : '',
@@ -67,14 +85,41 @@ Page({
             : '该车型已售罄或库存被待支付订单占用，暂不能提交订单。')
         }
       });
-      this.updateTotals();
+      this.refreshMaxQuantity();
     }).catch((error) => {
       wx.showToast({ title: error.message || '商品加载失败，请稍后重试', icon: 'none' });
     });
     loadBusinessConfig().then((config) => {
       this.setData({ config, deliveryTimeSlots: config.deliveryTimeSlots });
-      this.updateTotals();
+      this.refreshMaxQuantity();
     });
+  },
+  /**
+   * 重算「单笔最多可买几件」，并把已选数量夹到新上限内。
+   *
+   * ★ 必须由**产品请求**与**配置请求**两条回调**都**调用。
+   * 两者是 `onLoad` 里并发发出的两条独立请求，谁先返回**不确定**：
+   * - 商品先到、配置后到：`this.data.config` 还是 `null` → 先用兜底 5，配置到达后重算；
+   * - 配置先到、商品后到：此时没有 `scooter`，本方法直接返回，等商品到达时配置已就位。
+   * 两种顺序都会收敛到同一个 `maxQuantity`，不会出现「先到先得、后到不生效」。
+   *
+   * 上限算完之后顺带重算金额（`updateTotals` 依赖 `maxQuantity` 与 `config`）。
+   */
+  refreshMaxQuantity() {
+    const scooter = this.data.scooter;
+    // 商品还没到就没有可夹的库存，此时算上限没有意义 —— 等商品回调再算。
+    if (!scooter) return;
+    const sellableStock = Number(scooter.sellableStock || 0);
+    const MAX_ORDER_QUANTITY_PER_ITEM = resolveMaxOrderQuantityPerItem(this.data.config);
+    const maxQuantity = Math.max(1, Math.min(sellableStock, MAX_ORDER_QUANTITY_PER_ITEM));
+    this.setData({
+      maxQuantity,
+      // 配置**后到**时可能把上限调低（默认 5 → 运营改成 2）。此时 `updateTotals`
+      // 只是在**展示**上把数量截断，`this.data.quantity` 仍是用户先前选的旧值，
+      // `submit()` 会把它原样发给服务端并被 400 拒绝。所以数量本身也要跟着降下来。
+      quantity: this.data.isRental ? 1 : Math.max(1, Math.min(Number(this.data.quantity || 1), maxQuantity))
+    });
+    this.updateTotals();
   },
   loadAddresses() {
     request('/api/my/addresses').then(({ data }) => {
@@ -152,7 +197,9 @@ Page({
     const maxQuantity = this.data.maxQuantity;
     const next = action === 'increase' ? this.data.quantity + 1 : this.data.quantity - 1;
     if (next < 1) return wx.showToast({ title: '至少购买 1 辆', icon: 'none' });
-    if (next > maxQuantity) return wx.showToast({ title: `最多可买 ${maxQuantity} 辆`, icon: 'none' });
+    // 提示里的 N 必须用**实际生效的**上限（`maxQuantity` 已由配置解析而来），
+    // 不能写死：运营把上限改成 2 时，这里必须说 2。
+    if (next > maxQuantity) return wx.showToast({ title: `本商品单笔最多可买 ${maxQuantity} 件（平台规则）`, icon: 'none' });
     this.setData({ quantity: next });
     this.updateTotals();
   },
@@ -206,6 +253,7 @@ Page({
     if (quantity < 1 || quantity > Number(scooter.sellableStock || 0)) return wx.showToast({ title: '购买数量超出库存', icon: 'none' });
     // 租赁单必须带 `rentalUnits`，且服务端要求租赁项 `quantity` 恒为 1（一单一车）；
     // 售卖单的 payload 形状保持改造前完全一致：`{ productId, quantity }`。
+    // 售卖数量由服务端按 `maxOrderQuantityPerItem` 复核，前端不再重复实现一遍上限。
     const orderItem = this.data.isRental
       ? { productId: scooter.id, quantity: 1, rentalUnits: this.data.rentalUnits }
       : { productId: scooter.id, quantity };
