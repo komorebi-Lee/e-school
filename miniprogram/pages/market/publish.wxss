@@ -14,3 +14,14 @@
 .evidence-remove { position: absolute; top: -10rpx; right: -10rpx; display: flex; align-items: center; justify-content: center; width: 36rpx; height: 36rpx; border-radius: 50%; background: #17233d; color: #fff; font-size: 22rpx; }
 .evidence-add { display: flex; align-items: center; justify-content: center; width: 140rpx; height: 140rpx; border-radius: 14rpx; background: #f5f7fb; color: #98a4b7; font-size: 44rpx; }
 .privacy { margin-top: 16rpx; font-size: 20rpx; line-height: 1.5; }
+/* 标签行：左侧字段名，右侧字数计数 / 合法区间提示。 */
+.field-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12rpx; }
+.field-head .field-label { margin-bottom: 0; }
+.field-count { font-size: 20rpx; font-weight: 700; color: #98a4b7; }
+/* 超限 / 非法时变红：计数不只是装饰，它是「服务端会不会拒绝」的预报。 */
+.field-count.over { color: #e34d59; }
+.field-error { margin-top: 10rpx; font-size: 20rpx; font-weight: 700; color: #e34d59; }
+/* 草稿恢复提示：让用户知道这些内容是哪来的，而不是「我没填过怎么有字」。 */
+.draft-hint { margin-bottom: 16rpx; padding: 16rpx 20rpx; border-radius: 16rpx; background: #fff8e6; color: #8a6100; font-size: 21rpx; font-weight: 700; }
+/* 置灰态要看得出来：价格非法时按钮会长时间停在这个状态，用户需要明白为什么点不动。 */
+.primary-button[disabled] { opacity: 0.45; }

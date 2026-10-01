@@ -14,3 +14,8 @@
 .evidence-remove { position: absolute; top: -10rpx; right: -10rpx; display: flex; align-items: center; justify-content: center; width: 36rpx; height: 36rpx; border-radius: 50%; background: #17233d; color: #fff; font-size: 22rpx; }
 .evidence-add { display: flex; align-items: center; justify-content: center; width: 140rpx; height: 140rpx; border-radius: 14rpx; background: #f5f7fb; color: #98a4b7; font-size: 44rpx; }
 .privacy { margin-top: 16rpx; font-size: 20rpx; line-height: 1.5; }
+/* 草稿恢复提示：让用户知道这些内容是哪来的，而不是「我没填过怎么有字」。 */
+.draft-hint { margin-bottom: 16rpx; padding: 16rpx 20rpx; border-radius: 16rpx; background: #fff8e6; color: #8a6100; font-size: 21rpx; font-weight: 700; }
+/* 置灰态要看得出来。市集页因为「价格非法」会长时间置灰，这里只有提交中会置灰，
+   但两页是同一个「发布」流程的两个入口，按钮外观不一致会被当成 bug。 */
+.primary-button[disabled] { opacity: 0.45; }

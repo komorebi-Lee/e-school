@@ -40,6 +40,8 @@ const orderCard = require(path.join(miniprogramDirectory, 'utils', 'order-card.j
 const upload = require(path.join(miniprogramDirectory, 'utils', 'upload.js'));
 // 商品跳转目标（按品类分流，M2-P1-01 / M2-P1-03）：纯函数 + 一个只转发给 openLink 的薄包装。
 const productRoute = require(path.join(miniprogramDirectory, 'utils', 'product-route.js'));
+// 发布页草稿（M6-P1-02 / M7-P1-02）：纯函数 + 只在调用期访问 wx 的容错读写。
+const publishDraft = require(path.join(miniprogramDirectory, 'utils', 'publish-draft.js'));
 
 const ORDER_FOCUS_KEY = 'campusGoOrderFocusId';
 const ORDER_RECORD_TYPE_KEY = 'campusGoOrderFocusRecordType';
@@ -2224,4 +2226,467 @@ test('商品跳转走 openLink（tabBar 识别与失败提示都靠它，裸 nav
   } finally {
     global.wx = originalWx;
   }
+});
+
+// ===========================================================================
+// 十二、发布页草稿（M6-P1-02 / M7-P1-02）
+//
+// 草稿的核心风险不是「存不进去」，而是**存进去的是坏内容**：
+// 图片是临时路径 / 草稿里混着已发布的内容 / 空草稿覆盖有效草稿。
+// 这三类都能在纯函数层真实断言，所以规则全部抽在 `utils/publish-draft.js`，
+// 页面只负责在正确的时机调用它（页面级接线见 `miniapp-page-blocks.test.js`）。
+// ===========================================================================
+
+/** 一份「用户真的填过」的市场草稿，字段与页面 `data` 一一对应。 */
+const MARKET_DRAFT_FIXTURE = {
+  title: '高等数学教材（第七版）',
+  description: '只翻过前三章，书角有轻微折痕，荟园自提',
+  contact: 'wx_hello_2026',
+  priceInput: '25.5',
+  category: 'BOOK',
+  condition: 'LIKE_NEW',
+  images: ['/api/uploads/1a2b.jpg', '/api/uploads/3c4d.png']
+};
+
+/** 一份「用户真的填过」的论坛草稿。 */
+const FORUM_DRAFT_FIXTURE = {
+  title: '找一起自习的同学',
+  content: '每周三、五晚上在图书馆四楼，长期有效。',
+  board: 'STUDY',
+  images: ['/api/uploads/9f8e.jpg']
+};
+
+test('M6-P1-02 ① 草稿写入用 PRD 指定的 key，且往返后逐字段一致', () => {
+  const stub = createWxStub();
+  const written = withWx(stub, () => publishDraft.writeDraft(publishDraft.DRAFT_KEYS.MARKET, MARKET_DRAFT_FIXTURE));
+
+  assert.equal(written, true, '① 写入成功必须返回 true（返回值供调用方决定是否提示）');
+  assert.deepEqual(
+    stub.calls.setStorageSync,
+    [{ key: 'campusGoMarketDraft', value: MARKET_DRAFT_FIXTURE }],
+    '① 必须以 PRD 指定的 campusGoMarketDraft 为 key，把整份草稿写进去（只写一次）'
+  );
+  assert.equal(publishDraft.DRAFT_KEYS.MARKET, 'campusGoMarketDraft', '① key 字面量必须与 PRD 一致');
+  assert.equal(publishDraft.DRAFT_KEYS.FORUM, 'campusGoForumDraft', '① 论坛 key 自定但必须稳定');
+
+  // 往返：写进去再读出来，逐字段一致。只断言「写了一次」不够 ——
+  // 存进去是 `[object Object]` 也能让上面那条通过。
+  const back = withWx(stub, () => publishDraft.readDraft(publishDraft.DRAFT_KEYS.MARKET, publishDraft.normalizeMarketDraft));
+  assert.deepEqual(back, MARKET_DRAFT_FIXTURE, '① 往返后必须逐字段一致（图片 URL 也要原样带回）');
+
+  // 论坛侧同样的往返。
+  const forumStub = createWxStub();
+  withWx(forumStub, () => publishDraft.writeDraft(publishDraft.DRAFT_KEYS.FORUM, FORUM_DRAFT_FIXTURE));
+  assert.deepEqual(
+    withWx(forumStub, () => publishDraft.readDraft(publishDraft.DRAFT_KEYS.FORUM, publishDraft.normalizeForumDraft)),
+    FORUM_DRAFT_FIXTURE,
+    '① 论坛草稿同样必须往返一致'
+  );
+  assert.deepEqual(
+    forumStub.calls.setStorageSync.map((call) => call.key),
+    ['campusGoForumDraft'],
+    '① 两页的 key 必须不同 —— 否则市集的草稿会被论坛页恢复出来'
+  );
+});
+
+test('M6-P1-02 ③ clearDraft 真的把草稿从 Storage 里拿掉', () => {
+  const stub = createWxStub({ initialStorage: { campusGoMarketDraft: MARKET_DRAFT_FIXTURE } });
+  assert.deepEqual(stub.storageKeys(), ['campusGoMarketDraft'], '③ 前置：草稿确实在 Storage 里');
+
+  const cleared = withWx(stub, () => publishDraft.clearDraft(publishDraft.DRAFT_KEYS.MARKET));
+
+  assert.equal(cleared, true, '③ 清理成功应返回 true');
+  assert.deepEqual(stub.calls.removeStorageSync, [{ key: 'campusGoMarketDraft' }], '③ 必须调用 removeStorageSync');
+  assert.deepEqual(stub.storageKeys(), [], '③ 清理后 Storage 里不得再有该 key');
+  assert.equal(
+    withWx(stub, () => publishDraft.readDraft(publishDraft.DRAFT_KEYS.MARKET, publishDraft.normalizeMarketDraft)),
+    null,
+    '③ 清理后再读必须读不到 —— 否则下次进页面会把「已发布」的内容恢复出来，用户以为发布失败而再发一次'
+  );
+});
+
+test('★ ③ 的兜底：removeStorageSync 失败时必须落一份「空草稿」把残留内容盖掉', () => {
+  // 为什么需要这道防线：残留草稿会在下次进页面时被恢复成「已发布的内容」→ 重复发布。
+  // 清不掉就必须**盖掉**，不能就这么算了。
+  const stub = createWxStub({
+    initialStorage: { campusGoMarketDraft: MARKET_DRAFT_FIXTURE },
+    removeStorageSyncResult: 'fail'
+  });
+
+  const cleared = withWx(stub, () => publishDraft.clearDraft(publishDraft.DRAFT_KEYS.MARKET));
+
+  assert.equal(cleared, true, '兜底路径最终仍应报告成功（哨兵已落盘）');
+  assert.deepEqual(
+    stub.calls.setStorageSync.map((call) => call.key),
+    ['campusGoMarketDraft'],
+    '兜底必须往**同一个 key** 写一次'
+  );
+  const stored = stub.storageGet('campusGoMarketDraft');
+  assert.notDeepEqual(stored, MARKET_DRAFT_FIXTURE, '兜底必须覆盖掉残留草稿，而不是把它留着');
+  // ★ 第二道防线自己也得是好的：若它写的哨兵不是「空」，恢复逻辑仍会把它当成草稿。
+  assert.equal(
+    publishDraft.isEmptyMarketDraft(stored),
+    true,
+    '★ 兜底写入的哨兵必须被判为「空草稿」—— 否则第二道防线本身就是坏的'
+  );
+  const reread = withWx(stub, () => publishDraft.readDraft(publishDraft.DRAFT_KEYS.MARKET, publishDraft.normalizeMarketDraft));
+  assert.equal(
+    publishDraft.isEmptyMarketDraft(reread),
+    true,
+    '★ 兜底之后「再读」必须被判为空 —— 这才是第二道防线真正要保证的事（页面的 onLoad 靠这个判断跳过恢复）'
+  );
+});
+
+test('★ M6-P1-02 ④ 「进页面什么都没填」必须判为空草稿（分类/成色有默认值，不算内容）', () => {
+  // 页面初始 data 里 `selectedCategory` / `selectedCondition` 一定是非空对象（有默认值）。
+  // 若把它们算进「内容」，则「进页面就退出」也会被当成有草稿 ——
+  // 而那份「草稿」只有默认分类，会**覆盖掉上一次的有效草稿**，是数据丢失。
+  const untouched = publishDraft.marketDraftOf({
+    title: '', description: '', contact: '', priceInput: '', images: [],
+    selectedCategory: { key: 'BOOK', label: '二手书' },
+    selectedCondition: { key: 'LIKE_NEW', label: '九成新' }
+  });
+  assert.equal(
+    publishDraft.isEmptyMarketDraft(untouched),
+    true,
+    '★ ④ 空表单必须判为空 —— 否则空草稿会覆盖掉上次的有效草稿（那是数据丢失，不是保守行为）'
+  );
+
+  // 逐项「只要有一项有内容就不算空」，避免判据只在全空时成立。
+  for (const patch of [
+    { title: 'x' }, { description: 'x' }, { contact: 'x' },
+    { priceInput: '1' }, { images: ['/api/uploads/a.jpg'] }
+  ]) {
+    assert.equal(
+      publishDraft.isEmptyMarketDraft({ ...untouched, ...patch }),
+      false,
+      `④ 只要 ${Object.keys(patch)[0]} 有内容就不算空草稿`
+    );
+  }
+
+  // 只有分类/成色不同 → 仍算空：它们不是「用户填的内容」，而是页面默认值。
+  assert.equal(
+    publishDraft.isEmptyMarketDraft({ ...untouched, category: 'ELECTRONICS', condition: 'USED' }),
+    true,
+    '④ 分类/成色有默认值，不得单独构成「有草稿」'
+  );
+  assert.equal(publishDraft.isEmptyMarketDraft(null), true, '④ 读不到草稿（null）也算空');
+  assert.equal(publishDraft.isEmptyMarketDraft(undefined), true, '④ undefined 也算空');
+
+  // 论坛侧同理（板块有默认值）。
+  const emptyForum = publishDraft.forumDraftOf({ title: '', content: '', images: [], selectedBoard: { key: 'CAMPUS' } });
+  assert.equal(publishDraft.isEmptyForumDraft(emptyForum), true, '④ 论坛空表单同样必须判为空');
+  assert.equal(publishDraft.isEmptyForumDraft(publishDraft.forumDraftOf({ title: 'x' })), false, '④ 论坛有标题就不算空');
+  assert.equal(publishDraft.isEmptyForumDraft(publishDraft.forumDraftOf({ content: 'x' })), false, '④ 论坛有正文就不算空');
+  assert.equal(publishDraft.isEmptyForumDraft(publishDraft.forumDraftOf({ images: ['/api/uploads/a.jpg'] })), false, '④ 论坛只有图片也算有内容');
+  assert.equal(publishDraft.isEmptyForumDraft(null), true, '④ 论坛读不到草稿也算空');
+});
+
+test('★ M6-P1-02 ⑤ 草稿里的图片必须是服务端 URL：临时路径一律被剔除（不假装恢复了图片）', () => {
+  // `wx.chooseMedia` 的 `tempFilePath` 不是持久的（微信会在会话结束后清理），
+  // 而两页的 `chooseImage()` 在上传成功回调里**只把服务端 URL 存进 data.images**
+  // —— 临时路径从未被保留过。草稿因此天然是持久的。
+  // 但 Storage 里可能混进别的形状（历史版本 / 别处写入），必须提前挡掉：
+  // 存进去就等于「恢复出一个图片框，图是坏的」—— 那是在向用户断言假事实。
+  const mixed = [
+    '/api/uploads/ok-1.jpg',
+    'wxfile://tmp_abc123.jpg',
+    'http://tmp/other.png',
+    '/api/uploads/ok-2.png',
+    'blob:https://x/y',
+    '',
+    null,
+    42
+  ];
+  assert.deepEqual(
+    publishDraft.normalizeImages(mixed, 6),
+    ['/api/uploads/ok-1.jpg', '/api/uploads/ok-2.png'],
+    '⑤ 只保留 /api/uploads/ 开头的项 —— 服务端对其它形状一律 400，恢复出来也渲染不了'
+  );
+
+  // ★ 正向控制：合法项必须**原样保留**。否则「一律过滤成空数组」也能让上面那条通过。
+  assert.deepEqual(
+    publishDraft.normalizeImages(MARKET_DRAFT_FIXTURE.images, 6),
+    MARKET_DRAFT_FIXTURE.images,
+    '★ 正向控制：合法的服务端 URL 必须原样保留（过滤不得伤及无辜）'
+  );
+
+  // 张数上限与服务端 `images.slice(0, N)` 对齐。
+  const many = Array.from({ length: 8 }, (item, index) => `/api/uploads/img-${index}.jpg`);
+  assert.equal(publishDraft.normalizeImages(many, 6).length, 6, '⑤ 市场侧最多保留 6 张（与服务端 slice(0, 6) 一致）');
+  assert.equal(publishDraft.normalizeImages(many, 3).length, 3, '⑤ 论坛侧最多保留 3 张（与服务端 slice(0, 3) 一致）');
+  assert.deepEqual(publishDraft.normalizeImages(many, 6)[5], '/api/uploads/img-5.jpg', '⑤ 截断必须是**保留前 6 张**，不是后 6 张');
+
+  // 非数组一律当空：不得抛错，也不得把字符串当成数组用。
+  for (const raw of [undefined, null, 'wxfile://tmp_x.jpg', 42, {}]) {
+    assert.deepEqual(publishDraft.normalizeImages(raw, 6), [], `⑤ normalizeImages(${JSON.stringify(raw)}) 必须回落空数组`);
+  }
+
+  // 归一化后的草稿同样只留服务端 URL（走完整路径，而不只是单独调 filter）。
+  assert.deepEqual(
+    publishDraft.normalizeMarketDraft({ ...MARKET_DRAFT_FIXTURE, images: mixed }).images,
+    ['/api/uploads/ok-1.jpg', '/api/uploads/ok-2.png'],
+    '⑤ 归一化草稿时也要过一遍过滤'
+  );
+  assert.deepEqual(
+    publishDraft.normalizeForumDraft({ ...FORUM_DRAFT_FIXTURE, images: mixed }).images,
+    ['/api/uploads/ok-1.jpg', '/api/uploads/ok-2.png'],
+    '⑤ 论坛侧同样过滤（上限 3，这里只给了 2 张合法的）'
+  );
+
+  // ★ 一条「只剩临时路径」的草稿必须整体判为空 —— 这样页面就不会显示
+  // 「已恢复上次未发布的草稿」，也不会渲染出任何图片框。
+  const tempOnly = { ...MARKET_DRAFT_FIXTURE, title: '', description: '', contact: '', priceInput: '', images: ['wxfile://tmp_only.jpg'] };
+  assert.equal(
+    publishDraft.isEmptyMarketDraft(publishDraft.normalizeMarketDraft(tempOnly)),
+    true,
+    '★ ⑤ 草稿里只剩失效的临时路径时必须整体判为空 —— 硬约束是「不能出现恢复了图片框但图片是坏的」'
+  );
+});
+
+test('M6-P1-02 ⑥ 字数计数与服务端同口径（59 / 60 / 61 三个边界）', () => {
+  assert.deepEqual(
+    publishDraft.countText('a'.repeat(59), 60),
+    { length: 59, maxLength: 60, over: false, text: '59/60' },
+    '⑥ 59 字：未超限'
+  );
+  assert.deepEqual(
+    publishDraft.countText('a'.repeat(60), 60),
+    { length: 60, maxLength: 60, over: false, text: '60/60' },
+    '⑥ ★ 60/60 必须**不**标记超限 —— 若这里 over 为 true，用户会被拦在一个服务端本来接受的输入上'
+  );
+  assert.deepEqual(
+    publishDraft.countText('a'.repeat(61), 60),
+    { length: 61, maxLength: 60, over: true, text: '61/60' },
+    '⑥ 61 字：超限'
+  );
+
+  // 未填写 / 脏值不得抛错。
+  assert.equal(publishDraft.countText(undefined, 60).text, '0/60', '⑥ 未填写时计数为 0/60，不得抛错');
+  assert.equal(publishDraft.countText(null, 500).length, 0, '⑥ null 按空串处理');
+  assert.equal(publishDraft.countText(42, 60).length, 0, '⑥ 非字符串按空串处理（与服务端 requireString 同口径）');
+
+  // ★ 口径 = **UTF-16 码元数**，与服务端 `requireString` 里
+  // `(typeof value === 'string' ? value.trim() : '').length` 完全同源。
+  // 若前端改成「按码点 / 按字」计数，就会出现「界面显示 60/60 但服务端说太长」。
+  assert.equal(publishDraft.countText('🎓', 60).length, 2, '★ ⑥ emoji 占 2 个码元，必须与服务端同口径');
+  assert.equal(publishDraft.countText('教材', 60).length, 2, '⑥ 中文按码元数计');
+  assert.equal(publishDraft.countText('🎓'.repeat(30), 60).over, false, '⑥ 30 个 emoji = 60 码元，恰好在界内');
+  assert.equal(publishDraft.countText('🎓'.repeat(31), 60).over, true, '⑥ 31 个 emoji = 62 码元，越界');
+
+  // 截断保留尽可能多的内容（只截展示、不截数据会重现「显示与数据不一致」）。
+  assert.equal(publishDraft.clampText('a'.repeat(70), 60).length, 60, '⑥ 超长值应被截断到上限');
+  assert.equal(publishDraft.clampText('短', 60), '短', '⑥ 未超长时原样返回');
+  assert.equal(publishDraft.clampText(null, 60), '', '⑥ 脏值回落空串');
+});
+
+test('M6-P1-02 ⑦ 价格校验与服务端同源（0 / 0.01 / 100000 / 100000.01）', () => {
+  // 空输入 = 「尚未填写」，不是「填错了」：返回空串，按钮不置灰。
+  // 否则用户一进页面看到的第一个东西就是一个灰按钮。
+  assert.equal(publishDraft.priceErrorOf(''), '', '⑦ 空输入不是错误');
+  assert.equal(publishDraft.priceErrorOf('   '), '', '⑦ 纯空白同样按未填写处理');
+  assert.equal(publishDraft.priceErrorOf(null), '', '⑦ null 同样按未填写处理');
+
+  // 边界四连（与服务端 `priceInCents <= 0 || priceInCents > 10000000` 一一对应）。
+  assert.notEqual(publishDraft.priceErrorOf('0'), '', '⑦ 0 元必须非法（服务端 priceInCents <= 0 拒绝）');
+  assert.equal(publishDraft.priceErrorOf('0.01'), '', '⑦ 0.01 元是下界，必须合法');
+  assert.equal(publishDraft.priceErrorOf('100000'), '', '⑦ 100000 元是上界，必须合法');
+  assert.notEqual(
+    publishDraft.priceErrorOf('100000.01'),
+    '',
+    '⑦ ★ 100000.01 元必须在本地就被拦下 —— 改造前它会一路发到服务端再吃一个 400（白跑一趟网络往返）'
+  );
+  assert.notEqual(publishDraft.priceErrorOf('-1'), '', '⑦ 负数非法');
+  assert.notEqual(publishDraft.priceErrorOf('abc'), '', '⑦ 非数字非法');
+  assert.notEqual(publishDraft.priceErrorOf('1e9'), '', '⑦ 科学计数法换算后越界，同样非法');
+
+  // 换算与服务端 `Math.round(Number(body.priceInCents))` 同源。
+  assert.equal(publishDraft.priceInCentsOf('0.01'), 1, '⑦ 0.01 元 = 1 分（= 服务端下界）');
+  assert.equal(publishDraft.priceInCentsOf('29'), 2900, '⑦ 29 元 = 2900 分（既有用例 M6-P0-01 依赖这个值）');
+  assert.equal(publishDraft.priceInCentsOf('25.5'), 2550, '⑦ 25.5 元 = 2550 分');
+  assert.equal(publishDraft.priceInCentsOf('100000'), 10000000, '⑦ 上界 100000 元 = 10000000 分（= 服务端上界常量）');
+  assert.equal(publishDraft.priceInCentsOf('1.005'), 100, '⑦ ★ 浮点误差必须被 Math.round 收掉（1.005×100 = 100.49999…）');
+
+  // ★ 正向控制：上界与「上界 + 1 分」必须真的落在常量的两侧。
+  // 没有这条，「越界值」可能只是被我写错的期望值，而判据在边界上是钝的。
+  assert.equal(publishDraft.PRICE_MAX_CENTS, 10000000, '⑦ 上界常量必须与服务端字面量一致');
+  assert.ok(
+    publishDraft.priceInCentsOf('100000.01') > publishDraft.PRICE_MAX_CENTS,
+    '★ ⑦ 越界值必须真的越过上界常量'
+  );
+  assert.equal(publishDraft.PRICE_MIN_CENTS, 1, '⑦ 下界 1 分对应服务端的「> 0」');
+  assert.equal(publishDraft.PRICE_MAX_YUAN * 100, publishDraft.PRICE_MAX_CENTS, '⑦ 元/分换算必须自洽');
+});
+
+test('★ M6-P1-02 ⑧ 草稿读写容错：Storage 抛错时不得把异常抛给页面', () => {
+  // 写：配额耗尽 / 隐私模式 → `setStorageSync` 抛。
+  // 调用点在 `onHide` / `onUnload`，抛出去会打断页面生命周期。
+  const writeFail = createWxStub({ setStorageSyncResult: 'fail' });
+  assert.equal(
+    withWx(writeFail, () => publishDraft.writeDraft(publishDraft.DRAFT_KEYS.MARKET, MARKET_DRAFT_FIXTURE)),
+    false,
+    '⑧ 写入失败必须返回 false 而不是抛异常（草稿是辅助能力，不该拦住用户发布）'
+  );
+
+  // 读：`getStorageSync` 抛 → 当作「没有草稿」。
+  const readFail = createWxStub({ getStorageSyncResult: 'fail' });
+  assert.equal(
+    withWx(readFail, () => publishDraft.readDraft(publishDraft.DRAFT_KEYS.MARKET, publishDraft.normalizeMarketDraft)),
+    null,
+    '⑧ 读取失败必须当作「没有草稿」，不得抛异常'
+  );
+
+  // 兜底路径也失败时：仍不得抛（`clearDraft` 的 catch 里又调了 `writeDraft`）。
+  const bothFail = createWxStub({
+    initialStorage: { campusGoMarketDraft: MARKET_DRAFT_FIXTURE },
+    removeStorageSyncResult: 'fail',
+    setStorageSyncResult: 'fail'
+  });
+  assert.equal(
+    withWx(bothFail, () => publishDraft.clearDraft(publishDraft.DRAFT_KEYS.MARKET)),
+    false,
+    '⑧ 两道防线都失败时返回 false，但绝不抛'
+  );
+
+  // 归一化对任何脏形状都不抛（Storage 里可能是历史版本的形状 / 被别的代码覆盖过）。
+  for (const raw of [undefined, null, '', 0, 'string', [], true, { images: 'not-array' }, { title: 42 }, { images: [{}] }]) {
+    assert.doesNotThrow(() => publishDraft.normalizeMarketDraft(raw), `⑧ normalizeMarketDraft(${JSON.stringify(raw)}) 不得抛错`);
+    assert.doesNotThrow(() => publishDraft.normalizeForumDraft(raw), `⑧ normalizeForumDraft(${JSON.stringify(raw)}) 不得抛错`);
+  }
+  assert.equal(publishDraft.normalizeMarketDraft([]), null, '⑧ 数组不是合法草稿形状 → null');
+  assert.equal(publishDraft.normalizeMarketDraft('x'), null, '⑧ 字符串不是合法草稿形状 → null');
+  assert.equal(publishDraft.normalizeForumDraft(null), null, '⑧ null → null');
+
+  // 超长草稿读回来必须被截断，而不是把超长值带进页面（那会变成「界面显示 61/60 却能提交」）。
+  const oversized = publishDraft.normalizeMarketDraft({ ...MARKET_DRAFT_FIXTURE, title: 'a'.repeat(70) });
+  assert.equal(oversized.title.length, 60, '⑧ 超长标题读回来必须被截到 60');
+  assert.equal(publishDraft.countText(oversized.title, 60).over, false, '⑧ 截断后不得再标记超限');
+});
+
+test('★ 前端上限必须与服务端源码逐条同源（防漂移：服务端改了而前端没跟 → 此用例转红）', () => {
+  const appPath = path.join(__dirname, '..', 'server', 'src', 'app.js');
+  assert.ok(fs.existsSync(appPath), `服务端源码应存在（server/ 是 submodule，需先 checkout）：${appPath}`);
+  const source = fs.readFileSync(appPath, 'utf8');
+
+  /**
+   * 截取某个 POST 端点的源码片段。
+   *
+   * 必须按 `request.method === 'POST' && pathname === '...'` 精确定位：
+   * `/api/market/items` 的 GET 分支在前，若只按 pathname 找会截到 GET 那段，
+   * 里面没有任何 `requireString` —— 判据会以「找不到」而不是「不一致」失败，
+   * 那就成了「红在错误的原因上」。
+   *
+   * @param {string} endpoint 端点路径。
+   * @returns {string} 该 POST 分支的源码片段。
+   */
+  function endpointSource(endpoint) {
+    const marker = `request.method === 'POST' && pathname === '${endpoint}'`;
+    const start = source.indexOf(marker);
+    assert.ok(start >= 0, `服务端应存在 POST ${endpoint}`);
+    const rest = source.slice(start + marker.length);
+    const next = rest.indexOf("request.method === 'POST' && pathname ===");
+    return next >= 0 ? rest.slice(0, next) : rest;
+  }
+
+  /**
+   * 取出端点片段里某字段的 `maxLength`。
+   *
+   * @param {string} endpoint 端点路径。
+   * @param {string} field 字段名。
+   * @returns {number} 服务端实际使用的上限。
+   */
+  function serverMaxLength(endpoint, field) {
+    const fragment = endpointSource(endpoint);
+    const match = fragment.match(new RegExp(`requireString\\(body\\.${field}, '${field}', \\{[\\s\\S]*?maxLength: (\\d+)`));
+    assert.ok(match, `服务端 POST ${endpoint} 的 ${field} 应有 maxLength`);
+    return Number(match[1]);
+  }
+
+  assert.equal(
+    serverMaxLength('/api/market/items', 'title'),
+    publishDraft.FIELD_LIMITS.market.title,
+    '★ 市集标题上限：前端常量必须等于服务端 requireString 的 maxLength'
+  );
+  assert.equal(
+    serverMaxLength('/api/market/items', 'description'),
+    publishDraft.FIELD_LIMITS.market.description,
+    '★ 市集描述上限必须等于服务端 maxLength'
+  );
+  assert.equal(
+    serverMaxLength('/api/market/items', 'contact'),
+    publishDraft.FIELD_LIMITS.market.contact,
+    '★ 联系方式上限必须等于服务端 maxLength'
+  );
+  assert.equal(
+    serverMaxLength('/api/forum/posts', 'title'),
+    publishDraft.FIELD_LIMITS.forum.title,
+    '★ 帖子标题上限必须等于服务端 maxLength'
+  );
+  assert.equal(
+    serverMaxLength('/api/forum/posts', 'content'),
+    publishDraft.FIELD_LIMITS.forum.content,
+    '★ 帖子正文上限必须等于服务端 maxLength'
+  );
+
+  // 价格：服务端 `!Number.isFinite(priceInCents) || priceInCents <= 0 || priceInCents > 10000000`。
+  const marketFragment = endpointSource('/api/market/items');
+  const priceMatch = marketFragment.match(/priceInCents > (\d+)/);
+  assert.ok(priceMatch, '服务端应有价格上界判定');
+  assert.equal(Number(priceMatch[1]), publishDraft.PRICE_MAX_CENTS, '★ 价格上界必须与服务端 10000000 分一致');
+  assert.ok(marketFragment.includes('priceInCents <= 0'), '服务端下界是「<= 0」，即 0.01 元起');
+
+  // 图片张数：服务端 `body.images.slice(0, N)`。
+  const marketImages = marketFragment.match(/body\.images\.slice\(0, (\d+)\)/);
+  assert.ok(marketImages, '服务端应有市场图片张数上限');
+  assert.equal(Number(marketImages[1]), publishDraft.IMAGE_LIMITS.market, '★ 市场图片张数上限必须与服务端一致');
+  const forumImages = endpointSource('/api/forum/posts').match(/body\.images\.slice\(0, (\d+)\)/);
+  assert.ok(forumImages, '服务端应有论坛图片张数上限');
+  assert.equal(Number(forumImages[1]), publishDraft.IMAGE_LIMITS.forum, '★ 论坛图片张数上限必须与服务端一致');
+
+  // 图片前缀：服务端只接受 `/api/uploads/`，草稿里存别的一律 400。
+  assert.ok(
+    marketFragment.includes(`!image.startsWith('${publishDraft.UPLOAD_URL_PREFIX}')`),
+    '★ 图片前缀常量必须与服务端的校验一致（否则草稿里的图片到提交时全变 400）'
+  );
+  assert.ok(
+    endpointSource('/api/forum/posts').includes(`!image.startsWith('${publishDraft.UPLOAD_URL_PREFIX}')`),
+    '★ 论坛侧图片前缀同样必须与服务端一致'
+  );
+
+  // 输入框的 `maxlength` 也必须与常量一致 —— 否则用户能输入服务端不接受的长度。
+  /**
+   * 取出 wxml 里某个 `bindinput` 处理器所在的标签原文。
+   *
+   * @param {string} wxml wxml 源码。
+   * @param {string} handler bindinput 处理器名。
+   * @returns {string} 标签原文。
+   */
+  function inputTag(wxml, handler) {
+    const match = wxml.match(new RegExp(`<(?:input|textarea)[^>]*bindinput="${handler}"[^>]*>`));
+    assert.ok(match, `wxml 应有 bindinput="${handler}" 的输入框`);
+    return match[0];
+  }
+
+  const marketWxml = fs.readFileSync(path.join(miniprogramDirectory, 'pages', 'market', 'publish.wxml'), 'utf8');
+  assert.ok(
+    inputTag(marketWxml, 'setTitle').includes(`maxlength="${publishDraft.FIELD_LIMITS.market.title}"`),
+    '★ 市集标题输入框的 maxlength 必须等于常量 60（与服务端同源）'
+  );
+  assert.ok(
+    inputTag(marketWxml, 'setDescription').includes(`maxlength="${publishDraft.FIELD_LIMITS.market.description}"`),
+    '★ 市集描述输入框的 maxlength 必须等于常量 500'
+  );
+  assert.ok(
+    inputTag(marketWxml, 'setContact').includes(`maxlength="${publishDraft.FIELD_LIMITS.market.contact}"`),
+    '★ 联系方式输入框的 maxlength 必须等于常量 50'
+  );
+  const forumWxml = fs.readFileSync(path.join(miniprogramDirectory, 'pages', 'forum', 'publish.wxml'), 'utf8');
+  assert.ok(
+    inputTag(forumWxml, 'setTitle').includes(`maxlength="${publishDraft.FIELD_LIMITS.forum.title}"`),
+    '★ 帖子标题输入框的 maxlength 必须等于常量 60'
+  );
+  assert.ok(
+    inputTag(forumWxml, 'setContent').includes(`maxlength="${publishDraft.FIELD_LIMITS.forum.content}"`),
+    '★ 帖子正文输入框的 maxlength 必须等于常量 1000'
+  );
 });

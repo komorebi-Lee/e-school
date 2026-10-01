@@ -27,6 +27,11 @@ const test = require('node:test');
 
 const miniprogramDirectory = path.join(__dirname, '..', 'miniprogram');
 
+// 发布页草稿的共享模块（M6-P1-02 / M7-P1-02）。纯函数、不访问 wx，
+// 因此可以在 Node 里直接加载；这里只用它的常量（key / 字段上限），
+// 行为断言在 `miniapp-runtime.test.js`。
+const publishDraft = require(path.join(miniprogramDirectory, 'utils', 'publish-draft.js'));
+
 /**
  * 把 `{ 'a.b.c': value }` 形式的补丁写进对象，与微信 `setData` 的路径语义一致。
  *
@@ -57,6 +62,13 @@ const settle = () => new Promise((resolve) => setImmediate(resolve));
 function createHarness() {
   const storage = {};
   let redirectUrl = '';
+  // 草稿写入可能因配额耗尽 / 隐私模式而抛错（T42）。默认**不抛**，
+  // 既有用例的行为因此逐字不变；需要验证「写失败时页面不崩」的用例
+  // 用 `setStorageWriteFailure(true)` 打开。
+  let storageWriteShouldFail = false;
+  // 草稿读取同样可能抛错（T42）。默认**不抛**；`setStorageReadFailure(true)` 打开，
+  // 用于验证「读不到草稿时页面仍能进」这条降级路径。
+  let storageReadShouldFail = false;
   // `navigateBack` 默认静默成功；置 true 时回调 `fail`，用于验证「无上一页」的兜底分支。
   let navigateBackShouldFail = false;
   // `wx.showModal` / `wx.showToast` 的调用记录。
@@ -67,8 +79,14 @@ function createHarness() {
   const switchTabCalls = [];
   const navigateBackCalls = [];
   const wxStub = new Proxy({
-    getStorageSync: (key) => storage[key],
-    setStorageSync: (key, value) => { storage[key] = value; },
+    getStorageSync: (key) => {
+      if (storageReadShouldFail) throw new Error(`getStorageSync:fail ${key}`);
+      return storage[key];
+    },
+    setStorageSync: (key, value) => {
+      if (storageWriteShouldFail) throw new Error(`setStorageSync:fail ${key}`);
+      storage[key] = value;
+    },
     removeStorageSync: (key) => { delete storage[key]; },
     nextTick: (fn) => fn(),
     redirectTo: (options) => { redirectUrl = options.url; },
@@ -154,6 +172,18 @@ function createHarness() {
     getModals() { return modalCalls.slice(); },
     /** 记录到的 `wx.showToast` 调用。 */
     getToasts() { return toastCalls.slice(); },
+    /**
+     * 让 `wx.setStorageSync` 抛错（T42 草稿写入失败路径）。
+     *
+     * @param {boolean} value true = 之后每次写入都抛错。
+     */
+    setStorageWriteFailure(value) { storageWriteShouldFail = Boolean(value); },
+    /**
+     * 让 `wx.getStorageSync` 抛错（T42 草稿读取失败路径）。
+     *
+     * @param {boolean} value true = 之后每次读取都抛错。
+     */
+    setStorageReadFailure(value) { storageReadShouldFail = Boolean(value); },
     /** 记录到的 `wx.switchTab` 目标（成功路径的跳转回归用）。 */
     getSwitchTabCalls() { return switchTabCalls.slice(); },
     /** 记录到的 `wx.navigateBack` 调用（改约被拒后应退回上一页）。 */
@@ -2360,4 +2390,478 @@ test('M3-P1-02：结算页单笔上限读运营配置、配置缺失回落 5（�
   await settle();
   assert.equal(configLast.data.maxQuantity, 2, '★ 配置后到且调低：上限必须降到 2');
   assert.equal(configLast.data.quantity, 2, '★★ 已选数量必须同时被夹回 2（否则 submit 会发出超限数量）');
+});
+
+// ===========================================================================
+// 发布页草稿（M6-P1-02 / M7-P1-02）—— 页面级接线
+//
+// 规则本身（上限 / 空草稿判定 / 图片过滤 / 容错）在 `miniapp-runtime.test.js`
+// 的纯函数用例里断言过了。这里只回答一个问题：**页面真的接上了吗？**
+// 把 `onHide` 里的 `this.saveDraft()` 删掉、或把 `clearDraft` 从成功回调里删掉，
+// 纯函数用例**依然全绿** —— 所以必须有这一层。
+//
+// ⚠️ 关于时序保真：harness 的 `wx.redirectTo` 只**记录**目标地址，不会真的卸载页面
+// （真实运行时它会触发 `onUnload`）。因此凡是「跳转之后」的断言，都在确认
+// `getRedirectUrl()` 已置位之后**显式**补调 `onUnload()` —— 这一步是必须的，
+// 否则本文件会漏掉整整一类缺陷（见下面 ③ 的 ★★）。
+// ===========================================================================
+
+/** 一份「用户真的填过」的市集草稿，与页面 data 字段一一对应。 */
+const MARKET_DRAFT_EXPECTED = {
+  title: '宿舍台灯（可调亮度）',
+  description: '用了半年，功能完好，荟园自提',
+  contact: 'wx_light_2026',
+  priceInput: '29',
+  category: 'DAILY',
+  condition: 'GOOD',
+  images: ['/api/uploads/aa11.jpg']
+};
+
+/** 把市集发布页填成「用户真的填过」的样子。 */
+function fillMarketForm(publish) {
+  publish.setData({
+    title: MARKET_DRAFT_EXPECTED.title,
+    description: MARKET_DRAFT_EXPECTED.description,
+    contact: MARKET_DRAFT_EXPECTED.contact,
+    priceInput: MARKET_DRAFT_EXPECTED.priceInput,
+    images: MARKET_DRAFT_EXPECTED.images.slice()
+  });
+  publish.setCategory({ currentTarget: { dataset: { key: 'DAILY' } } });
+  publish.setCondition({ currentTarget: { dataset: { key: 'GOOD' } } });
+}
+
+const marketPublishPath = path.join('pages', 'market', 'publish.js');
+const forumPublishPath = path.join('pages', 'forum', 'publish.js');
+
+test('M6-P1-02 ① 市集发布页：onHide 与 onUnload 各自都会落盘，key 与内容逐字段正确', (t) => {
+  const harness = createHarness();
+  t.after(() => harness.restore());
+
+  const publish = harness.loadPage(marketPublishPath);
+  fillMarketForm(publish);
+  assert.equal(
+    harness.storage.campusGoMarketDraft, undefined,
+    '① 前置：仅仅填表不该落盘（落盘只发生在生命周期钩子里，见下）'
+  );
+
+  // ==================== onHide：切后台 / 接电话 ====================
+  publish.onHide();
+  assert.deepEqual(
+    harness.storage.campusGoMarketDraft, MARKET_DRAFT_EXPECTED,
+    '① onHide（被打断）必须把整份表单落盘，key = campusGoMarketDraft（PRD 指定）'
+  );
+
+  // ==================== onUnload：用户点了返回 ====================
+  // 先删掉，确认**它自己**会写 —— 否则「onHide 写过」会让这条断言空过。
+  delete harness.storage.campusGoMarketDraft;
+  publish.onUnload();
+  assert.deepEqual(
+    harness.storage.campusGoMarketDraft, MARKET_DRAFT_EXPECTED,
+    '① onUnload（点返回）同样必须落盘 —— 只挂 onHide 会漏掉「直接返回」这条路径'
+  );
+});
+
+test('M6-P1-02 ② 市集发布页：onLoad 逐字段恢复草稿，且计数 / 价格校验跟着刷新', (t) => {
+  const harness = createHarness();
+  t.after(() => harness.restore());
+
+  harness.storage.campusGoMarketDraft = {
+    title: '考研英语真题',
+    description: '只做了两套，答案齐全',
+    contact: 'wx_kaoyan',
+    priceInput: '12.5',
+    category: 'BOOK',
+    condition: 'USED',
+    images: ['/api/uploads/bb22.png']
+  };
+
+  const publish = harness.loadPage(marketPublishPath);
+  assert.equal(publish.data.title, '', '② 前置：onLoad 之前 data 必须是空的（否则下面的断言是空过）');
+  publish.onLoad();
+
+  // 逐字段断言，不用 deepEqual 一把梭：这样失败时报错能直接指出是哪个字段没恢复。
+  assert.equal(publish.data.title, '考研英语真题', '② title');
+  assert.equal(publish.data.description, '只做了两套，答案齐全', '② description');
+  assert.equal(publish.data.contact, 'wx_kaoyan', '② contact');
+  assert.equal(publish.data.priceInput, '12.5', '② priceInput');
+  assert.deepEqual(publish.data.images, ['/api/uploads/bb22.png'], '② images');
+  assert.equal(publish.data.selectedCategory.key, 'BOOK', '② 分类存的是 key，恢复时必须找回对应的 option 对象');
+  assert.equal(publish.data.selectedCategory.label, '二手书', '② 找回的 option 必须是完整对象（label 要能渲染）');
+  assert.equal(publish.data.selectedCondition.key, 'USED', '② 成色同样按 key 找回');
+  assert.equal(publish.data.draftRestored, true, '② 恢复过草稿必须置标记 —— 页面上要说明「这些内容是哪来的」');
+
+  // 计数与价格校验必须跟着恢复后的值一起刷新，
+  // 否则会出现「输入框里有字，但角标写着 0/60」这种自相矛盾的界面。
+  assert.equal(publish.data.titleCount.text, '6/60', '② 恢复后标题计数必须刷新（考研英语真题 = 6 字）');
+  assert.equal(publish.data.descriptionCount.text, '10/500', '② 恢复后描述计数必须刷新（只做了两套，答案齐全 = 10 字）');
+  assert.equal(publish.data.priceError, '', '② 12.5 元合法，不得报错');
+
+  // ==================== 未知 key 必须回落默认值 ====================
+  // 若不回落，`selectedCategory` 会变成 undefined，提交时 `selectedCategory.key` 直接抛错。
+  harness.storage.campusGoMarketDraft = { title: '只有标题', category: 'NOT_A_REAL_CATEGORY', condition: 'ALSO_FAKE' };
+  const fallback = harness.loadPage(marketPublishPath);
+  fallback.onLoad();
+  assert.equal(
+    fallback.data.selectedCategory.key, 'BOOK',
+    '② ★ 草稿里的分类 key 在选项表里不存在时必须保留默认值 —— 否则 selectedCategory.key 会变成 undefined，提交时直接抛错'
+  );
+  assert.equal(fallback.data.selectedCondition.key, 'LIKE_NEW', '② ★ 成色同理');
+  assert.equal(fallback.data.title, '只有标题', '② 未知分类不得影响其余字段的恢复');
+});
+
+test('M6-P1-02 ③ ★ 提交成功后草稿被清除 —— 且跳转触发的 onUnload 不得把它写回去', async (t) => {
+  const harness = createHarness();
+  t.after(() => harness.restore());
+
+  const requests = [];
+  harness.setApiHandler((requestPath, options) => {
+    requests.push({ path: requestPath, data: (options && options.data) || {} });
+    return Promise.resolve({ data: { id: 'market_new_9' } });
+  });
+
+  const publish = harness.loadPage(marketPublishPath);
+  fillMarketForm(publish);
+  // 前置：先落一份草稿，模拟「填到一半切了后台又回来」。
+  publish.onHide();
+  assert.deepEqual(
+    harness.storage.campusGoMarketDraft, MARKET_DRAFT_EXPECTED,
+    '③ 前置：草稿确实存在 —— 否则「提交后被清除」这条断言会因为本来就是空而空过'
+  );
+
+  publish.submit();
+  await settle();
+  assert.equal(requests.length, 1, '③ 前置：确实发出了发布请求');
+  assert.equal(
+    harness.storage.campusGoMarketDraft, undefined,
+    '③ ★★ 发布成功后草稿必须被清除 —— 否则下次进页面会把「已发布」的内容恢复出来，用户以为发布失败而再发一次'
+  );
+
+  // ★★ 真正的坑在时序上：成功路径的最后一步是 `setTimeout(redirectTo, 600)`，
+  // 而 `redirectTo` 会卸载本页 → `onUnload` → `saveDraft()`。
+  // 那一刻 `data` 里**还是刚发布的内容**，所以「空草稿不写入」那道守卫帮不上忙 ——
+  // 草稿会被原样写回去，「提交后清除」在真实时序上等于没做。
+  // harness 的 `redirectTo` 不模拟卸载，所以这里显式补上这一步。
+  await new Promise((resolve) => { setTimeout(resolve, 700); });
+  assert.equal(
+    harness.getRedirectUrl(), '/pages/market/item?id=market_new_9',
+    '③ 前置：跳转确实发生了 —— 没有它，下面补调的 onUnload 就是凭空捏造的场景'
+  );
+  publish.onUnload();
+  publish.onHide();
+  assert.equal(
+    harness.storage.campusGoMarketDraft, undefined,
+    '③ ★★ 跳转（redirectTo → onUnload / onHide）之后草稿仍必须为空 ——'
+    + '否则「提交成功后清除草稿」在真实时序上根本不成立，用户会重复发布'
+  );
+});
+
+test('M7-P1-02 ① ② ③ 论坛发布页：落盘 / 逐字段恢复 / 提交后清除（含跳转后的 onUnload）', async (t) => {
+  const harness = createHarness();
+  t.after(() => harness.restore());
+
+  const forumDraft = {
+    title: '找一起自习的同学',
+    content: '每周三、五晚上在图书馆四楼，长期有效。',
+    board: 'STUDY',
+    images: ['/api/uploads/cc33.jpg']
+  };
+
+  // ==================== ① 落盘 ====================
+  const requests = [];
+  harness.setApiHandler((requestPath, options) => {
+    requests.push({ path: requestPath, data: (options && options.data) || {} });
+    return Promise.resolve({ data: { id: 'post_new_9' } });
+  });
+
+  const publish = harness.loadPage(forumPublishPath);
+  publish.setData({ title: forumDraft.title, content: forumDraft.content, images: forumDraft.images.slice() });
+  publish.setBoard({ currentTarget: { dataset: { key: 'STUDY' } } });
+  assert.equal(harness.storage.campusGoForumDraft, undefined, '① 前置：填表本身不该落盘');
+  publish.onHide();
+  assert.deepEqual(
+    harness.storage.campusGoForumDraft, forumDraft,
+    '① 论坛页必须用自己的 key（campusGoForumDraft）落盘，内容逐字段正确'
+  );
+  assert.equal(
+    publishDraft.DRAFT_KEYS.FORUM !== publishDraft.DRAFT_KEYS.MARKET, true,
+    '① 两页的 key 必须不同 —— 否则市集草稿会被论坛页恢复出来'
+  );
+
+  // ==================== ② 恢复 ====================
+  const restored = harness.loadPage(forumPublishPath);
+  restored.onLoad();
+  assert.equal(restored.data.title, forumDraft.title, '② 论坛 title');
+  assert.equal(restored.data.content, forumDraft.content, '② 论坛 content');
+  assert.deepEqual(restored.data.images, forumDraft.images, '② 论坛 images');
+  assert.equal(restored.data.selectedBoard.key, 'STUDY', '② 板块按 key 找回 option 对象');
+  assert.equal(restored.data.selectedBoard.label, '学习互助', '② 找回的 option 必须是完整对象');
+  assert.equal(restored.data.draftRestored, true, '② 恢复过草稿必须置标记');
+
+  // ==================== ③ 提交后清除 ====================
+  restored.submit();
+  await settle();
+  assert.equal(requests.length, 1, '③ 前置：确实发出了发帖请求');
+  assert.equal(requests[0].path, '/api/forum/posts', '③ 应打到论坛发帖端点');
+  assert.equal(
+    harness.storage.campusGoForumDraft, undefined,
+    '③ ★★ 发帖成功后草稿必须被清除（与市集页同一条纪律）'
+  );
+
+  // 同 ③：跳转触发的 onUnload 不得把刚发布的内容写回草稿。
+  await new Promise((resolve) => { setTimeout(resolve, 700); });
+  assert.equal(
+    harness.getRedirectUrl(), '/pages/forum/post?id=post_new_9',
+    '③ 前置：跳转确实发生了'
+  );
+  restored.onUnload();
+  assert.equal(
+    harness.storage.campusGoForumDraft, undefined,
+    '③ ★★ 跳转之后论坛草稿仍必须为空'
+  );
+});
+
+test('M6-P1-02 ④ ★ 空草稿不得覆盖有效草稿（data 为空时退出 → 不得写入）', (t) => {
+  const harness = createHarness();
+  t.after(() => harness.restore());
+
+  // 触发路径有两条，都会让页面 data 保持空：
+  // ① `onLoad` 里的读取静默失败（`readDraft` 把 `getStorageSync` 的异常吞成 null）；
+  // ② 页面在 `onLoad` 之前就被销毁。
+  // 两者都会走到「data 为空时退出」，若无守卫就会用空草稿**覆盖掉**那份有效草稿。
+  const marketSnapshot = JSON.parse(JSON.stringify(MARKET_DRAFT_EXPECTED));
+  harness.storage.campusGoMarketDraft = marketSnapshot;
+  const untouched = harness.loadPage(marketPublishPath);
+  // 注意：**故意不调 onLoad** —— 一旦恢复，data 就非空了，这条判据也就测不到守卫。
+  untouched.onHide();
+  untouched.onUnload();
+  assert.deepEqual(
+    harness.storage.campusGoMarketDraft, marketSnapshot,
+    '④ ★★ 进页面什么都没填就退出，不得用空草稿覆盖上一次的有效草稿 —— 那是数据丢失，不是保守行为'
+  );
+
+  // 论坛页同一条纪律。
+  const forumSnapshot = { title: '上次填了一半', content: '正文正文', board: 'CAMPUS', images: [] };
+  harness.storage.campusGoForumDraft = JSON.parse(JSON.stringify(forumSnapshot));
+  const untouchedForum = harness.loadPage(forumPublishPath);
+  untouchedForum.onUnload();
+  assert.deepEqual(
+    harness.storage.campusGoForumDraft, forumSnapshot,
+    '④ ★★ 论坛页同样不得用空草稿覆盖有效草稿'
+  );
+
+  // ★ 正向控制：真的填了内容时必须写 —— 否则「一律不写」也能让上面两条通过。
+  const filled = harness.loadPage(marketPublishPath);
+  filled.setData({ title: '新内容' });
+  filled.onHide();
+  assert.equal(
+    harness.storage.campusGoMarketDraft.title, '新内容',
+    '★ ④ 正向控制：有内容时必须照常落盘（守卫不能把功能一起关掉）'
+  );
+});
+
+test('M6-P1-02 ⑤ ★ 恢复出来的图片必须真的能用：只剩失效临时路径的草稿整体不恢复', (t) => {
+  const harness = createHarness();
+  t.after(() => harness.restore());
+
+  // 两页的 `chooseImage()` 在上传成功回调里只把**服务端 URL** 存进 `data.images`，
+  // 临时路径从未被保留过。所以正常草稿里的图片一定是 `/api/uploads/...`。
+  harness.storage.campusGoMarketDraft = {
+    title: '有图有真相', description: '', contact: '', priceInput: '',
+    category: 'BOOK', condition: 'LIKE_NEW', images: ['/api/uploads/real-1.jpg', '/api/uploads/real-2.png']
+  };
+  const publish = harness.loadPage(marketPublishPath);
+  publish.onLoad();
+  assert.deepEqual(
+    publish.data.images, ['/api/uploads/real-1.jpg', '/api/uploads/real-2.png'],
+    '⑤ 服务端 URL 必须被原样恢复'
+  );
+  assert.ok(
+    publish.data.images.every((url) => url.startsWith('/api/uploads/')),
+    '⑤ ★ 恢复出来的每一个图片地址都必须是服务端 URL —— 这样渲染出来的图**真的存在**，不是裂图'
+  );
+
+  // ★ 硬约束的反面：一份「只剩失效临时路径」的草稿**不得**被恢复。
+  // 若恢复了，用户会看到「已恢复上次未发布的草稿」+ 一个图片框，而图是坏的
+  // —— 那是在向用户断言假事实。
+  harness.storage.campusGoMarketDraft = {
+    title: '', description: '', contact: '', priceInput: '',
+    category: 'BOOK', condition: 'LIKE_NEW',
+    images: ['wxfile://tmp_dead_1.jpg', 'wxfile://tmp_dead_2.jpg']
+  };
+  const tempOnly = harness.loadPage(marketPublishPath);
+  tempOnly.onLoad();
+  assert.deepEqual(
+    tempOnly.data.images, [],
+    '⑤ ★★ 草稿里只剩失效的临时路径时，不得恢复出任何图片框（宁可没有图，也不能有坏图）'
+  );
+  assert.equal(
+    tempOnly.data.draftRestored, false,
+    '⑤ ★★ 也不得显示「已恢复上次未发布的草稿」—— 那会承诺一份并不存在的内容'
+  );
+
+  // 论坛页同样的过滤（它有自己的张数上限 3）。
+  harness.storage.campusGoForumDraft = {
+    title: '带图帖子', content: '正文', board: 'CAMPUS',
+    images: ['wxfile://tmp_dead.jpg', '/api/uploads/keep.jpg', 'http://tmp/x.png']
+  };
+  const forum = harness.loadPage(forumPublishPath);
+  forum.onLoad();
+  assert.deepEqual(forum.data.images, ['/api/uploads/keep.jpg'], '⑤ ★ 论坛侧同样只留服务端 URL');
+});
+
+test('M6-P1-02 ⑥ 市集发布页：字数计数真的接上了（59 / 60 / 61），且输入框限长与常量一致', (t) => {
+  const harness = createHarness();
+  t.after(() => harness.restore());
+
+  const publish = harness.loadPage(marketPublishPath);
+  assert.equal(publish.data.titleCount.text, '0/60', '⑥ 初始计数应为 0/60');
+  assert.equal(publish.data.descriptionCount.text, '0/500', '⑥ 初始描述计数应为 0/500');
+
+  publish.setTitle({ detail: { value: 'a'.repeat(59) } });
+  assert.equal(publish.data.titleCount.text, '59/60', '⑥ 59 字');
+  assert.equal(publish.data.titleCount.over, false, '⑥ 59 字未超限');
+
+  publish.setTitle({ detail: { value: 'a'.repeat(60) } });
+  assert.equal(publish.data.titleCount.text, '60/60', '⑥ 60 字');
+  assert.equal(publish.data.titleCount.over, false, '⑥ ★ 60/60 不得标记超限（服务端接受这个长度）');
+
+  publish.setTitle({ detail: { value: 'a'.repeat(61) } });
+  assert.equal(publish.data.titleCount.text, '61/60', '⑥ 61 字');
+  assert.equal(publish.data.titleCount.over, true, '⑥ 61 字必须标记超限（角标要变红，提示用户）');
+
+  publish.setDescription({ detail: { value: 'a'.repeat(500) } });
+  assert.equal(publish.data.descriptionCount.text, '500/500', '⑥ 描述 500 字');
+  assert.equal(publish.data.descriptionCount.over, false, '⑥ 描述 500 字不得标记超限');
+  publish.setDescription({ detail: { value: 'a'.repeat(501) } });
+  assert.equal(publish.data.descriptionCount.over, true, '⑥ 描述 501 字必须标记超限');
+
+  // 「无法继续输入」由 wxml 的 `maxlength` 保证 —— 这是唯一能验证它的探针
+  // （`maxlength` 是渲染层的截断，页面 JS 里看不到）。
+  const wxml = fs.readFileSync(path.join(miniprogramDirectory, 'pages', 'market', 'publish.wxml'), 'utf8');
+  assert.ok(
+    wxml.includes(`maxlength="${publishDraft.FIELD_LIMITS.market.title}"`),
+    '⑥ 标题输入框必须有 maxlength=60（与服务端上限同源）'
+  );
+  assert.ok(
+    wxml.includes(`maxlength="${publishDraft.FIELD_LIMITS.market.description}"`),
+    '⑥ 描述输入框必须有 maxlength=500'
+  );
+  assert.ok(wxml.includes('{{titleCount.text}}'), '⑥ 计数必须真的渲染在页面上（只算不显示等于没做）');
+  assert.ok(wxml.includes('{{descriptionCount.text}}'), '⑥ 描述计数同样必须渲染出来');
+  assert.ok(wxml.includes('titleCount.over'), '⑥ 超限时必须能改变样式（否则用户看不出「满了」）');
+});
+
+test('M6-P1-02 ⑦ 市集发布页：价格非法时按钮置灰 + 显示原因（0 / 0.01 / 100000 / 100000.01）', (t) => {
+  const harness = createHarness();
+  t.after(() => harness.restore());
+
+  const publish = harness.loadPage(marketPublishPath);
+  assert.equal(publish.data.priceError, '', '⑦ 未填写时不算错误（否则一进页面按钮就是灰的）');
+
+  publish.setPrice({ detail: { value: '0' } });
+  assert.notEqual(publish.data.priceError, '', '⑦ 0 元必须给出原因（服务端 priceInCents <= 0 会拒绝）');
+  assert.ok(
+    publish.data.priceError.includes('0.01') && publish.data.priceError.includes('100000'),
+    '⑦ 原因里必须写明合法区间，否则用户不知道该改成多少'
+  );
+
+  publish.setPrice({ detail: { value: '0.01' } });
+  assert.equal(publish.data.priceError, '', '⑦ 0.01 元（下界）必须合法');
+  publish.setPrice({ detail: { value: '100000' } });
+  assert.equal(publish.data.priceError, '', '⑦ 100000 元（上界）必须合法');
+  publish.setPrice({ detail: { value: '100000.01' } });
+  assert.notEqual(publish.data.priceError, '', '⑦ ★ 100000.01 元必须当场报错（不是等提交时弹 toast）');
+  publish.setPrice({ detail: { value: 'abc' } });
+  assert.notEqual(publish.data.priceError, '', '⑦ 非数字必须当场报错');
+
+  // 区间提示的文案（页面 data 里的 `priceRangeText`）必须带单位「元」——
+  // 服务端的拒绝文案是「价格需要在 0.01 元到 10 万元之间」，前端不带单位会被读成别的量纲。
+  assert.equal(
+    publish.data.priceRangeText, '0.01 ~ 100000 元',
+    '⑦ 区间提示必须带「元」，与服务端文案同口径'
+  );
+
+  // 「按钮置灰」由 wxml 的 disabled 表达式保证。
+  const wxml = fs.readFileSync(path.join(miniprogramDirectory, 'pages', 'market', 'publish.wxml'), 'utf8');
+  assert.ok(
+    wxml.includes("disabled=\"{{submitting || priceError !== ''}}\""),
+    '⑦ ★ 按钮必须在 priceError 非空时置灰 —— 不能只在提交时弹 toast（用户要等一趟往返才知道填错了）'
+  );
+  assert.ok(wxml.includes('wx:if="{{priceError}}"'), '⑦ 错误原因必须显示在价格输入框旁边');
+  assert.ok(wxml.includes('{{priceRangeText}}'), '⑦ 合法区间必须常驻显示（不要等用户填错才告诉他范围）');
+
+  // ==================== 提交侧同源：越界值不得发出去 ====================
+  const requests = [];
+  harness.setApiHandler((requestPath, options) => {
+    requests.push({ path: requestPath, data: (options && options.data) || {} });
+    return Promise.resolve({ data: { id: 'market_x' } });
+  });
+  publish.setData({ title: '标题', description: '描述', contact: 'wx_ok_123', priceInput: '100000.01' });
+  publish.submit();
+  assert.equal(
+    requests.length, 0,
+    '⑦ ★ 越界价格必须在本地拦下（请求计数为 0）—— 改造前它会发出去再吃一个 400，白跑一趟网络'
+  );
+});
+
+test('M6-P1-02 ⑧ ★ setStorageSync 抛错时页面不崩，且仍然能发布', async (t) => {
+  const harness = createHarness();
+  t.after(() => harness.restore());
+
+  // 配额耗尽 / 隐私模式：`wx.setStorageSync` 抛错。
+  harness.setStorageWriteFailure(true);
+
+  const publish = harness.loadPage(marketPublishPath);
+  fillMarketForm(publish);
+
+  assert.doesNotThrow(() => publish.onHide(), '⑧ ★ 写草稿失败不得把异常抛出 onHide（会打断页面生命周期）');
+  assert.doesNotThrow(() => publish.onUnload(), '⑧ ★ 同样不得抛出 onUnload');
+  assert.equal(
+    harness.storage.campusGoMarketDraft, undefined,
+    '⑧ 前置：草稿确实没写进去（桩真的在抛错）'
+  );
+
+  // 页面必须仍然可用：草稿是**辅助**能力，不该拦住用户发布。
+  const requests = [];
+  harness.setApiHandler((requestPath, options) => {
+    requests.push({ path: requestPath, data: (options && options.data) || {} });
+    return Promise.resolve({ data: { id: 'market_ok' } });
+  });
+  publish.submit();
+  await settle();
+  assert.equal(
+    requests.length, 1,
+    '⑧ ★★ Storage 写失败后必须仍然能发布 —— 草稿写不进去是次要问题，拦住发布才是主要问题'
+  );
+  assert.equal(requests[0].data.title, MARKET_DRAFT_EXPECTED.title, '⑧ 请求体不得因 Storage 故障而变形');
+
+  // 成功路径有 `setTimeout(..., 600)` 的跳转，等它跑完再结束用例（否则定时器会在 restore 之后触发）。
+  await new Promise((resolve) => { setTimeout(resolve, 700); });
+});
+
+test('M6-P1-02 ⑧ 草稿读取抛错时页面仍能进，且不销毁 Storage 里那份草稿', (t) => {
+  // 单独一个用例而不是接在 ⑧ 后面：两个 harness 同时存在会互相套娃 ——
+  // 后建的那个把「前一个的补丁」当成原始值记下来，`restore()` 一执行就会
+  // 把前一个的桩永久留在 `global.wx` 上，污染同文件后续所有用例。
+  const harness = createHarness();
+  t.after(() => harness.restore());
+
+  // 预置一份有效草稿再让读取抛错 —— 这样「读不到」与「本来就没草稿」被区分开。
+  harness.storage.campusGoMarketDraft = MARKET_DRAFT_EXPECTED;
+  harness.setStorageReadFailure(true);
+
+  const publish = harness.loadPage(marketPublishPath);
+  assert.doesNotThrow(() => publish.onLoad(), '⑧ ★ 读草稿失败不得把异常抛出 onLoad（否则用户根本进不了发布页）');
+  assert.equal(publish.data.draftRestored, false, '⑧ 读不到草稿时不得显示「已恢复草稿」');
+  assert.equal(publish.data.title, '', '⑧ 读不到草稿时表单应保持空白，不得是半截状态');
+  // ★ 读失败也不能把 Storage 里那份草稿弄丢：用户下次进来（Storage 恢复正常）还应该能恢复。
+  assert.deepEqual(
+    harness.storage.campusGoMarketDraft, MARKET_DRAFT_EXPECTED,
+    '⑧ ★ 读取失败只是「这次读不到」，不得顺手删掉 Storage 里那份草稿'
+  );
+
+  harness.setStorageReadFailure(false);
+  const retry = harness.loadPage(marketPublishPath);
+  retry.onLoad();
+  assert.equal(retry.data.title, MARKET_DRAFT_EXPECTED.title, '⑧ ★ 读取恢复正常后草稿必须还能恢复（失败不销毁数据）');
 });

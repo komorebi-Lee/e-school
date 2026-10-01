@@ -1,5 +1,6 @@
 <view class="page publish-page">
   <view class="section-title">发布帖子</view>
+  <view wx:if="{{draftRestored}}" class="draft-hint">已恢复上次未发布的草稿</view>
   <view class="form card">
     <view class="field">
       <text class="field-label">板块</text>
