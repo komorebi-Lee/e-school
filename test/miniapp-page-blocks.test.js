@@ -1704,3 +1704,200 @@ test('M7-P1-01：帖子详情页的隐藏/恢复只发给作者，且恢复用 P
     '⑨ ★★ 正向控制：确认上一条断言不是恒真 —— 它确实区分 PUBLISHED 与 ACTIVE'
   );
 });
+
+test('M6-P1-01：我发布的闲置页三态 + 状态可见 + 删除（含 409 的明确提示）', async (t) => {
+  const harness = createHarness();
+  t.after(() => harness.restore());
+
+  const item = (id, status, statusText) => ({
+    id,
+    title: `闲置 ${id}`,
+    description: '描述',
+    categoryText: '其他',
+    conditionText: '七成新',
+    priceText: '¥10.00',
+    price: 10,
+    status,
+    statusText,
+    images: [],
+    createdAt: '2026-09-01T10:00:00.000Z'
+  });
+
+  let shouldFail = true;
+  const calls = [];
+  harness.setApiHandler((requestPath, options) => {
+    calls.push({ path: requestPath, options });
+    if (shouldFail) return Promise.reject(new Error('市集接口 500'));
+    return Promise.resolve({
+      data: [
+        item('m_active', 'ACTIVE', '在售'),
+        item('m_sold', 'SOLD', '已出'),
+        item('m_deleted', 'DELETED', '已删除')
+      ]
+    });
+  });
+
+  const mine = harness.loadPage(path.join('pages', 'market', 'mine.js'));
+  mine.onShow();
+  await settle();
+
+  // ==================== ⑦ 失败走三态 ====================
+  assert.deepEqual(
+    calls.map((call) => call.path), ['/api/my/market-items'],
+    '⑦ ★ 必须走既有的 `/api/my/market-items` —— 它本来就不按状态过滤，'
+    + '「我发布的」要能看到已售 / 已删除，另造一个 ?mine=1 只会多一份要维护的口径'
+  );
+  assert.equal(mine.data.itemsBlock.loading, false, '⑦ 失败后必须结束加载态');
+  assert.equal(mine.data.itemsBlock.error, '市集接口 500', '⑦ ★ 失败必须成为可见状态（常驻占位 + 重试）');
+  // ★ 失败时 `data` 必须仍是数组：清成 `undefined` 后模板的
+  // `!itemsBlock.data.length` 取到 undefined（在 wx:if 里是假值），
+  // 「接口挂了」会被渲染成「你还没有发布过闲置」—— 用户以为自己发的东西没了。
+  assert.ok(
+    Array.isArray(mine.data.itemsBlock.data),
+    '⑦ ★★ 失败时 data 必须仍是数组（否则失败会被渲染成「你还没有发布过闲置」）'
+  );
+
+  // ==================== ⑧ 重试成功 → 再失败，旧列表不得清空 ====================
+  shouldFail = false;
+  await mine.retryItems();
+  await settle();
+  assert.equal(mine.data.itemsBlock.error, '', '⑧ 重试成功后应清掉错误');
+  assert.equal(mine.data.itemsBlock.data.length, 3, '⑧ 重试成功后应渲染 3 条');
+
+  shouldFail = true;
+  await mine.loadMine();
+  await settle();
+  assert.equal(mine.data.itemsBlock.error, '市集接口 500', '⑧ 再次失败应重新进入错误态');
+  assert.equal(
+    mine.data.itemsBlock.data.length, 3,
+    '⑧ ★★ 失败绝不清空旧列表 —— 旧数据比「假装没有数据」有用得多'
+  );
+
+  // ==================== ⑨ 每条能看出状态 ====================
+  const [active, sold, deleted] = mine.data.itemsBlock.data;
+  assert.equal(active.statusText, '在售', '⑨ 在售的文案');
+  assert.equal(sold.statusText, '已出', '⑨ 已出的文案');
+  // ★ 这一条针对一个真实缺陷：`publicMarketItem` 的 statusText 原来是嵌套三元、
+  // 没有 DELETED 分支，未知状态会掉进兜底的「在售」。
+  assert.equal(
+    deleted.statusText, '已删除',
+    '⑨ ★★ 已删除必须显示「已删除」，不得掉进兜底的「在售」（那是在断言一个假事实）'
+  );
+  assert.equal(deleted.statusClass, 'status-deleted', '⑨ 已删除应有独立角标样式，扫一眼能分辨');
+  assert.equal(active.statusClass, 'status-active', '⑨ 在售的角标样式');
+
+  assert.equal(active.deletable, true, '⑨ 在售的可以删除');
+  assert.equal(sold.deletable, false, '⑨ ★ 已出的不给删除按钮（点了必然被服务端 409 拒绝）');
+  assert.equal(deleted.deletable, false, '⑨ 已删除的不给删除按钮');
+  assert.equal(
+    sold.lockedText, '已产生交易记录，无法删除',
+    '⑨ ★ 不给按钮时必须说明原因，否则用户以为页面坏了'
+  );
+  assert.equal(active.lockedText, '', '⑨ 有删除按钮时不需要说明文案');
+
+  assert.equal(active.viewable, true, '⑨ 在售的可查看详情');
+  assert.equal(deleted.viewable, false, '⑨ ★ 已删除的不可查看详情（服务端对 DELETED 返回 404）');
+
+  // ==================== ⑨ 跳转 ====================
+  harness.clearOpenLinkCalls();
+  mine.goItem({ currentTarget: { dataset: { id: 'm_active' } } });
+  assert.equal(harness.getOpenLinkCalls().length, 1, '⑨ 在售的应能进详情');
+  assert.equal(harness.getOpenLinkCalls()[0].url, '/pages/market/item?id=m_active', '⑨ 跳转目标应为市集详情页');
+
+  harness.clearOpenLinkCalls();
+  harness.clearToasts();
+  mine.goItem({ currentTarget: { dataset: { id: 'm_deleted' } } });
+  assert.equal(
+    harness.getOpenLinkCalls().length, 0,
+    '⑨ ★★ 已删除的不得跳转 —— 服务端是 404，跳过去只会看到「商品不存在或已下架」'
+  );
+  assert.equal(
+    harness.getToasts().at(-1)?.title, '已删除的闲置无法查看详情',
+    '⑨ ★ 必须说明为什么不跳，而不是点了没反应'
+  );
+
+  harness.clearOpenLinkCalls();
+  mine.goPublish();
+  assert.equal(harness.getOpenLinkCalls()[0]?.url, '/pages/market/publish', '⑨ 「去发布」应进发布页');
+
+  // ==================== ⑩ 不可删除的条目不弹确认框 ====================
+  // 注意前置条件：这一段必须在**三条目都在列表里**的时候跑。
+  // 第一次写时我把它放在了 409 那一段之后 —— 那时 handler 只返回一条
+  // `m_active`，`m_sold` 在列表里根本不存在，页面自然找不到它、也就没拦住，
+  // 断言报 `1 !== 0`。**这是我的用例前置写错了，不是页面的问题。**
+  harness.clearModals();
+  mine.deleteItem({ currentTarget: { dataset: { id: 'm_sold' } } });
+  assert.equal(harness.getModals().length, 0, '⑩ ★ 已售出的条目不弹确认框（它根本没有删除按钮）');
+  assert.equal(mine.data.itemsBlock.data.find((entry) => entry.id === 'm_sold').deletable, false, '⑩ 前置：已售出的 deletable 为 false');
+
+  // ==================== ⑩ 409：明确提示，而不是通用「操作失败」 ====================
+  shouldFail = false;
+  await mine.retryItems();
+  await settle();
+
+  calls.length = 0;
+  harness.clearToasts();
+  harness.clearModals();
+  harness.setApiHandler((requestPath, options) => {
+    calls.push({ path: requestPath, options });
+    if (options && options.method === 'POST') {
+      return Promise.reject(Object.assign(
+        new Error('该闲置已产生交易记录，无法删除；如需下架请联系客服'),
+        { code: 'MARKET_ITEM_HAS_TRADE', statusCode: 409 }
+      ));
+    }
+    return Promise.resolve({ data: [item('m_active', 'ACTIVE', '在售')] });
+  });
+
+  // 场景是真实竞态：页面加载时这条闲置还在售，点「删除」的这一刻买家把它预留了。
+  mine.deleteItem({ currentTarget: { dataset: { id: 'm_active' } } });
+  assert.equal(harness.getModals().length, 1, '⑩ ★ 删除前必须先弹确认框（软删除不可逆，不能误触即删）');
+  assert.equal(harness.getModals()[0].title, '删除闲置', '⑩ 确认框标题');
+  assert.equal(calls.length, 0, '⑩ ★ 用户还没确认，不得发任何请求');
+
+  harness.getModals()[0].success({ confirm: true });
+  await settle();
+  await settle();
+
+  const deleteCall = calls.find((call) => call.path === '/api/market/items/m_active');
+  assert.ok(deleteCall, '⑩ 删除应打到 POST /api/market/items/:id');
+  assert.equal(deleteCall.options.method, 'POST', '⑩ 状态变更必须用 POST');
+  assert.equal(deleteCall.options.data.status, 'DELETED', '⑩ ★ 删除必须发 DELETED');
+  const refusalToast = harness.getToasts().at(-1)?.title || '';
+  assert.equal(
+    refusalToast.includes('交易记录'), true,
+    `⑩ ★★ 409 必须给出明确原因（含「交易记录」），而不是通用「操作失败」或「删除失败，请重试」；实得：${refusalToast}`
+  );
+  assert.notEqual(refusalToast, '删除失败，请重试', '⑩ ★ 不得退化成通用失败提示');
+
+  // ==================== ⑩ 点「取消」不发请求 ====================
+  calls.length = 0;
+  harness.clearModals();
+  mine.deleteItem({ currentTarget: { dataset: { id: 'm_active' } } });
+  harness.getModals()[0].success({ confirm: false });
+  await settle();
+  assert.equal(calls.length, 0, '⑩ ★ 点「取消」不得发请求');
+
+  // ==================== ⑩ 正向控制：删除成功路径必须真的走得通 ====================
+  let deletedBody = null;
+  calls.length = 0;
+  harness.clearToasts();
+  harness.clearModals();
+  harness.setApiHandler((requestPath, options) => {
+    calls.push({ path: requestPath, options });
+    if (options && options.method === 'POST') {
+      deletedBody = options.data;
+      return Promise.resolve({ data: {} });
+    }
+    return Promise.resolve({ data: [] });
+  });
+  mine.deleteItem({ currentTarget: { dataset: { id: 'm_active' } } });
+  harness.getModals()[0].success({ confirm: true });
+  await settle();
+  await settle();
+  assert.equal(deletedBody && deletedBody.status, 'DELETED', '⑩ 正向控制：成功路径也必须发出 DELETED');
+  assert.equal(
+    harness.getToasts().at(-1)?.title, '已删除',
+    '⑩ ★ 正向控制：成功必须给出成功提示 —— 否则「一律报错」也能让上面几条通过'
+  );
+});

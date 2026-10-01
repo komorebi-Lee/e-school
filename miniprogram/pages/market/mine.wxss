@@ -1,0 +1,30 @@
+.page { padding: 20rpx 24rpx; }
+.summary { padding: 22rpx; color: #536078; font-size: 22rpx; margin-bottom: 18rpx; }
+.mine-card { padding: 22rpx; margin-bottom: 15rpx; }
+.item-cover { width: 100%; height: 240rpx; border-radius: 20rpx; background: #f5f7fb; margin-bottom: 16rpx; }
+.mine-head { display: flex; align-items: center; justify-content: space-between; gap: 12rpx; }
+.mine-title { margin-top: 12rpx; font-size: 28rpx; font-weight: 900; color: #17233d; }
+.mine-desc { margin-top: 8rpx; line-height: 1.45; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.mine-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 14rpx; }
+.mine-actions { display: flex; align-items: center; justify-content: flex-end; margin-top: 16rpx; }
+.mine-actions .danger-button { margin: 0; }
+.locked-note { flex: 1; text-align: right; line-height: 1.45; }
+.price { color: #002fa7; font-size: 30rpx; font-weight: 900; }
+
+/* 状态角标：五种状态各有各的颜色，扫一眼就能分辨。 */
+.status-tag { border-radius: 999rpx; padding: 4rpx 14rpx; font-size: 19rpx; font-weight: 800; flex-shrink: 0; }
+.status-active { background: #e8f6ec; color: #1f7a3d; }
+.status-reserved { background: #fff4e5; color: #a8620f; }
+.status-sold { background: #eaf0ff; color: #002fa7; }
+.status-deleted { background: #f2f3f6; color: #78849a; }
+.status-removed { background: #fff4f2; color: #a3341f; }
+
+/* 删除是不可逆动作，用警示色与普通「幽灵按钮」区分开。 */
+.danger-button { color: #a3341f; border-color: #ffd9d3; background: #fff4f2; }
+
+.empty { padding: 40rpx 24rpx; display: flex; flex-direction: column; align-items: center; gap: 16rpx; }
+
+/* 失败占位：接口挂掉必须「看得见、点得动」，而不是安静地显示空列表。 */
+.load-error { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; padding: 20rpx 24rpx; margin: 0 0 18rpx; background: #fff4f2; border: 2rpx solid #ffd9d3; border-radius: 18rpx; }
+.load-error .muted { flex: 1; min-width: 0; color: #a3341f; line-height: 1.45; }
+.load-error .ghost-button { min-width: 120rpx; margin: 0; flex-shrink: 0; }

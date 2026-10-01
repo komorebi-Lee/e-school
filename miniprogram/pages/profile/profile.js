@@ -135,6 +135,14 @@ Page({
    * `openLink` 会走 `navigateTo`；将来若它变成 tabBar 页，这里不用改。
    */
   goMyForumPosts() { openLink("/pages/forum/mine"); },
+  /**
+   * 「我发布的闲置」（M6-P1-01）。与上面的「我的帖子」**同级**。
+   *
+   * 同样走 `openLink`：站内跳转统一由它分发（tabBar 页要 `switchTab`、
+   * 失败要提示而不是静默）。`market/mine` 目前不是 tabBar 页，
+   * `openLink` 会走 `navigateTo`；将来若它变成 tabBar 页，这里不用改。
+   */
+  goMyMarketItems() { openLink("/pages/market/mine"); },
   goCard() { wx.navigateTo({ url: "/pages/card/card" }); },
   goMerchant() {
     if (this.data.latestApprovedAt) {

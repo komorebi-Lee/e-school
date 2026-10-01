@@ -2048,3 +2048,98 @@ test('M7-P1-01：「我的帖子」已注册，profile 有入口，且 tabBar �
     '⑩ ★ goMyForumPosts 必须走 openLink（将来该页若变成 tabBar 页，这里不用改）'
   );
 });
+
+test('M6-P1-01：「我发布的闲置」已注册，profile 有入口，删除按钮用 catchtap 守卫', () => {
+  const appConfig = JSON.parse(readMiniappFile('app.json'));
+  const profileJs = readMiniappFile(path.join('pages', 'profile', 'profile.js'));
+  const profileWxml = readMiniappFile(path.join('pages', 'profile', 'profile.wxml'));
+  const wxml = readMiniappFile(path.join('pages', 'market', 'mine.wxml'));
+
+  // ==================== ⑪ 页面注册 ====================
+  assert.ok(
+    appConfig.pages.includes('pages/market/mine'),
+    '⑪ ★ 「我发布的闲置」必须在 app.json 里注册（否则跳过去是空白页）'
+  );
+  for (const extension of ['js', 'wxml', 'json', 'wxss']) {
+    const file = path.join(miniappDirectory, 'pages', 'market', `mine.${extension}`);
+    assert.ok(fs.existsSync(file), `⑪ ★ pages/market/mine.${extension} 必须存在`);
+  }
+
+  // ==================== ⑪ tabBar 不得被打断 ====================
+  const tabBarList = appConfig.tabBar?.list || [];
+  assert.equal(
+    tabBarList.length, 5,
+    '⑪ ★★ tabBar 必须仍是 5 项 —— 「我发布的闲置」是新页面，不是新的 tab'
+  );
+  assert.deepEqual(
+    tabBarList.map((item) => item.pagePath),
+    ['pages/home/home', 'pages/map/map', 'pages/orders/orders', 'pages/profile/profile', 'pages/market/market'],
+    '⑪ ★★ tabBar 的项与顺序都不得被这次改动影响'
+  );
+
+  // ==================== ⑪ 地图隐私配置不得被碰到 ====================
+  assert.deepEqual(
+    appConfig.requiredPrivateInfos, ['getLocation'],
+    '⑪ ★ requiredPrivateInfos 必须原样（绝对禁区）'
+  );
+  assert.equal(
+    appConfig.permission?.['scope.userLocation']?.desc,
+    '用于在校园地图中辅助你确认当前位置附近的建筑和路线。',
+    '⑪ ★ scope.userLocation 的说明文案必须原样（绝对禁区）'
+  );
+
+  // ==================== ⑪ profile 入口（与「我的帖子」同级） ====================
+  assert.ok(profileJs.includes('goMyMarketItems'), '⑪ 「我发布的闲置」入口必须在 profile.js 里');
+  assert.ok(profileWxml.includes('bindtap="goMyMarketItems"'), '⑪ 菜单项必须在 profile.wxml 里绑定');
+  assert.match(
+    profileJs, /goMyMarketItems\s*\(\s*\)\s*\{\s*openLink\(/,
+    '⑪ ★ goMyMarketItems 必须走 openLink（与 T26 的 goMyForumPosts 同级、同一种接线）'
+  );
+
+  // ==================== ★ 删除按钮的结构性守卫 ====================
+  //
+  // 这里不写「文件里出现过 deletable」这种子串断言 —— 把 `wx:if` 从按钮上挪走、
+  // 或新加一个没带守卫的删除按钮，子串断言照样绿。先按 `catchtap="deleteItem"`
+  // 定位到那一个元素，再检查**同一个元素的开标签**上是否带着守卫。
+  const marker = 'catchtap="deleteItem"';
+  assert.equal(
+    wxml.split(marker).length - 1, 1,
+    '★ 删除按钮应当只有一个 —— 多出来的那个极可能没带 deletable 守卫'
+  );
+  // ★★ 必须用 `catchtap` 而不是 `bindtap`：删除按钮在整张卡片
+  // （`bindtap="goItem"`）**里面**，`bindtap` 会冒泡 —— 点「删除」会顺带跳进详情页。
+  assert.equal(
+    wxml.includes('bindtap="deleteItem"'), false,
+    '★★ 删除按钮不得用 bindtap：它会冒泡到卡片的 goItem，点「删除」会顺带跳进详情页'
+  );
+
+  const markerIndex = wxml.indexOf(marker);
+  const elementStart = wxml.lastIndexOf('<button', markerIndex);
+  assert.ok(elementStart !== -1, '★ 应能在 wxml 里定位到删除按钮的开标签');
+  const tagEnd = wxml.indexOf('>', markerIndex);
+  const openingTag = wxml.slice(elementStart, tagEnd + 1);
+  assert.ok(
+    openingTag.includes('wx:if="{{item.deletable}}"'),
+    '★ 删除按钮必须被 `wx:if="{{item.deletable}}"` 守住 —— 已售 / 已删除的条目'
+    + '不该出现一个点了必然失败的按钮。实得开标签：' + openingTag
+  );
+  assert.ok(
+    openingTag.includes('data-id="{{item.id}}"'),
+    '★ 删除按钮必须带上 `data-id`，否则 deleteItem 拿不到要删哪一条'
+  );
+  assert.ok(
+    openingTag.includes('disabled="{{deletingId === item.id}}"'),
+    '★ 删除进行中必须禁用（与 confirmDelete 里的 deletingId 守卫配套，防重复提交）'
+  );
+
+  // ==================== ★ 状态必须看得见 ====================
+  assert.ok(
+    wxml.includes('{{item.statusText}}') && wxml.includes('{{item.statusClass}}'),
+    '★ 每条必须渲染状态文案与状态样式 —— 这一页是唯一能看到「已售 / 已删除 / 已下架」的地方'
+  );
+  // 不可删除时必须说明原因（与 deletable 互斥），而不是把按钮悄悄拿掉。
+  assert.ok(
+    wxml.includes('{{item.lockedText}}'),
+    '★ 不可删除时必须渲染 lockedText 说明原因，否则用户以为页面坏了'
+  );
+});
