@@ -162,6 +162,17 @@ function createHarness() {
       captured = null;
       const file = path.join(miniprogramDirectory, relativePath);
       delete require.cache[require.resolve(file)];
+      // ★ 页面**间接** require 的工具模块也必须从缓存里清掉。
+      //
+      // 这些模块在被 require 的那一刻就捕获了本次 harness 的桩：例如
+      // `utils/product-route.js` 顶部 `require('./navigation')` 拿到的就是本次的
+      // `openLink` 桩。若它留在缓存里，后续用例的页面会继续调用**上一个 harness
+      // 的桩** —— 记录落进上一个实例的数组，本用例读到空数组，
+      // 「没有发生跳转」这类断言就会**假通过**（而「跳了」的断言会假失败）。
+      for (const name of fs.readdirSync(path.join(miniprogramDirectory, 'utils'))) {
+        if (!name.endsWith('.js')) continue;
+        delete require.cache[require.resolve(path.join(miniprogramDirectory, 'utils', name))];
+      }
       require(file);
       assert.ok(captured, `${relativePath} 应调用 Page() 注册页面`);
       const definition = captured;
@@ -1343,5 +1354,180 @@ test('M3-P1-03：改约被拒（ORDER_NOT_MODIFIABLE）时提示并退回订单�
   assert.equal(
     harness.getNavigateBackCalls().length, 0,
     '⑨ ★ 正向控制：只有 ORDER_NOT_MODIFIABLE 才退回 —— 否则「一律 navigateBack」也会让上一条通过'
+  );
+});
+
+test('M2-P1-01 / M2-P1-03：收藏与足迹按品类分流，电话卡不再落进电瓶车详情页', async (t) => {
+  const harness = createHarness();
+  t.after(() => harness.restore());
+
+  // 同一份数据里**同时**放两种品类：只有两种都在，才能证明分流是按品类做的，
+  // 而不是「一律跳 card」或「一律跳 detail」。
+  const PHONE_PLAN_ITEM = {
+    id: 'prod_card_service_001', category: 'PHONE_PLAN', name: '校园电话卡',
+    description: '月租套餐', imageUrl: '', icon: '卡', color: '#eaf0ff',
+    effectivePriceInCents: 2900, salesCount: 3, availableStock: 5,
+    ratingSummary: { average: 4.5, count: 2 }
+  };
+  const E_BIKE_ITEM = {
+    id: 'prod_ebike_001', category: 'E_BIKE_NEW', name: '狮山通勤车',
+    description: '续航 60km', imageUrl: '', icon: '车', color: '#eaf0ff',
+    effectivePriceInCents: 199900, salesCount: 8, availableStock: 4,
+    ratingSummary: { average: 4.8, count: 5 }
+  };
+  harness.setApiHandler((requestPath) => {
+    if (requestPath === '/api/my/favorites') return Promise.resolve({ data: [PHONE_PLAN_ITEM, E_BIKE_ITEM] });
+    if (requestPath === '/api/my/footprints') return Promise.resolve({ data: [PHONE_PLAN_ITEM, E_BIKE_ITEM] });
+    return Promise.resolve({ data: [] });
+  });
+
+  // ==================== ⑨ 收藏页：电话卡 → 套餐页 ====================
+  const favorites = harness.loadPage(path.join('pages', 'favorites', 'favorites.js'));
+  favorites.loadFavorites();
+  await settle();
+  const favoriteItems = favorites.data.favoritesBlock.data;
+  assert.equal(favoriteItems.length, 2, '⑨ 前置：两条收藏都应加载出来（否则下面的点击断言会空转）');
+  // 装饰层必须保留 category —— 丢了它，分流只能靠猜。
+  assert.equal(
+    favoriteItems.find((item) => item.id === 'prod_card_service_001')?.category, 'PHONE_PLAN',
+    '⑨ 前置：装饰后的收藏项必须保留 category'
+  );
+
+  harness.clearOpenLinkCalls();
+  favorites.goDetail({ currentTarget: { dataset: { id: 'prod_card_service_001' } } });
+  assert.equal(
+    harness.getOpenLinkCalls().at(-1)?.url, '/pages/card/card?planId=prod_card_service_001',
+    '⑨ ★ 收藏里的电话卡必须进套餐页，而不是电瓶车详情页'
+  );
+
+  // ==================== ⑪ 正向控制：电动车仍进商品详情页 ====================
+  harness.clearOpenLinkCalls();
+  favorites.goDetail({ currentTarget: { dataset: { id: 'prod_ebike_001' } } });
+  assert.equal(
+    harness.getOpenLinkCalls().at(-1)?.url, '/pages/detail/detail?id=prod_ebike_001',
+    '⑪ ★ 正向控制：电动车仍进商品详情页 —— 否则「一律跳 card」也会让 ⑨ 通过'
+  );
+
+  // ==================== ⑩ 足迹页：同一套分流 ====================
+  const footprints = harness.loadPage(path.join('pages', 'footprints', 'footprints.js'));
+  footprints.load();
+  await settle();
+  const footprintItems = footprints.data.footprintsBlock.data;
+  assert.equal(footprintItems.length, 2, '⑩ 前置：两条足迹都应加载出来');
+  assert.equal(
+    footprintItems.find((item) => item.id === 'prod_card_service_001')?.category, 'PHONE_PLAN',
+    '⑩ 前置：足迹项必须保留原始 category（只有 categoryLabel 不足以判断该进哪个页）'
+  );
+
+  harness.clearOpenLinkCalls();
+  footprints.goDetail({ currentTarget: { dataset: { id: 'prod_card_service_001' } } });
+  assert.equal(
+    harness.getOpenLinkCalls().at(-1)?.url, '/pages/card/card?planId=prod_card_service_001',
+    '⑩ ★ 足迹里的电话卡必须进套餐页'
+  );
+
+  harness.clearOpenLinkCalls();
+  footprints.goDetail({ currentTarget: { dataset: { id: 'prod_ebike_001' } } });
+  assert.equal(
+    harness.getOpenLinkCalls().at(-1)?.url, '/pages/detail/detail?id=prod_ebike_001',
+    '⑩ ★ 正向控制：足迹里的电动车仍进商品详情页'
+  );
+
+  // 跳转必须委托给 openLink：走裸 wx.navigateTo 的话这里一条记录都不会有
+  //（harness 的 wx 桩对未知方法返回空函数，不会报错、也不会被记录）。
+  assert.ok(harness.getOpenLinkCalls().length >= 1, '分流后的跳转必须委托给 openLink');
+});
+
+test('M2-P1-03：套餐售罄时提交按钮不可点，且不白跑一趟网络', async (t) => {
+  const harness = createHarness();
+  t.after(() => harness.restore());
+
+  let orderPostCount = 0;
+  harness.setApiHandler((requestPath) => {
+    if (requestPath.startsWith('/api/products')) {
+      return Promise.resolve({ data: [
+        { id: 'p-soldout', category: 'PHONE_PLAN', name: '售罄套餐', description: 'x', active: true, purchasable: false, effectivePriceInCents: 2900, stock: 4 },
+        { id: 'p-ok', category: 'PHONE_PLAN', name: '在售套餐', description: 'y', active: true, purchasable: true, effectivePriceInCents: 3900, stock: 9 }
+      ] });
+    }
+    if (requestPath === '/api/phone-card-orders') {
+      orderPostCount += 1;
+      return Promise.resolve({ data: { id: 'pco-1' }, paymentOrder: { id: 'po-1' } });
+    }
+    return Promise.resolve({ data: [] });
+  });
+  harness.storage.shishanUserProfile = { name: '测试同学', phone: '15527111396' };
+
+  const card = harness.loadPage(path.join('pages', 'card', 'card.js'));
+  card.onLoad({});
+  await settle();
+
+  assert.equal(card.data.plansBlock.data.length, 2, '⑫ 前置：两个套餐都应加载出来');
+  assert.equal(card.data.selectedPlan, 0, '⑫ 前置：默认选中第一个（售罄的那个）');
+  assert.equal(card.data.planPurchasable, false, '⑫ ★ 售罄套餐下提交按钮必须不可点');
+  assert.equal(card.data.plansBlock.data[0].purchasable, false, '⑫ 售罄套餐的 purchasable 应为 false');
+  assert.equal(card.data.plansBlock.data[0].badge, '已售罄', '⑫ 售罄套餐的角标必须写「已售罄」');
+
+  card.submit();
+  await settle();
+  assert.equal(orderPostCount, 0, '⑫ ★ 售罄时不得发下单请求（白跑一趟网络，用户只看到「点了没反应」）');
+  assert.equal(harness.getToasts().at(-1)?.title, '该套餐已售罄，暂不可办理', '⑫ 必须给出用户看得懂的提示');
+
+  // 边界另一侧：切到在售套餐后恢复可点，且真的能提交。
+  card.choosePlan({ currentTarget: { dataset: { index: 1 } } });
+  assert.equal(card.data.planPurchasable, true, '⑫ ★ 切到在售套餐后提交按钮必须恢复可点');
+  assert.equal(card.data.plansBlock.data[1].badge, '可办理', '⑫ 在售套餐的角标应为「可办理」');
+  card.submit();
+  await settle();
+  assert.equal(orderPostCount, 1, '⑫ ★ 正向控制：在售套餐必须真的能提交 —— 否则「一律拦死」也会让上面几条通过');
+});
+
+test('M2-P1-03：已下架商品给出常驻的「该商品已下架」，而不是含糊的「加载失败」', async (t) => {
+  const harness = createHarness();
+  t.after(() => harness.restore());
+
+  // 服务端对已下架商品返回 404 + PRODUCT_NOT_FOUND（server 侧断言 ③ 已锁住这个事实）。
+  harness.setApiHandler((requestPath) => {
+    if (requestPath.startsWith('/api/products/')) {
+      return Promise.reject(Object.assign(
+        new Error('Product not found'), { code: 'PRODUCT_NOT_FOUND', statusCode: 404 }
+      ));
+    }
+    return Promise.resolve({ data: [] });
+  });
+
+  // 注意：`services/store` 用的是**真模块**（harness 没有桩它），
+  // 所以 `getScooter('prod_card_service_001')` 真的会去 data/mock.js 里找 —— 找不到，
+  // 于是走「无缓存」分支。这正是「真被下架的商品」的路径。
+  const detail = harness.loadPage(path.join('pages', 'detail', 'detail.js'));
+  detail.onLoad({ id: 'prod_card_service_001' });
+  await settle();
+
+  assert.equal(detail.data.loading, false, '⑬ 前置：加载必须结束，否则页面停在「正在加载」');
+  assert.equal(detail.data.scooter, null, '⑬ 前置：商品取不到时 scooter 必须为空');
+  assert.equal(detail.data.goneText, '该商品已下架', '⑬ ★ 必须明确说「已下架」，而不是含糊的「加载失败」');
+  assert.equal(
+    harness.getToasts().length, 0,
+    '⑬ ★ 不得弹「商品加载失败」这类暗示「过一会儿再试」的 toast —— 下架重试也没用，且 toast 一两秒就消失'
+  );
+
+  // 正向控制：网络故障（不是 404）必须保留原有措辞与 toast，不能被这条改动误伤。
+  harness.clearToasts();
+  harness.setApiHandler((requestPath) => {
+    if (requestPath.startsWith('/api/products/')) {
+      return Promise.reject(Object.assign(new Error('网络异常'), { statusCode: 500 }));
+    }
+    return Promise.resolve({ data: [] });
+  });
+  const detailOnNetworkFailure = harness.loadPage(path.join('pages', 'detail', 'detail.js'));
+  detailOnNetworkFailure.onLoad({ id: 'prod_ebike_001' });
+  await settle();
+  assert.equal(
+    detailOnNetworkFailure.data.goneText, '车型不存在或已下架',
+    '⑬ ★ 正向控制：网络故障不得被说成「已下架」'
+  );
+  assert.equal(
+    harness.getToasts().at(-1)?.title, '商品加载失败',
+    '⑬ ★ 正向控制：网络故障仍保留原有提示'
   );
 });

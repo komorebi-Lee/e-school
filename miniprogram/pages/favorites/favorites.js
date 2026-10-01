@@ -1,10 +1,14 @@
 const { request } = require('../../services/api');
 const loadState = require('../../utils/load-state');
+const { openProductDetail } = require('../../utils/product-route');
 
 function decorateFavorite(product) {
   const stock = Number(product.availableStock ?? (product.stock || 0));
   return {
     id: product.id,
+    // ★ 必须带上 category：收藏列表里既有电动车也有电话卡，点击时靠它分流到
+    // 正确的详情页。不带这一项，电话卡会被当成电动车送进 `detail` 页。
+    category: product.category || '',
     name: product.name,
     description: product.description || '',
     imageUrl: product.imageUrl || '',
@@ -65,10 +69,21 @@ Page({
   retryFavorites() {
     return this.loadFavorites();
   },
+  /**
+   * 打开商品详情：按 `category` 分流（电话卡 → 套餐页，其余 → 商品详情页）。
+   *
+   * 分流依据**从本页已加载的区块数据里按 id 回查**，而不是让 wxml 再传一个
+   * `data-category` —— 两份数据会各自漂移（改了装饰层忘了改模板），
+   * 跳转就会悄悄走错，而且没有任何报错。回查用的正是渲染那一行所用的那份数据。
+   *
+   * 回查不到时只传 `{ id }`（category 未知）→ `productDetailUrl` 回落 `detail` 页，
+   * 与改造前行为一致，不会把入口变成死路。
+   */
   goDetail(event) {
     const id = event.currentTarget.dataset.id;
     if (!id) return;
-    wx.navigateTo({ url: `/pages/detail/detail?id=${encodeURIComponent(id)}` });
+    const items = this.data.favoritesBlock.data || [];
+    openProductDetail(items.find((item) => item.id === id) || { id });
   }
   ,
   cancelFavorite(event) {

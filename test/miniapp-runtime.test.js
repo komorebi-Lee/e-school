@@ -38,6 +38,8 @@ const format = require(path.join(miniprogramDirectory, 'utils', 'format.js'));
 const orderCard = require(path.join(miniprogramDirectory, 'utils', 'order-card.js'));
 // 图片读取 + 上传的唯一入口（M3-P2-01）：只在调用期访问 `wx`，可在 Node 中真实加载断言。
 const upload = require(path.join(miniprogramDirectory, 'utils', 'upload.js'));
+// 商品跳转目标（按品类分流，M2-P1-01 / M2-P1-03）：纯函数 + 一个只转发给 openLink 的薄包装。
+const productRoute = require(path.join(miniprogramDirectory, 'utils', 'product-route.js'));
 
 const ORDER_FOCUS_KEY = 'campusGoOrderFocusId';
 const ORDER_RECORD_TYPE_KEY = 'campusGoOrderFocusRecordType';
@@ -2151,4 +2153,75 @@ test('M3-P2-01：uploadImage 读取 + 上传一体，且拒绝未注入 request'
     /需要注入 request 函数/,
     '未注入 request 应同步抛错（接线错误应立刻暴露）'
   );
+});
+
+test('商品跳转目标：电话卡进套餐页，其余进商品详情页（M2-P1-01 / M2-P1-03）', () => {
+  // ⑦ 电话卡 → 套餐页（`card.js` 的 onLoad 读 `planId` 定位套餐）
+  assert.equal(
+    productRoute.productDetailUrl({ category: 'PHONE_PLAN', id: 'prod_card_service_001' }),
+    '/pages/card/card?planId=prod_card_service_001',
+    '⑦ ★ 电话卡必须进套餐页 —— 否则会落进电瓶车详情页（字段缺失、按钮语义错乱）'
+  );
+  // ⑧ 电动车 → 商品详情页
+  assert.equal(
+    productRoute.productDetailUrl({ category: 'E_BIKE_NEW', id: 'prod_ebike_001' }),
+    '/pages/detail/detail?id=prod_ebike_001',
+    '⑧ 电动车进商品详情页'
+  );
+
+  // 未知 / 缺失 category → 回落 detail：与改造前行为一致（零回归），且不会变成死路。
+  assert.equal(
+    productRoute.productDetailUrl({ category: 'UNKNOWN_KIND', id: 'x' }),
+    '/pages/detail/detail?id=x',
+    '未知品类回落 detail：与改造前一致，不会把入口变成死路'
+  );
+  assert.equal(
+    productRoute.productDetailUrl({ id: 'x' }),
+    '/pages/detail/detail?id=x',
+    'category 缺失（存量数据）同样回落 detail'
+  );
+
+  // 边界：id 缺失 / 空白 → 空串，调用方据此跳过跳转（不得拼出 `?id=` 这种坏地址）。
+  assert.equal(productRoute.productDetailUrl({ category: 'PHONE_PLAN' }), '', '无 id 时不得拼出地址');
+  assert.equal(productRoute.productDetailUrl({ category: 'PHONE_PLAN', id: '   ' }), '', '空白 id 同样不得拼出地址');
+  assert.equal(productRoute.productDetailUrl(null), '', '入参为 null 时不得抛错');
+  assert.equal(productRoute.productDetailUrl(), '', '入参缺省时不得抛错');
+
+  // id 必须转义，否则含 `&` / 空格的 id 会把 query 拆坏。
+  assert.equal(
+    productRoute.productDetailUrl({ category: 'PHONE_PLAN', id: 'a b&c' }),
+    '/pages/card/card?planId=a%20b%26c',
+    'id 必须 encodeURIComponent，否则 query 会被拆坏'
+  );
+
+  // ★ 正向控制：两个品类必须给出**不同**地址 ——
+  // 否则「一律返回同一个地址」也会让 ⑦⑧ 同时通过（那是同一个值在自证）。
+  assert.notEqual(
+    productRoute.productDetailUrl({ category: 'PHONE_PLAN', id: 'x' }),
+    productRoute.productDetailUrl({ category: 'E_BIKE_NEW', id: 'x' }),
+    '★ 正向控制：两个品类必须给出不同地址'
+  );
+});
+
+test('商品跳转走 openLink（tabBar 识别与失败提示都靠它，裸 navigateTo 会静默失败）', () => {
+  const calls = [];
+  const originalWx = global.wx;
+  global.wx = {
+    navigateTo: (options) => calls.push({ kind: 'navigateTo', url: options.url }),
+    switchTab: (options) => calls.push({ kind: 'switchTab', url: options.url }),
+    setStorageSync: () => {},
+    removeStorageSync: () => {}
+  };
+  try {
+    const url = productRoute.openProductDetail({ category: 'PHONE_PLAN', id: 'p1' });
+    assert.equal(url, '/pages/card/card?planId=p1', '返回值应是实际使用的地址');
+    assert.deepEqual(calls, [{ kind: 'navigateTo', url: '/pages/card/card?planId=p1' }], '非 tabBar 页走 navigateTo');
+
+    // id 缺失时不得发起任何跳转（否则会跳到 `?planId=` 的坏地址）。
+    calls.length = 0;
+    assert.equal(productRoute.openProductDetail({ category: 'PHONE_PLAN' }), '', 'id 缺失时应返回空串');
+    assert.equal(calls.length, 0, '★ id 缺失时不得发起跳转');
+  } finally {
+    global.wx = originalWx;
+  }
 });

@@ -150,7 +150,17 @@ function normalizeProduct(product, config = {}, reviewFilter = 'ALL') {
 }
 
 Page({
-  data: { scooter: null, config: null, reviewFilter: 'ALL', loading: true, restockSubscribed: false, favorited: false },
+  data: {
+    scooter: null,
+    config: null,
+    reviewFilter: 'ALL',
+    loading: true,
+    restockSubscribed: false,
+    favorited: false,
+    // 商品取不到时的常驻说明文案。默认值与改造前 wxml 里写死的那句逐字一致，
+    // 只有确认「已下架」时才会被换成更准确的措辞。
+    goneText: '车型不存在或已下架'
+  },
   onLoad(options) {
     loadBusinessConfig().then((config) => {
       this.setData({ config });
@@ -163,11 +173,30 @@ Page({
       this.loadFavoriteState(data.id);
       // 记录足迹是动作、不是加载：失败不影响商品页展示，故显式忽略。
       request(`/api/my/footprints`, { method: 'POST', data: { productId: data.id } }).catch(loadState.ignoreSilently);
-    }).catch(() => {
+    }).catch((error) => {
       const cached = getScooter(options.id);
       this.rawProduct = cached;
-      if (cached) this.setData({ scooter: normalizeProduct(cached, this.data.config || {}, this.data.reviewFilter), loading: false });
-      else { this.setData({ loading: false }); wx.showToast({ title: '商品加载失败', icon: 'none' }); }
+      if (cached) {
+        this.setData({ scooter: normalizeProduct(cached, this.data.config || {}, this.data.reviewFilter), loading: false });
+        return;
+      }
+      // ★ 区分「商品已下架」与「网络故障」。
+      //
+      // 下架**不是**网络故障：重试一百次也还是 404，而「商品加载失败」这句提示
+      // 会让用户以为过一会儿就好，于是一直重试一个永远不会成功的请求。
+      // 所以这种情况给一句**常驻**的「该商品已下架」，并且**不弹 toast** ——
+      // toast 一两秒就消失，用户视线一挪开就再也看不到原因。
+      //
+      // 注意：这里**不能**因为 404 就跳过上面的缓存回落。首页展示的是
+      // `data/mock.js` 里的 s1 / s2 / s3，而服务端并没有这三个 id
+      //（实测三者均返回 PRODUCT_NOT_FOUND），缓存正是让它们能正常渲染的那条路径。
+      // 真被下架的商品不在缓存里（缓存只有那三件 mock 商品），所以走不到缓存分支，
+      // 两件事并不冲突。
+      const gone = Boolean(error)
+        && (error.code === 'PRODUCT_NOT_FOUND' || Number(error.statusCode) === 404);
+      this.setData({ loading: false, goneText: gone ? '该商品已下架' : '车型不存在或已下架' });
+      if (gone) return;
+      wx.showToast({ title: '商品加载失败', icon: 'none' });
     });
   },
   onShareAppMessage() {

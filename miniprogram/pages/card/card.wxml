@@ -62,8 +62,8 @@
     ></view
   ><view class="form card"
     ><view class="form-tip">{{plansBlock.data[selectedPlan].name}}{{selectedPromo !== null ? ' + 限时福利' : ''}}</view
-    ><button class="primary-button" loading="{{submitting}}" disabled="{{submitting || !promoIsBuyable}}" bindtap="submit">
-      {{submitting ? '提交中…' : '提交电话卡订单'}}
+    ><button class="primary-button" loading="{{submitting}}" disabled="{{submitting || !promoIsBuyable || !planPurchasable}}" bindtap="submit">
+      {{submitting ? '提交中…' : (planPurchasable ? '提交电话卡订单' : '该套餐已售罄，暂不可办理')}}
     </button></view
   ><view id="broadbandSection" class="section-title business-section">3 · 双人购卡宽带资格</view
   ><view class="broadband card"

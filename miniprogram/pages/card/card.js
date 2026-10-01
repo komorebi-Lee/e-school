@@ -29,6 +29,10 @@ Page({
     selectedPlan: 0,
     selectedPromo: null,
     promoIsBuyable: true,
+    // 选中套餐是否可办理。由服务端 `purchasable` 驱动，控制提交按钮的禁用与文案。
+    // 初值 true：套餐还没加载出来时按钮保持可点，点下去会提示「套餐尚未加载完成」
+    // —— 与改造前一致，不改变未加载状态下的交互。
+    planPurchasable: true,
     activeSection: 0,
     profileName: '',
     profilePhone: '',
@@ -92,7 +96,12 @@ Page({
         promoText: item.promotion?.statusText || '',
         data: item.description || '套餐详情以运营商确认为准',
         voice: item.voice || '通话资费见套餐说明',
-        badge: item.stock > 0 ? '可办理' : '已售罄'
+        // 可办理与否由服务端的 `purchasable` 决定（在架 且 有可售库存）。
+        // 字段缺失时按「可办理」处理 —— 与改造前一致，避免老服务端把页面锁死。
+        // 用 `purchasable` 而不是 `item.stock > 0`：库存全被待支付订单占用时
+        // 可售为 0，`stock` 仍是正数，只看 `stock` 会把「已售罄」显示成「可办理」。
+        purchasable: item.purchasable !== false,
+        badge: item.purchasable === false ? '已售罄' : '可办理'
       }));
       let selectedPlan = this.data.selectedPlan;
       if (plans.length) {
@@ -105,7 +114,13 @@ Page({
         this.setData({ selectedPlan });
       }
       return plans;
-    }));
+    })).then((plans) => {
+      // 必须在区块**写入之后**再同步按钮状态：`loadBlock` 是在 loader 返回后
+      // 才 `setData({ plansBlock })` 的，在 loader 内部读 `this.data.plansBlock`
+      // 拿到的还是上一批数据（首次加载时是空数组），按钮会被错误地保持可点。
+      this.syncPlanPurchasable();
+      return plans;
+    });
   },
   /** 重新加载：套餐。 */
   retryPlans() {
@@ -164,8 +179,22 @@ Page({
     return Number(configured) > 0 ? Number(configured) : DEFAULT_ACTIVATION_HOURS;
   },
 
+  /**
+   * 同步「当前选中套餐是否可办理」到 data，供模板控制提交按钮的禁用与文案。
+   *
+   * 数据来源是 `plansBlock.data`（区块已写入的那份），所以调用点必须在
+   * `loadSection(...).then(...)` 里，见 `loadPlans` 的说明。
+   */
+  syncPlanPurchasable() {
+    const plan = this.currentPlans()[this.data.selectedPlan];
+    // 套餐缺失（尚未加载 / 索引越界）时按「可办理」处理，与改造前一致：
+    // 此时点提交会提示「套餐尚未加载完成」，比按钮直接变灰更说明问题。
+    this.setData({ planPurchasable: Boolean(plan) && plan.purchasable !== false });
+  },
+
   choosePlan(e) {
     this.setData({ selectedPlan: Number(e.currentTarget.dataset.index) });
+    this.syncPlanPurchasable();
   },
   choosePromo(e) {
     const index = Number(e.currentTarget.dataset.index);
@@ -186,6 +215,9 @@ Page({
     const p = this.currentPlans()[this.data.selectedPlan];
     const { request } = require('../../services/api');
     if (!p) return wx.showToast({ title: '套餐尚未加载完成', icon: 'none' });
+    // ★ 已售罄 / 已下架：不发请求。服务端必然拒绝，白跑一趟网络，
+    // 而且用户看到的是「点了没反应」或一句莫名其妙的失败提示。
+    if (p.purchasable === false) return wx.showToast({ title: '该套餐已售罄，暂不可办理', icon: 'none' });
     if (!this.profileValid()) return wx.showModal({ title: '补充办理信息', content: '请先填写办理人姓名和手机号', showCancel: false });
     if (this.data.submitting) return;
     const promo = this.data.selectedPromo === null ? null : this.currentPromos()[this.data.selectedPromo];
