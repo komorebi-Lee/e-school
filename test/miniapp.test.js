@@ -2143,3 +2143,60 @@ test('M6-P1-01：「我发布的闲置」已注册，profile 有入口，删除�
     '★ 不可删除时必须渲染 lockedText 说明原因，否则用户以为页面坏了'
   );
 });
+
+test('M8-P1-01：学生认证真实落库 —— 状态只认服务端，界面不再自称「模拟」', () => {
+  const profileJs = readMiniappFile(path.join('pages', 'profile', 'profile.js'));
+  const profileWxml = readMiniappFile(path.join('pages', 'profile', 'profile.wxml'));
+
+  // ==================== ★ 界面不再说反话 ====================
+  // 认证变成真的之后，按钮上那句「模拟认证」就是**界面在说反话**：
+  // 它一边把用户填的真实姓名与身份证号发去核验，一边告诉他这只是演示。
+  assert.equal(
+    profileWxml.includes('模拟'), false,
+    '★ 认证按钮不得再自称「模拟」（与 T22 那句失效注释、T15 的「选填」同类）'
+  );
+  assert.equal(
+    profileJs.includes('演示认证成功'), false,
+    '★ 改造前那句假的成功提示（`wx.showToast({ title: "演示认证成功" })`）必须消失'
+  );
+
+  // ==================== 状态只来自服务端 ====================
+  assert.ok(
+    profileJs.includes("request('/api/my/identity')"),
+    '必须读取 GET /api/my/identity —— 认证状态不能由页面自己记'
+  );
+  assert.ok(
+    profileJs.includes("'/api/identity/verify'"),
+    '认证必须真的提交到服务端（改造前只是 `setData({ verified: true })`）'
+  );
+  assert.ok(
+    profileJs.includes('loadState.loadBlock'),
+    '认证状态必须走 load-state 三态，失败才能成为一个可见状态'
+  );
+  assert.match(
+    profileJs, /onShow\(\)[^}]*loadIdentity\(\)/,
+    '★ onShow 必须读取认证状态（否则从其它页返回后状态是陈旧的）'
+  );
+
+  // ==================== 失败态可见且可重试 ====================
+  assert.ok(profileWxml.includes('identityBlock.error'), '失败必须成为可见状态，而不是被说成「未认证」');
+  assert.ok(profileWxml.includes('bindtap="retryIdentity"'), '失败态必须能重试');
+  assert.equal(
+    profileWxml.includes('identityBlock.data.idNumber'), false,
+    '不得直接渲染块里的原始载荷 —— 只渲染 identityView 折算出的脱敏字段'
+  );
+
+  // ==================== 只渲染脱敏字段 ====================
+  assert.ok(profileWxml.includes('{{identity.ownerNameMasked}}'), '必须展示脱敏后的姓名');
+  assert.ok(profileWxml.includes('{{identity.idNumberMasked}}'), '必须展示脱敏后的证件号');
+  assert.ok(profileWxml.includes('{{identity.verifiedAtText}}'), '展示认证日期');
+  // 模板里的证件号引用只允许两种：用户自己填的输入框、服务端给的脱敏值。
+  // 用**穷举**写法（扫出全部引用再逐个比对），而不是「出现过 xxx」这种子串断言 ——
+  // 后者挡不住有人新加一个 `{{identityBlock.data.idNumber}}`。
+  const idNumberReferences = [...new Set(profileWxml.match(/[\w."=-]*idNumber[\w"]*/g) || [])].sort();
+  assert.deepEqual(
+    idNumberReferences,
+    ['data-field="idNumber"', 'identity.idNumberMasked', 'identityForm.idNumber'],
+    '★ 模板里的证件号引用只允许「输入框」与「脱敏展示」两种；实得 ' + JSON.stringify(idNumberReferences)
+  );
+});

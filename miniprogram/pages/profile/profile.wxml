@@ -5,14 +5,56 @@
       <view class="name">华农同学</view>
       <view class="muted">华中农业大学 · 狮山校区</view>
     </view>
-    <view class="pill verify {{verified ? 'done' : ''}}">{{verified ? '已认证' : '未认证'}}</view>
+    <view class="pill verify {{verified ? 'done' : ''}}">{{identityBadgeText}}</view>
   </view>
-  <view wx:if="{{!verified}}" class="verify-card">
+  <!--
+    学生认证（M8-P1-01）。状态**只来自服务端** `GET /api/my/identity`。
+
+    失败占位是**独立**的一条 `wx:if`，与下方内容并存 —— 沿用 forum / market 既有写法：
+    「接口挂了」要自己成为一个可见状态，且**不得**把已有的认证结果显示成「未认证」。
+    下面三个分支也据此互斥：读取中 / 已认证（脱敏）/ 未认证（表单）；
+    状态未知（有 error 且没有已取到的结果）时**只**显示失败占位 + 重试 ——
+    此时渲染认证表单是误导：最可能的失败原因恰恰是「未登录」，
+    表单提交出去也只会同样失败。
+
+    ★ 已认证分支只渲染服务端返回的**脱敏**姓名与证件号（`maskIdNumber` 输出
+      4+8+4 共 16 字符），页面任何位置都不会出现完整 18 位身份证号。
+  -->
+  <view wx:if="{{identityBlock.error}}" class="load-error card">
+    <view class="muted">{{identityBlock.error}}</view>
+    <button size="mini" class="ghost-button" bindtap="retryIdentity">重试</button>
+  </view>
+
+  <view wx:if="{{identityBlock.loading && !identityBlock.data}}" class="verify-card">
     <view>
-      <view class="verify-title">完成学生认证</view>
-      <view class="muted">体验校园专属服务与价格</view>
+      <view class="verify-title">学生认证</view>
+      <view class="muted">正在读取认证状态…</view>
     </view>
-    <button size="mini" class="primary-button" bindtap="verify">模拟认证</button>
+  </view>
+  <view wx:elif="{{identity}}" class="verify-card">
+    <view>
+      <view class="verify-title">已完成学生认证</view>
+      <view class="muted">{{identity.ownerNameMasked}} · {{identity.idNumberMasked}}</view>
+      <view class="muted">认证于 {{identity.verifiedAtText}}</view>
+    </view>
+  </view>
+  <view wx:elif="{{!identityBlock.error}}" class="verify-card form-card">
+    <view class="verify-form-head">
+      <view>
+        <view class="verify-title">完成学生认证</view>
+        <view class="muted">认证后享受校园专属服务与价格</view>
+      </view>
+      <button size="mini" class="primary-button" bindtap="verify" loading="{{verifying}}" disabled="{{verifying}}">{{verifying ? '认证中…' : '开始认证'}}</button>
+    </view>
+    <view class="field">
+      <text class="field-label">真实姓名</text>
+      <input class="input" value="{{identityForm.ownerName}}" data-field="ownerName" bindinput="setIdentityField" maxlength="20" placeholder="与身份证一致" />
+    </view>
+    <view class="field">
+      <text class="field-label">身份证号</text>
+      <input class="input" value="{{identityForm.idNumber}}" data-field="idNumber" bindinput="setIdentityField" maxlength="18" placeholder="18 位身份证号" />
+    </view>
+    <view class="muted verify-note">认证信息仅用于核验学生身份；平台只保留脱敏后的姓名与证件号。</view>
   </view>
   <view class="section-title">我的服务</view>
   <view class="notification-card card">

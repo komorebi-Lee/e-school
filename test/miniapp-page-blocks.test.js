@@ -1901,3 +1901,312 @@ test('M6-P1-01：我发布的闲置页三态 + 状态可见 + 删除（含 409 �
     '⑩ ★ 正向控制：成功必须给出成功提示 —— 否则「一律报错」也能让上面几条通过'
   );
 });
+
+/**
+ * 把 wxml 里所有 `{{...}}` 求值成文本，拼出「这一页真正会渲染出来的内容」。
+ *
+ * 只用于「页面上会不会出现某个字符串」这类断言 —— 例如「页面上不得出现完整
+ * 18 位身份证号」。求值的是 wxml 里的**原始表达式文本**，不是我重写的一份判断。
+ *
+ * `wx:for` 作用域内的表达式（`item.xxx` / `index`）在循环外求值会抛错，按空串处理；
+ * 本用例关心的是认证区，那里没有循环变量。
+ *
+ * @param {string} wxml 模板源码。
+ * @param {object} data 页面 data。
+ * @returns {string} 渲染出来的文本（含未命中分支的标签，仅用于子串断言）。
+ */
+function renderExpressions(wxml, data) {
+  return wxml.replace(/\{\{([\s\S]*?)\}\}/g, (match, expr) => {
+    try {
+      const value = new Function('data', `with (data) { return (${expr}); }`)(data);
+      return value === undefined || value === null ? '' : String(value);
+    } catch (error) {
+      return '';
+    }
+  });
+}
+
+/**
+ * 去掉 JS 源码里的注释，只留下**可执行代码**（用于源码级断言）。
+ *
+ * 为什么需要：`profile.js` 的文档注释里**如实记录**了改造前那行
+ * `this.setData({ verified: true })` —— 直接对整份源码做子串断言会把注释也算进去，
+ * 于是「记录历史」和「禁止重犯」这两件事互相打架。断言要管的是可执行代码。
+ *
+ * 局限：只处理整行注释与块注释，不处理行尾注释里出现的目标串（那种情形下
+ * 目标串本来也不是可执行代码，属可接受的假阴性）。
+ *
+ * @param {string} source JS 源码。
+ * @returns {string} 去掉注释后的源码。
+ */
+function stripComments(source) {
+  return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+}
+
+test('M8-P1-01：学生认证真实落库 —— profile 页真的发请求、只展示脱敏信息、失败走三态', async (t) => {
+  const harness = createHarness();
+  t.after(() => harness.restore());
+
+  const profileDirectory = path.join(miniprogramDirectory, 'pages', 'profile');
+  const wxmlSource = fs.readFileSync(path.join(profileDirectory, 'profile.wxml'), 'utf8');
+  const jsSource = fs.readFileSync(path.join(profileDirectory, 'profile.js'), 'utf8');
+
+  // 只用于**输入框**的合法身份证号（格式合法即可，校验位不必真实）。
+  const idNumber = '110101199001011234';
+  const maskedIdNumber = '1101********1234';
+
+  const calls = [];
+  // 服务端侧的「已认证」记录：**只存脱敏值**，与 store 的 `identityRecords` 同形。
+  let identityRecord = null;
+  let identityShouldFail = false;
+  let verifyShouldFail = false;
+  // 认证接口是否真的写入了持久记录 —— 用于「本地不得乐观置真」的反向控制。
+  let verifyPersists = true;
+
+  harness.setApiHandler((requestPath, options) => {
+    calls.push({ path: requestPath, options });
+    if (requestPath === '/api/my/identity') {
+      if (identityShouldFail) return Promise.reject(new Error('身份接口 500'));
+      return Promise.resolve({ data: identityRecord ? { ...identityRecord } : { verified: false } });
+    }
+    if (requestPath === '/api/identity/verify') {
+      if (verifyShouldFail) return Promise.reject(new Error('身份证号格式或校验位不正确'));
+      if (verifyPersists) {
+        identityRecord = {
+          verified: true,
+          ownerNameMasked: '张*',
+          idNumberMasked: maskedIdNumber,
+          verifiedAt: '2026-09-01T02:00:00.000Z'
+        };
+      }
+      return Promise.resolve({
+        data: {
+          token: 'tk',
+          status: 'VERIFIED',
+          ownerNameMasked: '张*',
+          idNumberMasked: maskedIdNumber,
+          verifiedAt: '2026-09-01T02:00:00.000Z'
+        }
+      });
+    }
+    return Promise.resolve({ data: [] });
+  });
+
+  const profile = harness.loadPage(path.join('pages', 'profile', 'profile.js'));
+  /** 填写认证表单。 */
+  const fillIdentityForm = (ownerName, id) => {
+    profile.setIdentityField({ currentTarget: { dataset: { field: 'ownerName' } }, detail: { value: ownerName } });
+    profile.setIdentityField({ currentTarget: { dataset: { field: 'idNumber' } }, detail: { value: id } });
+  };
+
+  // ==================== ⑨ onShow 读取 GET /api/my/identity ====================
+  calls.length = 0;
+  profile.onShow();
+  assert.equal(profile.data.identityBlock.loading, true, '⑨ onShow 应立刻进入加载态');
+  assert.equal(
+    profile.data.identityBadgeText, '读取中',
+    '⑨ ★ 还没有结论时角标不得显示「未认证」—— 那是把「不知道」说成了「没有」'
+  );
+  await settle();
+
+  assert.equal(
+    calls.filter((call) => call.path === '/api/my/identity').length, 1,
+    '⑨ ★ onShow 必须读取 GET /api/my/identity（认证状态只认服务端）'
+  );
+  assert.equal(profile.data.identityBlock.error, '', '⑨ 成功时不应有错误');
+  assert.equal(profile.data.verified, false, '⑨ 未认证时 verified 为 false');
+  assert.equal(profile.data.identityBadgeText, '未认证', '⑨ 服务端给出了结论时才显示「未认证」');
+  assert.equal(profile.data.identity, null, '⑨ 未认证时没有可展示的认证信息');
+
+  // ==================== ⑧ 前置：不合法输入不得白跑一趟网络 ====================
+  calls.length = 0;
+  harness.clearToasts();
+  fillIdentityForm('张', '123');
+  await profile.verify();
+  await settle();
+  assert.equal(
+    calls.filter((call) => call.path === '/api/identity/verify').length, 0,
+    '⑧ 前置：姓名 / 证件号不合法时不得发请求'
+  );
+  assert.equal(
+    harness.getToasts().at(-1)?.title, '请输入真实姓名和 18 位身份证号',
+    '⑧ 前置：必须说明为什么没提交'
+  );
+
+  // ==================== ★ 反向控制：认证接口成功但服务端状态没变 ====================
+  // 这是「⑧ 的结论确实来自服务端」的**判据自测**：若页面在本地乐观置真
+  // （改造前正是 `this.setData({ verified: true })`），下面两条会红。
+  verifyPersists = false;
+  fillIdentityForm('张三', idNumber);
+  calls.length = 0;
+  await profile.verify();
+  await settle();
+  await settle();
+  assert.equal(
+    calls.filter((call) => call.path === '/api/identity/verify').length, 1,
+    '★ 反向控制：认证请求确实发出了'
+  );
+  assert.equal(
+    calls.filter((call) => call.path === '/api/my/identity').length, 1,
+    '★ 反向控制：认证成功后确实重新拉了状态'
+  );
+  assert.equal(
+    profile.data.verified, false,
+    '★ 反向控制：服务端没落库时页面必须保持「未认证」—— 证明 verified 来自服务端，不是本地置真'
+  );
+  assert.equal(profile.data.identity, null, '★ 反向控制：没有服务端记录就没有可展示的认证信息');
+  verifyPersists = true;
+
+  // ==================== ⑧ verify() 真的发出请求 ====================
+  calls.length = 0;
+  harness.clearToasts();
+  fillIdentityForm('张三', idNumber);
+  assert.equal(
+    profile.data.identityForm.idNumber, idNumber,
+    '⑧ 前置：输入框里确实有用户刚填的 18 位号码'
+  );
+  await profile.verify();
+  await settle();
+  await settle();
+
+  const verifyCalls = calls.filter((call) => call.path === '/api/identity/verify');
+  assert.equal(
+    verifyCalls.length, 1,
+    '⑧ ★★ verify() 必须真的发出一次认证请求（请求计数断言，不是源码 grep）'
+  );
+  assert.equal(verifyCalls[0].options.method, 'POST', '⑧ 认证必须用 POST');
+  assert.deepEqual(
+    verifyCalls[0].options.data, { ownerName: '张三', idNumber },
+    '⑧ 请求体必须是用户填写的姓名与证件号'
+  );
+
+  // ==================== ⑩ 展示的是脱敏信息 ====================
+  assert.equal(profile.data.verified, true, '⑧ ★ 认证成功后的状态来自服务端（重新拉取的结果）');
+  assert.equal(profile.data.identityBadgeText, '已认证', '⑧ 角标文案');
+  assert.equal(profile.data.identity.ownerNameMasked, '张*', '⑩ 展示服务端返回的脱敏姓名');
+  assert.equal(profile.data.identity.idNumberMasked, maskedIdNumber, '⑩ 展示服务端返回的脱敏证件号');
+  assert.equal(profile.data.identity.verifiedAtText, '2026-09-01', '⑩ 认证日期');
+  assert.equal(
+    profile.data.identityForm.idNumber, '',
+    '⑩ ★ 提交成功后必须清空身份证号输入 —— 它已完成使命，留着只是让敏感信息多活一会儿'
+  );
+  assert.equal(profile.data.identityForm.ownerName, '', '⑩ 姓名同样清空');
+
+  const renderedPage = renderExpressions(wxmlSource, profile.data);
+  const leaked = renderedPage.match(/\d{18}/);
+  assert.equal(leaked, null, `⑩ ★★ 页面上不得出现完整 18 位身份证号；实得：${leaked && leaked[0]}`);
+  // 正向控制：上面那条若因「什么都没渲染」而通过，就毫无价值。
+  assert.equal(
+    renderedPage.includes(maskedIdNumber), true,
+    '⑩ 正向控制：脱敏证件号确实渲染出来了（否则上一条可能是恒真断言）'
+  );
+  assert.equal(renderedPage.includes('已完成学生认证'), true, '⑩ 正向控制：已认证分支确实渲染了');
+  assert.equal(renderedPage.includes('张*'), true, '⑩ 正向控制：脱敏姓名确实渲染出来了');
+  // 判据自测：把同一个渲染器用在「页面数据里带着完整号码」的输入上，必须能抓到。
+  const leakyRender = renderExpressions(wxmlSource, {
+    ...profile.data,
+    identityForm: { ownerName: '张三', idNumber }
+  });
+  assert.equal(
+    /\d{18}/.test(leakyRender), true,
+    '⑩ 判据自测：渲染器在「数据里带着完整号码」时确实会抓到（否则上一条是恒真断言）'
+  );
+
+  // ==================== ⑪ 失败走三态（且不清空已取到的结果） ====================
+  identityShouldFail = true;
+  await profile.retryIdentity();
+  await settle();
+  assert.equal(
+    profile.data.identityBlock.error, '身份接口 500',
+    '⑪ ★ 失败必须成为可见状态（常驻占位 + 重试），而不是一闪而过的 toast'
+  );
+  assert.equal(
+    profile.data.identity.ownerNameMasked, '张*',
+    '⑪ ★★ 失败绝不清空已取到的结果 —— 旧数据比「假装没有」有用得多'
+  );
+  assert.equal(
+    profile.data.verified, true,
+    '⑪ ★★ 失败时保留上一次的结论，而不是把它翻成「未认证」'
+  );
+  assert.equal(
+    profile.data.identityBadgeText, '已认证',
+    '⑪ 有结论时角标就用结论；没有结论才说「状态未知」'
+  );
+
+  // 失败 + 重试成功：错误态必须能退出去。
+  identityShouldFail = false;
+  await profile.retryIdentity();
+  await settle();
+  assert.equal(profile.data.identityBlock.error, '', '⑪ 重试成功后应清掉错误');
+  assert.equal(profile.data.verified, true, '⑪ 重试成功后仍是已认证');
+
+  // ==================== ⑪ 没有旧结果时：只有失败占位，不渲染表单 ====================
+  // 最可能的失败原因是「未登录」，此时渲染一个提交出去也只会失败的认证表单是误导。
+  //
+  // 注意前置：这里必须用一个**新的页面实例**。上面那个实例的块里还留着上一次取到的
+  // 结果 —— 失败不清空数据是**正确行为**（上一条正是在断言它），所以拿它测不出
+  // 「从来没有取到过结果 + 读取失败」这一种组合。第一版我把这两件事混在一起，
+  // 断言报 `actual: {ownerNameMasked: '张*'}` `expected: null`。**是用例前置写错了，
+  // 不是页面的问题。**
+  const freshProfile = harness.loadPage(path.join('pages', 'profile', 'profile.js'));
+  identityRecord = null;
+  identityShouldFail = true;
+  await freshProfile.retryIdentity();
+  await settle();
+  assert.equal(freshProfile.data.identity, null, '⑪ 前置：这个实例从来没有取到过结果');
+  assert.equal(
+    freshProfile.data.identityBadgeText, '状态未知',
+    '⑪ ★★ 没有结论 + 读取失败 → 「状态未知」，绝不能是「未认证」'
+  );
+  assert.equal(freshProfile.data.verified, false, '⑪ 状态未知时不得凭空置为已认证');
+  assert.equal(freshProfile.data.identityBlock.error, '身份接口 500', '⑪ 前置：确实处于错误态');
+
+  // ==================== ⑪ 认证失败：动作类失败给提示，保留用户已填内容 ====================
+  identityShouldFail = false;
+  verifyShouldFail = true;
+  await profile.retryIdentity();
+  await settle();
+  fillIdentityForm('张三', idNumber);
+  calls.length = 0;
+  harness.clearToasts();
+  await profile.verify();
+  await settle();
+  await settle();
+  assert.equal(
+    calls.filter((call) => call.path === '/api/my/identity').length, 0,
+    '⑪ ★ 认证失败时不该再重拉状态（把「提交失败」的现场冲掉）'
+  );
+  assert.equal(profile.data.verifying, false, '⑪ 失败后必须退出「认证中」');
+  assert.equal(
+    profile.data.identityForm.idNumber, idNumber,
+    '⑪ ★ 认证失败必须保留用户已填的号码（否则要他重打一遍）'
+  );
+  assert.equal(
+    harness.getToasts().at(-1)?.title, '身份证号格式或校验位不正确',
+    '⑪ 失败提示必须采用服务端给出的原因，而不是通用「操作失败」'
+  );
+
+  // ==================== ⑫ 按钮文案不含「模拟」 ====================
+  // 认证变成真的之后，「模拟」二字就是**界面在说反话**。
+  assert.equal(
+    renderedPage.includes('模拟'), false,
+    '⑫ ★ 已认证态渲染结果里不得出现「模拟」'
+  );
+  assert.equal(
+    wxmlSource.includes('模拟'), false,
+    '⑫ ★★ 模板里不得再出现「模拟」—— 按钮文案住在模板里，这一条能挡住有人把它加回来'
+  );
+  assert.equal(
+    jsSource.includes('演示认证成功'), false,
+    '⑫ 改造前那句假的成功提示（`wx.showToast({ title: "演示认证成功" })`）必须消失'
+  );
+  assert.equal(
+    stripComments(jsSource).includes('this.setData({ verified: true })'), false,
+    '⑫ ★ 本地把 `verified` 置真的写法必须消失（只查可执行代码；注释里如实记录它不算）'
+  );
+  // 判据自测：`stripComments` 不能把代码一起吃掉，否则上一条会因「什么都没剩」而假通过。
+  assert.equal(
+    stripComments(jsSource).includes('identityBlock'), true,
+    '⑫ 判据自测：去掉注释之后可执行代码仍在（否则上一条是恒真断言）'
+  );
+});

@@ -22,3 +22,13 @@
 .message-toggle { height: 68rpx; line-height: 66rpx; margin: 18rpx 0 0; border-radius: 999rpx; background: #eaf0ff; color: #002fa7; font-size: 23rpx; font-weight: 800; }
 .message-toggle::after { border: 0; }
 .notification-entry { margin-bottom: 20rpx; }
+/* 失败占位：与 forum / market 同一套样式（该页原先没有加载块，故本地补齐）。 */
+.load-error { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; padding: 20rpx 24rpx; margin: 20rpx 0 0; background: #fff4f2; border: 2rpx solid #ffd9d3; border-radius: 18rpx; }
+.load-error .muted { flex: 1; min-width: 0; color: #a3341f; line-height: 1.45; }
+.load-error .ghost-button { min-width: 120rpx; margin: 0; flex-shrink: 0; }
+/* 认证表单态：`.verify-card` 默认是「一行文案 + 一个按钮」的横向布局，
+   表单要多行纵向排布，这里就地覆盖，不新造一个容器类。 */
+.verify-card.form-card { flex-direction: column; align-items: stretch; }
+.verify-form-head { display: flex; justify-content: space-between; align-items: center; gap: 18rpx; margin-bottom: 20rpx; }
+.verify-form-head button { margin: 0; }
+.verify-note { font-size: 21rpx; margin-top: 4rpx; }
