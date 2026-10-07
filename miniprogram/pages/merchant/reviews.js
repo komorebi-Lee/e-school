@@ -1,4 +1,5 @@
 const { request: apiRequest } = require('../../services/api');
+const loadState = require('../../utils/load-state');
 
 function decorateReview(review) {
   const dueAt = review.replyDueAt ? new Date(review.replyDueAt) : null;
@@ -18,7 +19,7 @@ function decorateReview(review) {
 }
 
 Page({
-  data: { reviews: [], loading: true, replying: '', focusId: '' },
+  data: { reviews: [], loading: true, replying: '', focusId: '', reviewsError: '' },
   onLoad(options = {}) {
     if (options.focusId) this.focusId = options.focusId;
   },
@@ -27,6 +28,19 @@ Page({
     const token = wx.getStorageSync('campusGoMerchantToken');
     return apiRequest(path, { ...options, header: { authorization: `Bearer ${token}` } });
   },
+  /**
+   * 加载商家评价。
+   *
+   * ★ 失败时**不得**把 `pendingReviewCount` 写成 0（T49）。
+   *
+   * 改造前失败路径是 `setData({pendingReviewCount: 0, loading: false})` + toast。
+   * `pendingReviewCount: 0` 不是「清空展示」，而是一条**断言**：它渲染成
+   * 「共 N 条评价，**0 条待回复**」—— 等于告诉商家「你的评价都回复过了」。
+   * 商家据此不再去处理，回复时限照样在走。这是本批里唯一一处
+   * **会让用户放弃一个有时限的义务**的假陈述。
+   *
+   * 现在失败只写 `reviewsError`，`reviews` 与 `pendingReviewCount` 一律不动。
+   */
   load() {
     this.request('/api/merchant/overview').then(({ data }) => {
       const reviews = (data.reviews || []).map((review) => ({
@@ -36,13 +50,13 @@ Page({
         stars: '★★★★★'.slice(0, Math.max(0, Math.min(5, Number(review.rating) || 0))),
         replied: Boolean(review.reply)
       }));
-      this.setData({ reviews, pendingReviewCount: reviews.filter((review) => !review.replied).length, loading: false });
+      this.setData({ reviews, pendingReviewCount: reviews.filter((review) => !review.replied).length, loading: false, reviewsError: '' });
       this.focusLoadedItem('merchant-review', reviews);
-    }).catch(() => {
-      this.setData({ pendingReviewCount: 0, loading: false });
-      wx.showToast({ title: '请重新进入商家工作台', icon: 'none' });
+    }).catch((error) => {
+      this.setData({ loading: false, reviewsError: loadState.blockErrorText(error) });
     });
   },
+  retryReviews() { return this.load(); },
   focusLoadedItem(prefix, items) {
     const focusId = this.focusId;
     if (!focusId || !(items || []).some((item) => item.id === focusId)) return;

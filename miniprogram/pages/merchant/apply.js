@@ -1,5 +1,6 @@
 const { request, userId } = require('../../services/api');
 const upload = require('../../utils/upload');
+const loadState = require('../../utils/load-state');
 
 const categories = [
   { value: 'E_BIKE', label: '电动车/维修服务', extra: '如销售整车，请确认车辆来源与保修责任；如维修，请确认服务范围。' },
@@ -40,6 +41,8 @@ Page({
     agreeAgreement: false,
     agreePrivacy: false,
     application: null,
+    // ★ 入驻申请加载失败的可见状态（T49）。非空即表示「当前展示的是失败态」。
+    applicationError: '',
     resubmitNote: '',
     resubmitSubmitting: false,
     canForm: true,
@@ -50,8 +53,27 @@ Page({
     this.loadApplication();
   },
 
+  /**
+   * 加载当前用户的入驻申请。
+   *
+   * ★ 失败时**不得**把 `application` 置空（T49）。
+   *
+   * 改造前失败路径是 `setData({ application: null, canForm: true })`，而
+   * `apply.wxml` 的结构是：
+   *   `:12 wx:if="{{application && status !== 'REJECTED'}}"`（审核中/已通过）
+   *   `:33 wx:if="{{application && status === 'REJECTED'}}"`（被驳回 + 补充材料）
+   *   `:75 wx:else`（**全新申请表单**）
+   * `application` 一被置空，前两支都不成立，页面就落进 `wx:else` ——
+   * **一个正在审核中、甚至已被驳回的商家会看到一张空白的入驻申请表**。
+   * 后果有两个，都是用户可见的错误：
+   *   1. 他会以为自己的申请没提交成功，于是**再提交一次**（重复申请）；
+   *   2. 被驳回的商家看不到驳回原因，也看不到「补充资质材料」入口 ——
+   *      即 M2 里那条「被驳回不能变成死单」的路径被这次网络抖动关掉了。
+   *
+   * 现在失败只写 `applicationError`，`application` / `canForm` 一律不动。
+   */
   loadApplication() {
-    request(`/api/merchants?userId=${encodeURIComponent(userId())}`).then(({ data }) => {
+    return request(`/api/merchants?userId=${encodeURIComponent(userId())}`).then(({ data }) => {
       const active = data.find((item) => item.status !== 'REJECTED');
       if (!active || active.status === 'REJECTED') {
         const rejected = data.find((item) => item.status === 'REJECTED');
@@ -59,6 +81,7 @@ Page({
           this.setData({
             application: rejected,
             canForm: false,
+            applicationError: '',
             licenseNo: rejected.licenseNo || '',
             licenseExpireDate: rejected.licenseExpireDate || '',
             settlementAccountName: rejected.settlementAccountName || '',
@@ -69,16 +92,17 @@ Page({
           });
           return;
         }
-        this.setData({ application: null, canForm: true });
+        this.setData({ application: null, canForm: true, applicationError: '' });
         return;
       }
       if (active.status === 'APPROVED') {
         wx.redirectTo({ url: '/pages/merchant/index' });
         return;
       }
-      this.setData({ application: active, canForm: false });
-    }).catch(() => this.setData({ application: null, canForm: true }));
+      this.setData({ application: active, canForm: false, applicationError: '' });
+    }).catch((error) => this.setData({ applicationError: loadState.blockErrorText(error) }));
   },
+  retryApplication() { return this.loadApplication(); },
 
   setField(event) {
     this.setData({ [event.currentTarget.dataset.field]: event.detail.value });

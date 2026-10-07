@@ -54,8 +54,14 @@
       <view wx:for="{{stockMovementFilters}}" wx:key="key" class="filter-tab {{stockMovementFilter === item.key ? 'active' : ''}}" data-key="{{item.key}}" bindtap="setStockMovementFilter">{{item.label}}</view>
     </view>
   </view>
-  <view wx:if="{{!stockMovements.length}}" class="empty card"><view class="muted">暂无库存流水</view></view>
-  <block wx:else>
+  <!-- ★ 失败时不得落「暂无库存流水」（T49）：改造前判的是 `!stockMovements.length`，
+       而 overview 一失败流水请求根本不会发出，`stockMovements` 停在 `[]`。 -->
+  <view wx:if="{{stockMovementsError}}" class="load-error card">
+    <view class="muted">{{stockMovementsError}}</view>
+    <button size="mini" class="ghost-button" bindtap="retryStockMovements">重试</button>
+  </view>
+  <view wx:if="{{!stockMovements.length && !stockMovementsError}}" class="empty card"><view class="muted">暂无库存流水</view></view>
+  <block wx:if="{{stockMovements.length}}">
     <view class="movement card" wx:for="{{stockMovements}}" wx:key="id">
       <view class="movement-main">
         <view class="strong">{{item.productName}}<text class="movement-tone {{item.typeTone}}">{{item.typeLabel}}</text></view>
@@ -65,8 +71,15 @@
       </view>
     </view>
   </block>
+  <!-- 失败占位：接口挂了必须说出来，并且能重试。已加载的商品（若有）仍显示在下方。 -->
+  <view wx:if="{{productsError}}" class="load-error card">
+    <view class="muted">{{productsError}}</view>
+    <button size="mini" class="ghost-button" bindtap="retryProducts">重试</button>
+  </view>
   <view wx:if="{{loading}}" class="empty card"><view class="muted">正在加载…</view></view>
-  <view wx:elif="{{!filtered.length}}" class="empty card"><view class="muted">没有匹配商品</view></view>
+  <!-- ★ 失败时不得落「没有匹配商品」（T49）：改造前判的是 `!filtered.length`，
+       任何失败都会断言「你的商品里没有匹配的」，而事实是「我们没取到」。 -->
+  <view wx:elif="{{!filtered.length && !productsError}}" class="empty card"><view class="muted">没有匹配商品</view></view>
   <block wx:else>
     <view id="merchant-product-{{item.id}}" class="product card {{item.id === focusId ? 'focus-item' : ''}}" wx:for="{{filtered}}" wx:key="id">
       <view class="product-head"><image wx:if="{{item.imageUrl}}" class="product-thumb" src="{{item.imageUrl}}" mode="aspectFill" /><view class="head"><view class="strong">{{item.name}}</view><text class="{{item.active ? 'on' : 'off'}}">{{item.active ? '销售中' : '已下架'}}</text></view></view>

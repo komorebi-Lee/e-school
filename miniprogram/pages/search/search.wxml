@@ -32,6 +32,11 @@
     <view class="tab {{activeTab === 'PHONE_PLAN' ? 'active' : ''}}" data-tab="PHONE_PLAN" bindtap="setTab">电话卡</view>
     <view class="tab {{activeTab === 'PROMO' ? 'active' : ''}}" data-tab="PROMO" bindtap="setTab">限时权益</view>
   </view>
+  <!-- 失败占位：接口挂了必须说出来，并且能重试。上一次的结果（若有）仍显示在下方。 -->
+  <view wx:if="{{resultsError}}" class="load-error card">
+    <view class="muted">{{resultsError}}</view>
+    <button size="mini" class="ghost-button" bindtap="retryResults">重试</button>
+  </view>
   <view wx:if="{{loading}}" class="empty card">
     <view class="empty-title">正在搜索…</view>
     <view class="muted">稍等一下，马上给你结果。</view>
@@ -85,7 +90,10 @@
         <view class="price">¥{{item.pay}}</view>
       </view>
     </view>
-    <view wx:if="{{!filteredProducts.length && !filteredPromos.length}}" class="empty card">
+    <!-- ★ 失败时不得落这句：「没有匹配的结果 / 换个关键词」是关于**搜索结果**的事实陈述，
+         而失败时我们并不知道有没有匹配。改造前判的是 `!filteredProducts.length && !filteredPromos.length`，
+         任何失败都会渲染它，用户会一直换关键词试一个永远搜不出来的东西。 -->
+    <view wx:if="{{!filteredProducts.length && !filteredPromos.length && !resultsError}}" class="empty card">
       <view class="empty-title">没有匹配的结果</view>
       <view class="muted">换个关键词，或看看首页推荐。</view>
       <view class="empty-actions">

@@ -1,5 +1,6 @@
 const { request: apiRequest } = require('../../services/api');
 const rentalJourney = require('../../utils/rental-journey');
+const loadState = require('../../utils/load-state');
 
 const statusLabels = { PAID: '待发货', FULFILLING: '履约中', COMPLETED: '已完成', CANCELLED: '已取消', AFTER_SALE: '售后中', PARTIALLY_REFUNDED: '部分退款' };
 const afterSaleLabels = { SUBMITTED: '待处理', REVIEWING: '处理中', CLOSED: '已完成', REJECTED: '未通过' };
@@ -15,7 +16,7 @@ Page({
     { key:'PENDING', label:'待履约' },
     { key:'AFTER_SALE', label:'售后' },
     { key:'COMPLETED', label:'已完成' }
-  ], loading: true },
+  ], loading: true, ordersError: '' },
   onLoad(options = {}) {
     if (options.focusId) this.focusId = options.focusId;
     if (options.filter) this.setData({ filter: options.filter });
@@ -36,6 +37,17 @@ Page({
     const token = wx.getStorageSync('campusGoMerchantToken');
     return apiRequest(path, { ...options, header: { authorization: `Bearer ${token}` } });
   },
+  /**
+   * 加载商家订单。
+   *
+   * ★ 失败时**不清空** `orders` / `filtered`，也不再弹 toast（T49）。
+   *
+   * 改造前的失败路径是 `setData({loading:false})` + toast「请重新进入商家工作台」，
+   * 而 `orders` 的初值是 `[]`，于是**同一屏上出现两句互相矛盾的话**：
+   * 空态说「暂无订单」，toast 说「请重新进入商家工作台」。
+   * 前者是关于这家店经营状况的假陈述（他可能有一百个订单），后者不提供任何可执行动作
+   * （「重新进入」既不是重试，也不保证有用）。现在只留一句可重试的错误占位。
+   */
   load() {
     this.request('/api/merchant/overview').then(({ data }) => {
       const afterSales = (data.afterSales || []).map((record) => ({
@@ -50,14 +62,15 @@ Page({
         filtered: this.filterOrders(orders, this.data.filter),
         afterSales,
         metrics: data.metrics || null,
-        loading: false
+        loading: false,
+        ordersError: ''
       });
       this.focusLoadedItem('merchant-order', orders);
-    }).catch(() => {
-      this.setData({ loading: false });
-      wx.showToast({ title: '请重新进入商家工作台', icon: 'none' });
+    }).catch((error) => {
+      this.setData({ loading: false, ordersError: loadState.blockErrorText(error) });
     });
   },
+  retryOrders() { return this.load(); },
   setFilter(e) {
     const filter = e.currentTarget.dataset.key || 'ALL';
     this.setData({ filter, filtered: this.filterOrders(this.data.orders, filter) });

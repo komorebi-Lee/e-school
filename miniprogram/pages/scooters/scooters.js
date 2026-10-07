@@ -1,6 +1,7 @@
 const { request } = require('../../services/api');
 const { getScooters } = require('../../services/store');
 const { toProductCard } = require('../../utils/product-view');
+const loadState = require('../../utils/load-state');
 
 function normalizeProduct(item) {
   // 可售库存已扣除待支付订单占用，避免展示“有货”却下不了单。
@@ -43,25 +44,49 @@ Page({
     { key: 'price', label: '价格优先' },
     { key: 'range', label: '续航优先' },
     { key: 'stock', label: '库存优先' }
-  ], loading: true },
+  ], loading: true,
+  // ★ 加载失败的可见状态（T49）。**只在「缓存也为空」时**才会被写上：
+  //   有缓存时页面仍能渲染缓存内容，此时不该报错。
+  scootersError: '' },
   onLoad(options = {}) {
     const query = decodeURIComponent(options.query || '');
     if (query) this.setData({ query });
     this.loadProducts();
   },
+  /**
+   * 加载车型列表。
+   *
+   * ★ 失败时的两条路径必须分开（T49）：
+   *   - **本地缓存非空** → 用缓存渲染 + toast「云端加载失败，已显示缓存」。
+   *     用户看得到内容，且知道这是缓存 —— 不产生假陈述，保持原行为。
+   *   - **本地缓存也为空** → `scooters.wxml:12` 的
+   *     `wx:if="{{!loading && !filtered.length}}"` 会渲染
+   *     「没有匹配的车型」，而事实是「我们没取到」。这是假陈述，
+   *     所以这条路径改为 `scootersError`（可见、可重试的占位）。
+   *
+   * ★ 这一处是 T48 勘察结论的**修正**：当时判定「有缓存回落 + toast，
+   *   不产生假陈述，故不修」。该判断只在**缓存非空**时成立；
+   *   首次启动（缓存还没建立）时缓存为空，假陈述照样会落下来。
+   */
   loadProducts() {
-    request('/api/products?category=E_BIKE_NEW').then(({ data }) => {
+    return request('/api/products?category=E_BIKE_NEW').then(({ data }) => {
       const scooters = (data || []).map(normalizeProduct);
-      this.setData({ scooters, filtered: this.filterProducts(scooters, this.data.query, this.data.sortKey), loading: false });
+      this.setData({ scooters, filtered: this.filterProducts(scooters, this.data.query, this.data.sortKey), loading: false, scootersError: '' });
       this.refreshHotProducts(scooters);
     }).catch((error) => {
       console.error('云端商品加载失败:', error);
       const cached = (getScooters() || []).map(normalizeProduct);
-      this.setData({ scooters: cached, filtered: this.filterProducts(cached, this.data.query, this.data.sortKey), loading: false });
+      this.setData({
+        scooters: cached,
+        filtered: this.filterProducts(cached, this.data.query, this.data.sortKey),
+        loading: false,
+        scootersError: cached.length ? '' : loadState.blockErrorText(error)
+      });
       this.refreshHotProducts(cached);
-      wx.showToast({ title: '云端加载失败，已显示缓存', icon: 'none' });
+      if (cached.length) wx.showToast({ title: '云端加载失败，已显示缓存', icon: 'none' });
     });
   },
+  retryProducts() { return this.loadProducts(); },
   goDetail(e) { wx.navigateTo({ url: `/pages/detail/detail?id=${e.currentTarget.dataset.id}` }); },
   setSearch(e) {
     const query = e.detail.value.trim();

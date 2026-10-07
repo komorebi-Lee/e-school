@@ -8,3 +8,7 @@
 .market-arrow{color:#2f7a3e;font-size:45rpx}
 .business-price .price-retry{font-size:19rpx;font-weight:600;text-decoration:underline}
 .business-price.light .price-retry{color:#c8d8ff}
+/* 失败占位（与 orders / addresses / profile 等页同一形态：文案 + 重试按钮） */
+.load-error { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; padding: 20rpx 24rpx; margin: 18rpx 0 0; background: #fff4f2; border: 2rpx solid #ffd9d3; border-radius: 18rpx; }
+.load-error .muted { flex: 1; min-width: 0; color: #a3341f; line-height: 1.45; }
+.load-error .ghost-button { min-width: 120rpx; margin: 0; flex-shrink: 0; }

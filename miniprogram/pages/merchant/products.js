@@ -1,5 +1,6 @@
 const { request: apiRequest } = require('../../services/api');
 const upload = require('../../utils/upload');
+const loadState = require('../../utils/load-state');
 
 const categories = [
   { value: 'E_BIKE_NEW', label: '电动车整车' },
@@ -41,7 +42,9 @@ Page({
       { key:'OFF', label:'已下架' }
     ],
     form: emptyForm, editId: '', loading: true,
-    stockMovements: [], stockMovementFilters, stockMovementFilter: 'ALL'
+    stockMovements: [], stockMovementFilters, stockMovementFilter: 'ALL',
+    // ★ 两个块的失败状态（T49），**互相独立**：一个块失败不能让另一个块也进错误态。
+    productsError: '', stockMovementsError: ''
   },
   onLoad(options = {}) {
     if (options.focusId) this.focusId = options.focusId;
@@ -55,7 +58,22 @@ Page({
     const token = wx.getStorageSync('campusGoMerchantToken');
     return apiRequest(path, { ...options, header: { authorization: `Bearer ${token}` } });
   },
+  /**
+   * 加载商品列表与库存流水。
+   *
+   * ★ 两个块**互相独立**（T49，对应 `utils/load-state.js` 的约定 3）：
+   *   改造前 `loadStockMovements()` 被挂在 overview 请求的 `.then` 里，
+   *   于是 overview 一挂，流水请求**根本不会发出**，`stockMovements` 停在 `[]`，
+   *   页面同时渲染出两句假陈述：「没有匹配商品」+「暂无库存流水」。
+   *   现在流水独立发起、独立记错，overview 失败不再牵连它。
+   *
+   * ★ 失败时**不清空** `products` / `filtered`，也不再弹
+   *   「请重新进入商家工作台」的 toast —— 那句话与同屏的空态文案自相矛盾
+   *   （一边说「没有匹配商品」，一边说「请重新进入」），而且它不提供任何可执行动作。
+   *   改为可见、可重试的错误占位。
+   */
   load() {
+    this.loadStockMovements();
     this.request('/api/merchant/overview').then(({ data }) => {
       const products = (data.products || []).map((product) => {
         // 商家看到的“可售”已扣除待支付订单占用，补货判断以可售库存为准。
@@ -87,25 +105,26 @@ Page({
         filtered: this.filterProducts(products, this.data.query, this.data.filter),
         metrics: data.metrics || null,
         lowStockThreshold: Number(data.lowStockThreshold ?? 10),
-        loading: false
+        loading: false,
+        productsError: ''
       });
-      return this.loadStockMovements();
     }).then(() => {
       this.focusLoadedItem('merchant-product', this.data.products);
-    }).catch(() => {
-      this.setData({ loading: false });
-      wx.showToast({ title: '请重新进入商家工作台', icon: 'none' });
+    }).catch((error) => {
+      this.setData({ loading: false, productsError: loadState.blockErrorText(error) });
     });
   },
+  retryProducts() { return this.load(); },
   loadStockMovements() {
     const movementType = this.data.stockMovementFilter;
     return this.request('/api/merchant/stock-movements?limit=50')
       .then(({ data }) => {
-        this.setData({ stockMovements: this.decorateStockMovements(data || []) });
+        this.setData({ stockMovements: this.decorateStockMovements(data || []), stockMovementsError: '' });
         return data;
       })
-      .catch(() => this.setData({ stockMovements: [] }));
+      .catch((error) => this.setData({ stockMovementsError: loadState.blockErrorText(error) }));
   },
+  retryStockMovements() { return this.loadStockMovements(); },
   setStockMovementFilter(event) {
     const filter = event.currentTarget.dataset.key || 'ALL';
     if (filter === this.data.stockMovementFilter) return;

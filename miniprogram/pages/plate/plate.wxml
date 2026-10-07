@@ -19,6 +19,12 @@
     <view class="muted">{{statusBlock.error}}</view>
     <button size="mini" class="ghost-button" bindtap="retryStatus">重试</button>
   </view>
+  <!-- 购车订单列表的失败占位（与上面 statusBlock 的那条同一形态，但**互相独立**：
+       一个块失败不能让另一个块也进错误态）。 -->
+  <view wx:if="{{ordersError}}" class="load-error card">
+    <view class="muted">{{ordersError}}</view>
+    <button size="mini" class="ghost-button" bindtap="retryOrders">重试</button>
+  </view>
 
   <view wx:if="{{statusBlock.loading}}" class="status card">
     <view class="status-value">正在同步申请状态…</view>
@@ -48,7 +54,9 @@
 
   <view class="section-title">登记上牌需求</view>
   <view class="form card">
-    <view wx:if="{{source === 'platform'}}" class="field"><text class="field-label">选择购车订单</text><picker wx:if="{{eligibleOrders.length}}" range="{{eligibleOrders}}" range-key="productName" value="{{selectedOrderIndex}}" bindchange="chooseOrder"><view class="input">{{eligibleOrders[selectedOrderIndex].productName}} · {{eligibleOrders[selectedOrderIndex].id}}  ▾</view></picker><view wx:else class="empty-order">暂无已支付购车订单，请先完成模拟购车，或选择“自带电瓶车”。</view></view>
+    <view wx:if="{{source === 'platform'}}" class="field"><text class="field-label">选择购车订单</text><picker wx:if="{{eligibleOrders.length}}" range="{{eligibleOrders}}" range-key="productName" value="{{selectedOrderIndex}}" bindchange="chooseOrder"><view class="input">{{eligibleOrders[selectedOrderIndex].productName}} · {{eligibleOrders[selectedOrderIndex].id}}  ▾</view></picker><!-- ★ 只有**确实取到了、且确实为空**才落这句。失败时走上面的错误占位：
+           改造前这里判的是 `!eligibleOrders.length`，任何失败都会渲染「请先完成模拟购车」——
+           一个网络抖动被翻译成一条让用户花钱的行动建议。 --><view wx:elif="{{!ordersError}}" class="empty-order">暂无已支付购车订单，请先完成模拟购车，或选择“自带电瓶车”。</view></view>
     <view class="field"><text class="field-label">姓名</text><input class="input" placeholder="请输入真实姓名" bindinput="setName" /></view>
     <view class="field"><text class="field-label">学号</text><input class="input" placeholder="请输入华农学号" bindinput="setStudentNo" /></view>
     <view class="field"><text class="field-label">联系电话</text><input class="input" type="number" maxlength="11" placeholder="用于材料确认" bindinput="setPhone" /></view>

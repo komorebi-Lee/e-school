@@ -1,6 +1,13 @@
 <view class="page">
+  <!-- 失败占位：接口挂了必须说出来，并且能重试。已加载的评价（若有）仍显示在下方。 -->
+  <view wx:if="{{reviewsError}}" class="load-error card">
+    <view class="muted">{{reviewsError}}</view>
+    <button size="mini" class="ghost-button" bindtap="retryReviews">重试</button>
+  </view>
   <view wx:if="{{loading}}" class="empty card"><view class="muted">正在加载评价…</view></view>
-  <view wx:elif="{{!reviews.length}}" class="empty card"><view class="muted">暂无已购评价</view></view>
+  <!-- ★ 失败时不得落「暂无已购评价」（T49）：改造前判的是 `!reviews.length`，
+       而 `reviews` 的初值是 `[]`，首屏失败就会断言「这家店没有评价」。 -->
+  <view wx:elif="{{!reviews.length && !reviewsError}}" class="empty card"><view class="muted">暂无已购评价</view></view>
   <block wx:else>
     <view class="summary card">共 {{reviews.length}} 条评价，{{pendingReviewCount}} 条待回复</view>
     <view id="merchant-review-{{item.id}}" class="review card {{item.id === focusId ? 'focus-item' : ''}}" wx:for="{{reviews}}" wx:key="id">

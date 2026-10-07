@@ -1,10 +1,18 @@
 <view class="page item-page">
+  <!-- 失败占位：接口挂了必须说出来，并且能重试。旧数据（若有）仍显示在下方。 -->
+  <view wx:if="{{itemError}}" class="load-error card">
+    <view class="muted">{{itemError}}</view>
+    <button size="mini" class="ghost-button" bindtap="retryItem">重试</button>
+  </view>
   <view wx:if="{{loading}}" class="empty card"><view class="muted">正在加载闲置详情…</view></view>
-  <view wx:elif="{{!item}}" class="empty card">
+  <!-- ★ 只有**确定是 404** 才落这句。网络失败走上面的错误占位 ——
+       改造前判的是 `!item`，于是任何失败都会断言「商品不存在或已下架」，
+       用户会以为东西被别人买走了。 -->
+  <view wx:elif="{{itemNotFound}}" class="empty card">
     <view class="empty-title">商品不存在或已下架</view>
     <button size="mini" class="primary-button" bindtap="goMarket">回市集逛逛</button>
   </view>
-  <block wx:else>
+  <block wx:if="{{item}}">
     <view class="gallery card" wx:if="{{item.images.length}}">
       <image wx:for="{{item.images}}" wx:key="*this" class="gallery-image" src="{{item}}" mode="aspectFill" data-urls="{{item.images}}" data-url="{{item}}" bindtap="previewImages" />
     </view>

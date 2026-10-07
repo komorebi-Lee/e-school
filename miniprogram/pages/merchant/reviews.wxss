@@ -15,3 +15,7 @@
 .actions { margin-top: 18rpx; display: flex; justify-content: flex-end; }
 .actions button { margin: 0; }
 .focus-item { border-color: #002fa7 !important; box-shadow: 0 0 0 4rpx rgba(0, 47, 167, .12) !important; }
+/* 失败占位（与 orders / addresses / profile 等页同一形态：文案 + 重试按钮） */
+.load-error { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; padding: 20rpx 24rpx; margin: 18rpx 0 0; background: #fff4f2; border: 2rpx solid #ffd9d3; border-radius: 18rpx; }
+.load-error .muted { flex: 1; min-width: 0; color: #a3341f; line-height: 1.45; }
+.load-error .ghost-button { min-width: 120rpx; margin: 0; flex-shrink: 0; }

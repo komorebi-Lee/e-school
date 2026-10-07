@@ -9,7 +9,14 @@
       </view>
     </scroll-view>
   </view>
-  <view wx:if="{{!loading && !filtered.length}}" class="empty card">
+  <!-- 失败占位：接口挂了必须说出来，并且能重试。已加载的车型（若有）仍显示在下方。 -->
+  <view wx:if="{{scootersError}}" class="load-error card">
+    <view class="muted">{{scootersError}}</view>
+    <button size="mini" class="ghost-button" bindtap="retryProducts">重试</button>
+  </view>
+  <!-- ★ 失败时不得落「没有匹配的车型」（T49）：改造前判的是 `!loading && !filtered.length`，
+       而本地缓存为空时 `filtered` 就是 `[]`，一次网络抖动会被渲染成「没有这个车型」。 -->
+  <view wx:if="{{!loading && !filtered.length && !scootersError}}" class="empty card">
     <view class="empty-title">没有匹配的车型</view>
     <view class="muted">看看热销车型，换个通勤思路</view>
     <view class="hot-list">

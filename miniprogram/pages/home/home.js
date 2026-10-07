@@ -2,6 +2,7 @@ const { getScooters } = require("../../services/store");
 const { loadBusinessConfig } = require("../../services/business");
 const { request } = require("../../services/api");
 const { openLink } = require("../../utils/navigation");
+const loadState = require("../../utils/load-state");
 
 function displayPrice(product) {
   return Math.round(Number(product.effectivePriceInCents ?? (product.priceInCents || 0)) / 100);
@@ -31,6 +32,9 @@ Page({
     catalogError: false,
     favorites: [],
     recommendations: [],
+    // ★ 两个区块的失败状态（T49），**互相独立**：一个块失败不能让另一个块也进错误态。
+    favoritesError: '',
+    recommendationsError: '',
     searchKeyword: '',
     config: null,
     responseHours: 24
@@ -108,8 +112,16 @@ Page({
   // 必须走 openLink —— 它会按 TABBAR_PAGES 自动改走 switchTab。
   goMarket() { openLink("/pages/market/market"); },
   goScooters() { wx.navigateTo({ url: "/pages/scooters/scooters" }); },
+  /**
+   * 加载「我的收藏」区块。
+   *
+   * ★ 失败时**不清空** `favorites`，也不再让整个区块静默消失（T49）。
+   *   改造前失败走 `setData({favorites:[]})`，而 `home.wxml:46` 的区块标题判的是
+   *   `favorites.length` —— 于是收藏区**整块不见**，用户看不到任何异常提示，
+   *   只会以为自己的收藏被清空了。
+   */
   loadFavorites() {
-    request('/api/my/favorites').then(({ data }) => {
+    return request('/api/my/favorites').then(({ data }) => {
       const favorites = (data || []).map((item) => {
         const stock = Number(item.availableStock ?? (item.stock || 0));
         return {
@@ -123,11 +135,18 @@ Page({
           promoText: item.promotion?.statusText || ''
         };
       });
-      this.setData({ favorites });
-    }).catch(() => this.setData({ favorites: [] }));
+      this.setData({ favorites, favoritesError: '' });
+    }).catch((error) => this.setData({ favoritesError: loadState.blockErrorText(error) }));
   },
+  retryFavorites() { return this.loadFavorites(); },
+  /**
+   * 加载「猜你喜欢」区块。
+   *
+   * ★ 与 `loadFavorites` 同一形态，但**互相独立**：一个块失败不能让另一个块也进错误态
+   *   （`utils/load-state.js` 的约定 3）。
+   */
   loadRecommendations() {
-    request('/api/my/recommendations?limit=4').then(({ data }) => {
+    return request('/api/my/recommendations?limit=4').then(({ data }) => {
       const recommendations = (data || []).map((item) => {
         const stock = Number(item.availableStock ?? (item.stock || 0));
         return {
@@ -142,9 +161,10 @@ Page({
           promoText: item.promotion?.statusText || ''
         };
       });
-      this.setData({ recommendations });
-    }).catch(() => this.setData({ recommendations: [] }));
+      this.setData({ recommendations, recommendationsError: '' });
+    }).catch((error) => this.setData({ recommendationsError: loadState.blockErrorText(error) }));
   },
+  retryRecommendations() { return this.loadRecommendations(); },
   goFavorites() { wx.navigateTo({ url: "/pages/favorites/favorites" }); },
   goDetail(e) { wx.navigateTo({ url: `/pages/detail/detail?id=${e.currentTarget.dataset.id}` }); }
 });

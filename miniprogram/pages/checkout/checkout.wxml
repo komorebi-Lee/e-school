@@ -22,6 +22,17 @@
     <text class="address-title">常用地址</text>
     <text class="manage-address" bindtap="goAddresses">管理地址 ›</text>
   </view>
+  <!-- ★ 失败占位（T49）：改造前失败会让「常用地址」卡片整块消失，
+       用户会以为自己没存过地址。 -->
+  <view wx:if="{{addressesError}}" class="load-error card">
+    <view class="muted">{{addressesError}}</view>
+    <button size="mini" class="ghost-button" bindtap="retryAddresses">重试</button>
+  </view>
+  <!-- ★ 空态用 `wx:elif="{{!addressesError}}"` 而不是 `wx:else`（T49 补修）。
+       `wx:else` 的语义是「上一个 wx:if 为假」，而 `addresses.length === 0` 在**接口失败**
+       时同样为假 —— 于是失败时页面会同时出现上面的「加载失败，请重试」和下面的
+       「还没有常用地址」，同屏两句互相矛盾的话。改成 wx:elif 后，只有**确实没失败**
+       时才敢说用户没存过地址。注释放在 wx:if 之前，避免插进 if/elif 链中间。 -->
   <view class="saved-addresses card" wx:if="{{addresses.length}}">
     <view class="saved-address {{selectedAddressId === item.id ? 'active' : ''}}" wx:for="{{addresses}}" wx:key="id" data-id="{{item.id}}" bindtap="selectAddress">
       <view class="saved-address-main">
@@ -31,7 +42,7 @@
       <button class="delete-address" size="mini" data-id="{{item.id}}" catchtap="deleteAddress">删除</button>
     </view>
   </view>
-  <view class="empty card" wx:else><view class="muted">还没有常用地址，填写后可保存到本账号。</view></view>
+  <view class="empty card" wx:elif="{{!addressesError}}"><view class="muted">还没有常用地址，填写后可保存到本账号。</view></view>
   <view class="section-title">校内配送信息</view><view class="form card">
     <view class="field"><text class="field-label">联系人</text><input class="input" placeholder="请输入姓名" bindinput="setName" /></view>
     <view class="field"><text class="field-label">手机号</text><input class="input" type="number" maxlength="11" placeholder="用于确认库存" bindinput="setPhone" /></view>

@@ -1,7 +1,14 @@
 <view class="page store-page">
+  <!-- 失败占位：接口挂了必须说出来，并且能重试。旧数据（若有）仍显示在下方。 -->
+  <view wx:if="{{storefrontError}}" class="load-error card">
+    <view class="muted">{{storefrontError}}</view>
+    <button size="mini" class="ghost-button" bindtap="retryStorefront">重试</button>
+  </view>
   <view wx:if="{{loading}}" class="empty card"><view class="muted">正在加载店铺信息</view></view>
-  <view wx:elif="{{!store}}" class="empty card"><view class="muted">店铺不存在或未通过平台核准</view></view>
-  <block wx:else>
+  <!-- ★ 只有**确定是 404** 才落这句。网络失败时 `storeNotFound` 为假，走上面的错误占位 ——
+       改造前这里判的是 `!store`，于是任何失败都会对一家真实在营的商家断言「不存在或未通过核准」。 -->
+  <view wx:elif="{{storeNotFound}}" class="empty card"><view class="muted">店铺不存在或未通过平台核准</view></view>
+  <block wx:if="{{store}}">
     <view class="storefront card">
       <view class="storefront-head">
         <view class="storefront-brand">{{store.name}}</view>
@@ -60,7 +67,8 @@
         </view>
       </view>
     </view>
-    <view wx:if="{{!filteredProducts.length}}" class="empty card"><view class="muted">{{products.length ? '没有符合筛选的商品' : '这家店暂无在售商品'}}</view></view>
+    <!-- ★ 渲染点 2：失败时不得落「这家店暂无在售商品」——那是关于这家店在售状态的事实陈述。 -->
+    <view wx:if="{{!filteredProducts.length && !storefrontError}}" class="empty card"><view class="muted">{{products.length ? '没有符合筛选的商品' : '这家店暂无在售商品'}}</view></view>
 
     <view class="section-title">同学评价</view>
     <view class="store-reviews">
@@ -81,6 +89,7 @@
         </view>
       </view>
     </view>
-    <view wx:if="{{!reviews.length}}" class="empty card"><view class="muted">这家店暂无已购评价</view></view>
+    <!-- ★ 渲染点 3：同理，失败时不得落「这家店暂无已购评价」。 -->
+    <view wx:if="{{!reviews.length && !storefrontError}}" class="empty card"><view class="muted">这家店暂无已购评价</view></view>
   </block>
 </view>

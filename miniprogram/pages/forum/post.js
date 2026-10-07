@@ -1,4 +1,6 @@
 const { request } = require('../../services/api');
+const loadState = require('../../utils/load-state');
+const { isNotFoundError } = require('../../utils/request-error');
 
 Page({
   data: {
@@ -9,7 +11,10 @@ Page({
     liking: false,
     // 作者自管理（M7-P1-01）：隐藏 / 恢复进行中，用于禁用按钮防重复提交。
     togglingStatus: false,
-    loading: true
+    loading: true,
+    // ★ 失败分流的两个标志（T49）。二者互斥，初值都是「都没失败」。
+    postError: '',
+    postNotFound: false
   },
 
   onLoad(options) {
@@ -29,14 +34,30 @@ Page({
     };
   },
 
+  /**
+   * 加载帖子详情。
+   *
+   * ★ 失败分流（T49）：
+   *   - **404**（`FORUM_POST_NOT_FOUND`）→ `postNotFound = true`，展示常驻的
+   *     「帖子不存在或已隐藏」。重试无意义，故不给重试入口。
+   *   - **网络失败 / 5xx** → `postError` 非空，展示**可重试**的占位，并且**不清空** `post`。
+   *
+   * 改造前两种情况都走 `setData({ post: null })` + toast「帖子不存在或已隐藏」：
+   * 网络抖动会让**作者本人**以为自己的帖子被删或被隐藏了。
+   */
   loadPost() {
-    request(`/api/forum/posts/${encodeURIComponent(this.data.id)}`).then(({ data }) => {
-      this.setData({ post: this.decorate(data), loading: false });
-    }).catch(() => {
-      this.setData({ post: null, loading: false });
-      wx.showToast({ title: '帖子不存在或已隐藏', icon: 'none' });
+    return request(`/api/forum/posts/${encodeURIComponent(this.data.id)}`).then(({ data }) => {
+      this.setData({ post: this.decorate(data), loading: false, postError: '', postNotFound: false });
+    }).catch((error) => {
+      if (isNotFoundError(error)) {
+        this.setData({ loading: false, postNotFound: true, postError: '' });
+        return;
+      }
+      this.setData({ loading: false, postError: loadState.blockErrorText(error) });
     });
   },
+
+  retryPost() { return this.loadPost(); },
 
   decorate(post) {
     return {

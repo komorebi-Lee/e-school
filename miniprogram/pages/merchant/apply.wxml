@@ -72,6 +72,15 @@
     </view>
   </block>
 
+  <!-- ★ 失败占位（T49）：改造前失败会把 `application` 置空，页面直接落进下面的
+       `wx:else` 全新申请表单 —— 一个**正在审核中甚至已被驳回**的商家会看到一张空白表，
+       于是重复提交；被驳回的商家还会丢掉「补充资质材料」这条复审入口。
+       现在失败走这一支：说明 + 重试，绝不渲染那张空白表单。 -->
+  <view wx:elif="{{applicationError}}" class="load-error card">
+    <view class="muted">{{applicationError}}</view>
+    <button size="mini" class="ghost-button" bindtap="retryApplication">重试</button>
+  </view>
+
   <block wx:else>
     <view class="section-title">选择开店主体</view>
     <view class="type-grid">

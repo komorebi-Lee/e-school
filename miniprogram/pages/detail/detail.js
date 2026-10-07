@@ -3,6 +3,7 @@ const { getScooter } = require('../../services/store');
 const { loadBusinessConfig } = require('../../services/business');
 const { toDetailView } = require('../../utils/product-view');
 const loadState = require('../../utils/load-state');
+const { isNotFoundError } = require('../../utils/request-error');
 
 function normalizeProduct(product, config = {}, reviewFilter = 'ALL') {
   const description = product.description || '支持校内配送和校园牌照辅助。';
@@ -159,25 +160,42 @@ Page({
     favorited: false,
     // 商品取不到时的常驻说明文案。默认值与改造前 wxml 里写死的那句逐字一致，
     // 只有确认「已下架」时才会被换成更准确的措辞。
-    goneText: '车型不存在或已下架'
+    goneText: '车型不存在或已下架',
+    // ★ 网络失败 / 5xx 的可见状态（T49）。非空即表示「当前展示的是失败态」。
+    //   与 `goneText` 是**互斥**的两条路径：`goneText` 只在确认 404 时展示。
+    loadError: ''
   },
   onLoad(options) {
+    this.productId = (options && options.id) || '';
     loadBusinessConfig().then((config) => {
       this.setData({ config });
       if (this.rawProduct) this.setData({ scooter: normalizeProduct(this.rawProduct, config, this.data.reviewFilter) });
     });
-    request(`/api/products/${encodeURIComponent(options.id || '')}`).then(({ data }) => {
+    this.loadProduct();
+  },
+  /**
+   * 加载商品详情。
+   *
+   * ★ 失败分流（T49）。改造前的写法**意图是对的、但只做了一半**：
+   *   它用 `error.code === 'PRODUCT_NOT_FOUND' || Number(error.statusCode) === 404`
+   *   区分了「已下架」与「网络故障」，然后把 404 分支改成常驻的「该商品已下架」——
+   *   可**非 404 分支的常驻文案仍然是「车型不存在或已下架」**（见 `data.goneText` 的初值），
+   *   所以一次网络抖动依旧被渲染成「这个车型不存在」。现在非 404 分支走可见、可重试的
+   *   错误占位，404 分支维持「该商品已下架」不变（那是 M2-P1-03 的成果，不能破坏）。
+   */
+  loadProduct() {
+    return request(`/api/products/${encodeURIComponent(this.productId || '')}`).then(({ data }) => {
       this.rawProduct = data;
-      this.setData({ scooter: normalizeProduct(data, this.data.config || {}, this.data.reviewFilter), loading: false });
+      this.setData({ scooter: normalizeProduct(data, this.data.config || {}, this.data.reviewFilter), loading: false, loadError: '' });
       this.loadRestockState(data.id);
       this.loadFavoriteState(data.id);
       // 记录足迹是动作、不是加载：失败不影响商品页展示，故显式忽略。
       request(`/api/my/footprints`, { method: 'POST', data: { productId: data.id } }).catch(loadState.ignoreSilently);
     }).catch((error) => {
-      const cached = getScooter(options.id);
+      const cached = getScooter(this.productId);
       this.rawProduct = cached;
       if (cached) {
-        this.setData({ scooter: normalizeProduct(cached, this.data.config || {}, this.data.reviewFilter), loading: false });
+        this.setData({ scooter: normalizeProduct(cached, this.data.config || {}, this.data.reviewFilter), loading: false, loadError: '' });
         return;
       }
       // ★ 区分「商品已下架」与「网络故障」。
@@ -192,13 +210,23 @@ Page({
       //（实测三者均返回 PRODUCT_NOT_FOUND），缓存正是让它们能正常渲染的那条路径。
       // 真被下架的商品不在缓存里（缓存只有那三件 mock 商品），所以走不到缓存分支，
       // 两件事并不冲突。
-      const gone = Boolean(error)
-        && (error.code === 'PRODUCT_NOT_FOUND' || Number(error.statusCode) === 404);
-      this.setData({ loading: false, goneText: gone ? '该商品已下架' : '车型不存在或已下架' });
-      if (gone) return;
+      if (isNotFoundError(error)) {
+        this.setData({ loading: false, loadError: '', goneText: '该商品已下架' });
+        return;
+      }
+      // 网络失败 / 5xx：重试**有意义**，所以给可见、可重试的占位。
+      // 改造前这里把 `goneText` 写成「车型不存在或已下架」+ 一个会消失的 toast，
+      // 等于向用户断言一个我们并不知道的事实（这个车型不存在）。
+      this.setData({ loading: false, loadError: loadState.blockErrorText(error) });
+      // ★ toast 保留（T49 说明）：它说的「商品加载失败」是**真话**，不在这轮要消灭的
+      //   假陈述之列，而且 `test/miniapp-page-blocks.test.js` 的 M2-P1-03 用例把
+      //   「网络故障仍保留原有提示」钉成了**正向控制**（用来防止 404 的改动误伤网络分支）。
+      //   这轮把失败的主要载体从 toast 换成了常驻占位 —— toast 只是**附加**信号。
+      //   若要把 toast 也去掉，需先由 team-lead 授权改那一条既有断言（根 test/ 只增不改）。
       wx.showToast({ title: '商品加载失败', icon: 'none' });
     });
   },
+  retryProduct() { return this.loadProduct(); },
   onShareAppMessage() {
     const scooter = this.data.scooter;
     if (!scooter) return { title: "狮山智生活 · 校园好物", path: "/pages/home/home" };

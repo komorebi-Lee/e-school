@@ -45,7 +45,7 @@ function resolveMaxOrderQuantityPerItem(config) {
 }
 
 Page({
-  data: { scooter: null, config: null, deliveryTimeSlots: [], deliveryTimeIndex: 0, name: '', phone: '', date: '', minDate: '', deliveryAddress: '', addresses: [], selectedAddressId: '', saveAddress: true, submitting: false, payToken: '', itemsFee: 0, deliveryFee: 0, totalFee: 0, agreed: false, quantity: 1, maxQuantity: 1, isRental: false, rentalPlan: null, rentalUnits: 1, rentalUnitLabel: '', rentalFees: null, rentalDue: null },
+  data: { scooter: null, config: null, deliveryTimeSlots: [], deliveryTimeIndex: 0, name: '', phone: '', date: '', minDate: '', deliveryAddress: '', addresses: [], selectedAddressId: '', saveAddress: true, submitting: false, payToken: '', itemsFee: 0, deliveryFee: 0, totalFee: 0, agreed: false, quantity: 1, maxQuantity: 1, isRental: false, rentalPlan: null, rentalUnits: 1, rentalUnitLabel: '', rentalFees: null, rentalDue: null, addressesError: '' },
   onShow() {
     const now = new Date();
     const minDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -121,14 +121,23 @@ Page({
     });
     this.updateTotals();
   },
+  /**
+   * 加载常用地址。
+   *
+   * ★ 失败时**不清空** `addresses`，也不再让地址卡静默消失（T49）。
+   *   改造前失败走 `setData({addresses:[]})`，`checkout.wxml:25` 判的是
+   *   `addresses.length` —— 于是「常用地址」卡片整块不见，用户会以为
+   *   **自己没有存过地址**，于是当场手输一遍（甚至以为地址丢了）。
+   */
   loadAddresses() {
-    request('/api/my/addresses').then(({ data }) => {
+    return request('/api/my/addresses').then(({ data }) => {
       const addressList = Array.isArray(data) ? data : [];
-      this.setData({ addresses: addressList });
+      this.setData({ addresses: addressList, addressesError: '' });
       const selected = addressList.find((item) => item.isDefault) || addressList[0];
       if (selected) this.applyAddress(selected);
-    }).catch(() => this.setData({ addresses: [] }));
+    }).catch((error) => this.setData({ addressesError: loadState.blockErrorText(error) }));
   },
+  retryAddresses() { return this.loadAddresses(); },
   goAddresses() {
     wx.navigateTo({ url: '/pages/addresses/addresses' });
   },

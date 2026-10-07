@@ -7,7 +7,7 @@ Page({
   // ★ `serviceContact` 的初值是**空串**，不是硬编码号码：本页 `onLoad` 后立即可渲染，
   //   而配置是异步回来的。若写死号码，管理员改号后用户会先看到**已过期**的号。
   //   `plate.wxml` 的咨询按钮对本字段做了 `wx:if`，未取到配置时不展示号码。
-  data:{source:'platform',vehicleModel:'',name:'',studentNo:'',phone:'',eligibleOrders:[],selectedOrderIndex:0,serviceFee:49,statusBlock:loadState.initialBlock(),charging:{eligible:false,stateLabel:'',detail:''},submitting:false,serviceContact:''},
+  data:{source:'platform',vehicleModel:'',name:'',studentNo:'',phone:'',eligibleOrders:[],selectedOrderIndex:0,serviceFee:49,statusBlock:loadState.initialBlock(),charging:{eligible:false,stateLabel:'',detail:''},submitting:false,serviceContact:'',ordersError:''},
   onShow(){this.loadOrders();this.loadStatus();this.loadCharging()},
   onLoad(){
     // 配置加载：`loadBusinessConfig` 内部已用缓存/默认值兜底、永不 reject，
@@ -17,18 +17,39 @@ Page({
       serviceContact: config.servicePhone || config.serviceWechat || ''
     })).catch(loadState.ignoreSilently);
   },
+  /**
+   * 加载「可用于上牌的已支付购车订单」。
+   *
+   * ★ 改造前失败时 `setData({eligibleOrders:[]})`，于是 `plate.wxml` 的空分支
+   *   （`wx:else`）渲染出「暂无已支付购车订单，请先完成模拟购车，或选择"自带电瓶车"。」
+   *   —— 这句话有**两个**后果，都不轻：
+   *     1. 向用户断言「你没有已支付订单」，而事实是「我们没取到」；
+   *     2. **引导用户再去下一单**（「请先完成模拟购车」）。一个网络抖动被翻译成
+   *        一条让用户花钱的行动建议。
+   *
+   * 改为三态：失败**不清空** `eligibleOrders`，只把失败写成可见状态（占位 + 重试）。
+   */
   loadOrders(){
-    request('/api/my/orders').then(({data})=>{
+    return request('/api/my/orders').then(({data})=>{
       const ebikeOrders=(data?.ebikeOrders||[])
         .filter(order=>!['CANCELLED','PENDING_PAYMENT'].includes(order.status)&&order.items&&order.items.length);
       this.setData({
+        ordersError:'',
         eligibleOrders:ebikeOrders.map(order=>({
           ...order,
           productName:(order.items||[]).map(item=>`${item.name}${Number(item.quantity)>1?` ×${item.quantity}`:''}`).join(' + ')
         }))
       });
-    }).catch(()=>this.setData({eligibleOrders:[]}));
+    }).catch((error)=>{
+      // ★ 这一屏上还有 `statusBlock` 的错误占位（`plate.wxml:18`），两块失败时若都用
+      //   `blockErrorText` 的兜底文案，用户会看到**两句一模一样的**「加载失败，请重试」，
+      //   分不清哪一块挂了。所以只在**兜底文案**这一种情形下加主语；服务端给了真实
+      //   错误信息时原样透传，不替它编话。
+      const text = loadState.blockErrorText(error);
+      this.setData({ordersError: text === loadState.DEFAULT_ERROR_TEXT ? '购车订单加载失败，请重试' : text});
+    });
   },
+  retryOrders(){return this.loadOrders()},
   loadStatus(){
     // ★ 加载类：改造前失败时静默，`status` 停在 null，页面会把「没取到」
     // 渲染成「你还没申请」—— 用户可能因此重复提交。改为三态（失败不清空 + 可见错误 + 重试）。

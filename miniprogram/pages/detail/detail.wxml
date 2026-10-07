@@ -1,7 +1,14 @@
 <view class="page detail-page">
   <view wx:if="{{loading}}" class="empty card"><view class="muted">正在加载车型…</view></view>
-  <view wx:elif="{{!scooter}}" class="empty card"><view class="muted">{{goneText}}</view></view>
-  <block wx:else>
+  <!-- 失败占位：接口挂了必须说出来，并且能重试。旧数据（若有）仍显示在下方。 -->
+  <view wx:if="{{loadError}}" class="load-error card">
+    <view class="muted">{{loadError}}</view>
+    <button size="mini" class="ghost-button" bindtap="retryProduct">重试</button>
+  </view>
+  <!-- ★ 只有**确定是 404**（`goneText` 被换成「该商品已下架」）或缓存里确实没有时才落这句。
+       改造前网络失败也会走到这里，把一次抖动说成「车型不存在或已下架」。 -->
+  <view wx:elif="{{!scooter && !loadError}}" class="empty card"><view class="muted">{{goneText}}</view></view>
+  <block wx:if="{{scooter}}">
   <view class="visual" style="background: {{scooter.color}}"><view class="pill badge">{{scooter.badge}}</view><image wx:if="{{scooter.imageUrl}}" class="product-image" src="{{scooter.imageUrl}}" mode="aspectFit" data-url="{{scooter.imageUrl}}" bindtap="previewProductImage" /><text wx:else>{{scooter.icon}}</text></view>
   <view class="main card"><view class="name">{{scooter.name}}</view><view class="muted">{{scooter.subtitle}}</view><view class="price-line"><text wx:if="{{scooter.isRental}}" class="price">{{scooter.priceText}}</text><text wx:else class="price">¥{{scooter.promotionPrice || scooter.price}}</text><text wx:if="{{scooter.originalPriceText}}" class="original">{{scooter.originalPriceText}}</text><text wx:if="{{scooter.originalPrice}}" class="original">¥{{scooter.originalPrice}}</text><text wx:if="{{scooter.promotionStatusText}}" class="promo">{{scooter.promotionStatusText}}</text></view><view class="rental-line" wx:if="{{scooter.isRental}}"><text class="rental-tag">可租赁</text><text class="muted">{{scooter.depositText}} · {{scooter.rentalRangeText}}</text></view><view class="seller-line"><text class="seller">{{scooter.merchantName}}</text><text wx:if="{{scooter.merchantRectify}}" class="rectify-badge tone-{{scooter.merchantRectify.toneClass}}">{{scooter.merchantRectify.badgeText}}</text><text class="muted">{{scooter.stockText}}</text></view><view class="muted small" wx:if="{{scooter.stockHint}}">{{scooter.stockHint}}</view></view>
   <view class="rectify-banner tone-{{scooter.merchantRectify.toneClass}}" wx:if="{{scooter.merchantRectify}}">
@@ -76,7 +83,11 @@
       <view class="review-images" wx:if="{{item.images.length}}"><image wx:for="{{item.images}}" wx:for-item="image" wx:key="*this" class="review-image" src="{{image}}" mode="aspectFill" data-urls="{{item.images}}" data-url="{{image}}" bindtap="previewReviewImages" /></view>
       <view class="merchant-reply" wx:if="{{item.reply}}"><view class="reply-head"><text class="reply-name">{{item.reply.merchantName}}</text><text class="muted reply-time">{{item.reply.timeText}}</text></view><view class="reply-content">{{item.reply.content}}</view></view>
     </view>
-    <view wx:if="{{!scooter.reviews.length}}" class="muted review-empty">{{scooter.review.count ? '这个筛选下暂无评价' : '这款车型暂无已购评价，可先查看平台保障和服务承诺。'}}</view>
+    <!-- ★ 这段「暂无评价」在 `<block wx:if="{{scooter}}">` **外面**（那个 block 第 63 行就关了），
+         所以接口失败时它照样会被求值：`scooter` 为 null → `!scooter.reviews.length` 为真 →
+         页面一边说「加载失败，请重试」一边说「这款车型暂无已购评价」。两个条件缺一不可：
+         `scooter` 挡住「已下架 / 加载失败」两种情况，`!loadError` 挡住「有缓存但刷新失败」。 -->
+    <view wx:if="{{scooter && !loadError && !scooter.reviews.length}}" class="muted review-empty">{{scooter.review.count ? '这个筛选下暂无评价' : '这款车型暂无已购评价，可先查看平台保障和服务承诺。'}}</view>
   </view>
 
   <view class="section-title">同类车型</view>

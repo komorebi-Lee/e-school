@@ -9,7 +9,15 @@
     >{{item.text}}</view>
   </view>
 
-  <view class="toolbar">
+  <!-- 失败占位：接口挂了必须说出来，并且能重试。已加载的消息（若有）仍显示在下方。 -->
+  <view wx:if="{{error}}" class="load-error card">
+    <view class="muted">{{error}}</view>
+    <button size="mini" class="ghost-button" bindtap="retryNotifications">重试</button>
+  </view>
+
+  <!-- ★ 工具栏只在**成功加载过**之后出现：失败时 `unreadCount` 停在 0，
+       而 0 是合法值，直接渲染会得到「消息都已读完」这条假陈述。 -->
+  <view class="toolbar" wx:if="{{loaded}}">
     <text class="muted">{{unreadCount ? unreadCount + ' 条未读' : '消息都已读完'}}</text>
     <button class="mark-all" disabled="{{!unreadCount}}" bindtap="markAllRead">全部已读</button>
   </view>
@@ -37,5 +45,7 @@
       </view>
     </view>
   </block>
-  <view wx:else class="empty card"><view class="muted">这个筛选下暂无消息</view></view>
+  <!-- ★ 失败时不得落这句（T49）：改造前判的是 `wx:else`，任何失败都会渲染
+       「这个筛选下暂无消息」，把「没取到」说成「平台没给你发过消息」。 -->
+  <view wx:elif="{{!error}}" class="empty card"><view class="muted">这个筛选下暂无消息</view></view>
 </view>

@@ -84,6 +84,8 @@ Page({
     merchantBadge: false,
     notifications: [],
     unreadNotificationCount: 0,
+    // ★ 业务提醒的失败状态（T49）。非空即表示「当前展示的是失败态」。
+    notificationsError: "",
     latestApprovedAt: "",
     userId: "",
     loginState: "loading",
@@ -130,17 +132,30 @@ Page({
       });
     }).catch(() => this.setData({ merchantBadge: false }));
   },
+  /**
+   * 加载「最新业务提醒」卡片。
+   *
+   * ★ 失败时**不清空** `notifications` / `unreadNotificationCount`（T49）：
+   *   改造前失败会 `setData({notifications:[], unreadNotificationCount:0})`，
+   *   卡片渲染出「暂无业务提醒」—— 用户会以为平台真的没给他发过任何提醒，
+   *   而事实是「我们没取到」。保留旧列表比清空有用得多。
+   *
+   * 注意 `profile.wxml:64` 的那句 `{{unreadNotificationCount ? ... : '支付、上牌、到账动态都会在这里同步'}}`
+   * **不需要改**：未读数归零时它落的是对卡片用途的**描述**，不是关于用户的通知事实，
+   * 所以它不是假陈述。真正需要守卫的是 `:75` 的「暂无业务提醒」。
+   */
   loadNotifications() {
-    request("/api/my/notifications").then(({ data }) => {
+    return request("/api/my/notifications").then(({ data }) => {
       const items = (data || []).slice(0, 3).map((item) => ({
         ...item,
         timeText: String(item.createdAt || "").slice(5, 16).replace("T", " "),
         unread: !item.read,
         link: item.link || ""
       }));
-      this.setData({ notifications: items, unreadNotificationCount: (data || []).filter((item) => !item.read).length });
-    }).catch(() => this.setData({ notifications: [], unreadNotificationCount: 0 }));
+      this.setData({ notifications: items, unreadNotificationCount: (data || []).filter((item) => !item.read).length, notificationsError: "" });
+    }).catch((error) => this.setData({ notificationsError: loadState.blockErrorText(error) }));
   },
+  retryNotifications() { return this.loadNotifications(); },
   markNotificationsRead() {
     if (!this.data.unreadNotificationCount) return;
     // 「上报已读」是动作、不是加载：失败不影响用户看到的通知列表，故显式忽略。

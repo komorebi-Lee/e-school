@@ -405,7 +405,11 @@
       <view><view class="strong">{{item.orderNo}}</view><view class="muted">{{item.items[0].name}}{{item.items.length > 1 ? ' 等' : ''}}</view></view>
       <view class="right"><view class="price">¥{{item.totalInCents / 100}}</view><view class="muted status-text">{{item.statusLabel}}</view><view class="order-link">{{item.actionText}}</view></view>
     </view>
-    <view wx:if="{{!orders.length}}" class="empty card"><view class="muted">暂无商家订单</view></view>
+    <!-- ★ `orders` 与 `merchant` 同源于一次 `/api/merchant/overview`（`merchant/index.js:301-317`
+         的同一次 setData），该请求失败时页面会 redirectTo 到入驻页，不存在「停在工作台但
+         订单取不到」的稳定状态。加 `merchant &&` 做行为兜底：商家数据没加载出来时，
+         绝不断言「暂无商家订单」。 -->
+    <view wx:if="{{merchant && !orders.length}}" class="empty card"><view class="muted">暂无商家订单</view></view>
     <view class="section-title section-row"><view>最近分账</view><view class="section-more" bindtap="goFinance">资金</view></view>
     <view class="card order" wx:for="{{settlements}}" wx:key="id" bindtap="goFinance">
       <view class="settle-main"><view class="strong">{{item.orderNo}}</view><view class="muted">费率 {{item.commissionRatePercent}}% · 服务费 ¥{{item.platformFeeInCents / 100}}</view><view class="muted stage-hint">{{item.stageHint}}</view></view>

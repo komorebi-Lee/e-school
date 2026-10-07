@@ -1,4 +1,5 @@
 const { request } = require('../../services/api');
+const loadState = require('../../utils/load-state');
 
 const HISTORY_KEY = 'campusGoSearchHistory';
 
@@ -67,7 +68,9 @@ Page({
     promos: [],
     filteredPromos: [],
     activeTab: 'ALL',
-    loading: true
+    loading: true,
+    // ★ 加载失败的可见状态（T49）。非空即表示「当前展示的是失败态」。
+    resultsError: ''
   },
 
   onLoad(options = {}) {
@@ -93,13 +96,18 @@ Page({
         ...products.slice(0, 4).map((item) => item.name).filter(Boolean),
         ...promos.slice(0, 2).map((item) => item.title).filter(Boolean)
       ])).slice(0, 6);
-      this.setData({ products, promos, hotKeywords, loading: false });
+      this.setData({ products, promos, hotKeywords, loading: false, resultsError: '' });
       this.applyFilters();
-    }).catch(() => {
-      this.setData({ products: [], promos: [], loading: false });
+    }).catch((error) => {
+      // ★ 失败不清空、也不落空态（T49）。改造前这里 `setData({products:[], promos:[]})`，
+      // 搜索页会渲染「没有匹配的结果 / 换个关键词，或看看首页推荐」——
+      // 把「我们没取到」说成「你搜的东西不存在」，用户会一直换关键词试。
+      this.setData({ loading: false, resultsError: loadState.blockErrorText(error) });
       this.applyFilters();
     });
   },
+
+  retryResults() { return this.loadResults(); },
 
   setKeyword(event) {
     this.setData({ query: event.detail.value.trim() });

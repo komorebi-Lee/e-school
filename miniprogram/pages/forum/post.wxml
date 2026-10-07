@@ -1,10 +1,17 @@
 <view class="page post-page">
+  <!-- 失败占位：接口挂了必须说出来，并且能重试。旧数据（若有）仍显示在下方。 -->
+  <view wx:if="{{postError}}" class="load-error card">
+    <view class="muted">{{postError}}</view>
+    <button size="mini" class="ghost-button" bindtap="retryPost">重试</button>
+  </view>
   <view wx:if="{{loading}}" class="empty card"><view class="muted">正在加载帖子…</view></view>
-  <view wx:elif="{{!post}}" class="empty card">
+  <!-- ★ 只有**确定是 404** 才落这句。网络失败走上面的错误占位 ——
+       改造前判的是 `!post`，于是作者本人会以为自己的帖子被删或被隐藏了。 -->
+  <view wx:elif="{{postNotFound}}" class="empty card">
     <view class="empty-title">帖子不存在或已隐藏</view>
     <button size="mini" class="primary-button" bindtap="goForum">回论坛</button>
   </view>
-  <block wx:else>
+  <block wx:if="{{post}}">
     <view class="main card">
       <view class="post-head">
         <text class="board-tag">{{post.boardText}}</text>
@@ -38,7 +45,11 @@
         <view class="comment-head"><text class="comment-author">{{item.authorName}}</text><text class="muted small">{{item.createdAt}}</text></view>
         <view class="comment-content">{{item.content}}</view>
       </view>
-      <view wx:if="{{!post.comments.length}}" class="empty card"><view class="muted">还没有评论，来抢沙发。</view></view>
+      <!-- ★ 「还没有评论」是**关于帖子的一个事实断言**，接口失败时不许说（T49 补修）。
+         首屏失败时 `post` 为 null，外层 `<block wx:if="{{post}}">` 已经挡住了；
+         但**刷新失败**时 `post` 与 `post.comments` 都是上一份缓存，若缓存里评论为空，
+         就会出现「加载失败，请重试」+「还没有评论」同屏。`!postError` 挡住这一路。 -->
+    <view wx:if="{{!postError && !post.comments.length}}" class="empty card"><view class="muted">还没有评论，来抢沙发。</view></view>
     </view>
 
     <view class="safe-space"></view>

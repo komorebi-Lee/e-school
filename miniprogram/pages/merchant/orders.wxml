@@ -1,7 +1,15 @@
 <view class="page">
   <view class="page-title">商家订单</view>
+  <!-- 失败占位：接口挂了必须说出来，并且能重试。已加载的订单（若有）仍显示在下方。 -->
+  <view wx:if="{{ordersError}}" class="load-error card">
+    <view class="muted">{{ordersError}}</view>
+    <button size="mini" class="ghost-button" bindtap="retryOrders">重试</button>
+  </view>
   <view wx:if="{{loading}}" class="empty card"><view class="muted">正在加载…</view></view>
-  <view wx:elif="{{!orders.length}}" class="empty card"><view class="muted">暂无订单</view></view>
+  <!-- ★ 失败时不得落「暂无订单」（T49）：改造前判的是 `!orders.length`，而 `orders` 的初值是 `[]`，
+       首屏失败就会断言「这家店没有订单」，同时还会弹一句「请重新进入商家工作台」——
+       同一屏上两句互相矛盾的话。 -->
+  <view wx:elif="{{!orders.length && !ordersError}}" class="empty card"><view class="muted">暂无订单</view></view>
   <block wx:else>
     <view class="metric-strip card" wx:if="{{metrics}}">
       <view><text class="metric-value">¥{{metrics.revenueInCents / 100}}</text><text class="muted">销售额</text></view>

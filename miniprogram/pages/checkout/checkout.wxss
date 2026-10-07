@@ -30,3 +30,7 @@
 .rental-due-label { color: #536078; font-size: 24rpx; }
 .rental-due-value { color: #002fa7; font-size: 26rpx; font-weight: 900; }
 .deposit-notice { margin-bottom: 10rpx; color: #a15c00; font-weight: 750; }
+/* 失败占位（与 orders / addresses / profile 等页同一形态：文案 + 重试按钮） */
+.load-error { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; padding: 20rpx 24rpx; margin: 18rpx 0 0; background: #fff4f2; border: 2rpx solid #ffd9d3; border-radius: 18rpx; }
+.load-error .muted { flex: 1; min-width: 0; color: #a3341f; line-height: 1.45; }
+.load-error .ghost-button { min-width: 120rpx; margin: 0; flex-shrink: 0; }
