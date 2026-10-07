@@ -1,5 +1,5 @@
 const { request, userId } = require('../../services/api');
-const { loadBusinessConfig } = require('../../services/business');
+const { FALLBACK_SERVICE_CONTACT, loadBusinessConfig } = require('../../services/business');
 const loadState = require('../../utils/load-state');
 const upload = require('../../utils/upload');
 
@@ -36,7 +36,7 @@ Page({
   onLoad(options) {
     this.setData({ orderId: options.id || '' });
     // 配置加载：`loadBusinessConfig` 内部已用缓存/默认值兜底、永不 reject，
-    // 失败也不影响可见内容（响应时长/联系电话回落到默认值），故显式忽略。
+    // 失败也不影响可见内容（响应时长回落到默认值，联系电话保持空值、不展示），故显式忽略。
     loadBusinessConfig().then((config) => this.setData({
       afterSaleResponseHours: Number(config.afterSaleResponseHours || 24),
       afterSaleResolutionHours: Number(config.afterSaleResolutionHours || 72),
@@ -166,7 +166,8 @@ Page({
     wx.previewImage({ current: current || urls[0], urls });
   },
   callContact() {
-    wx.makePhoneCall({ phoneNumber: this.data.contact || '15527111396' });
+    // 用户已明确要打电话：用兜底常量（其既定角色），而不是拨一个空号。
+    wx.makePhoneCall({ phoneNumber: this.data.contact || FALLBACK_SERVICE_CONTACT });
   },
   goReview() {
     if (!this.data.orderId) return;

@@ -1,5 +1,5 @@
 const { request, userId } = require('../../services/api');
-const { loadBusinessConfig } = require('../../services/business');
+const { FALLBACK_SERVICE_CONTACT, loadBusinessConfig } = require('../../services/business');
 const loadState = require('../../utils/load-state');
 
 function decodeParam(value, fallback = '') {
@@ -16,14 +16,17 @@ function decodeParam(value, fallback = '') {
 }
 
 Page({
-  data: { type: '电动车', interest: '', sourceType: '', sourceId: '', sourceNo: '', name: '', phone: '', time: '', note: '', submitting: false, responseHours: 24, contact: '15527111396' },
+  // ★ `contact` 的初值是**空串**，不是硬编码号码：`data` 在页面创建时即渲染，
+  //   而配置是异步回来的。若写死号码，管理员改号后用户会先看到**已过期**的号。
+  //   `consult.wxml` 的提示行对本字段做了 `wx:if`，未取到配置时不展示。
+  data: { type: '电动车', interest: '', sourceType: '', sourceId: '', sourceNo: '', name: '', phone: '', time: '', note: '', submitting: false, responseHours: 24, contact: '' },
   onLoad(options) {
     // 配置加载：`loadBusinessConfig` 内部已用缓存/默认值兜底、永不 reject，
-    // 失败也不影响可见内容（响应时长/联系电话回落到默认值），故显式忽略。
+    // 失败也不影响可见内容（响应时长回落到默认值，联系电话保持空值、不展示），故显式忽略。
     loadBusinessConfig().then((config) => {
       this.setData({
         responseHours: Number(config.leadResponseHours || 24),
-        contact: config.servicePhone || config.serviceWechat || '15527111396'
+        contact: config.servicePhone || config.serviceWechat || ''
       });
     }).catch(loadState.ignoreSilently);
     this.setData({
@@ -56,7 +59,7 @@ Page({
       wx.showToast({ title: '已提交咨询' });
       setTimeout(() => wx.navigateBack(), 600);
     }).catch(() => {
-      wx.showModal({ title: '提交失败', content: `可直接联系客服：${this.data.contact}`, showCancel: false });
+      wx.showModal({ title: '提交失败', content: `可直接联系客服：${this.data.contact || FALLBACK_SERVICE_CONTACT}`, showCancel: false });
     }).finally(() => this.setData({ submitting: false }));
   }
 });

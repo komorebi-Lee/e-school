@@ -49,7 +49,8 @@
     <view class="appeal-state" wx:if="{{appealRequested}}">已提交平台协助，等待平台处理</view>
     <view class="contact-row">
       <button size="mini" class="ghost-button" open-type="contact">微信客服</button>
-      <button size="mini" class="ghost-button" bindtap="callContact">电话客服 {{contact}}</button>
+      <!-- 号码在配置返回前是空串，此时按钮只剩「电话客服」四个字，不展示可能过期的号码。 -->
+      <button size="mini" class="ghost-button" bindtap="callContact">电话客服 <text wx:if="{{contact}}">{{contact}}</text></button>
     </view>
     <button size="mini" class="primary-button" wx:if="{{existing.statusLabel === '未通过' && !appealRequested}}" bindtap="requestAppeal" disabled="{{appealing}}">申请平台协助</button>
   </view>

@@ -1,17 +1,20 @@
 const { request } = require('../../services/api');
-const { loadBusinessConfig } = require('../../services/business');
+const { FALLBACK_SERVICE_CONTACT, loadBusinessConfig } = require('../../services/business');
 const { payPaymentOrder } = require('../../services/payment');
 const loadState = require('../../utils/load-state');
 
 Page({
-  data:{source:'platform',vehicleModel:'',name:'',studentNo:'',phone:'',eligibleOrders:[],selectedOrderIndex:0,serviceFee:49,statusBlock:loadState.initialBlock(),charging:{eligible:false,stateLabel:'',detail:''},submitting:false,serviceContact:'15527111396'},
+  // ★ `serviceContact` 的初值是**空串**，不是硬编码号码：本页 `onLoad` 后立即可渲染，
+  //   而配置是异步回来的。若写死号码，管理员改号后用户会先看到**已过期**的号。
+  //   `plate.wxml` 的咨询按钮对本字段做了 `wx:if`，未取到配置时不展示号码。
+  data:{source:'platform',vehicleModel:'',name:'',studentNo:'',phone:'',eligibleOrders:[],selectedOrderIndex:0,serviceFee:49,statusBlock:loadState.initialBlock(),charging:{eligible:false,stateLabel:'',detail:''},submitting:false,serviceContact:''},
   onShow(){this.loadOrders();this.loadStatus();this.loadCharging()},
   onLoad(){
     // 配置加载：`loadBusinessConfig` 内部已用缓存/默认值兜底、永不 reject，
-    // 失败也不影响可见内容（服务费/联系电话回落到默认值），故显式忽略。
+    // 失败也不影响可见内容（服务费回落到默认值，联系电话保持空值、不展示），故显式忽略。
     loadBusinessConfig().then((config) => this.setData({
       serviceFee: Number(config.externalPlateFee ?? 49),
-      serviceContact: config.servicePhone || config.serviceWechat || '15527111396'
+      serviceContact: config.servicePhone || config.serviceWechat || ''
     })).catch(loadState.ignoreSilently);
   },
   loadOrders(){
@@ -74,5 +77,6 @@ Page({
       })
       .catch(error=>{this.setData({submitting:false});wx.showToast({title:error.message||'提交失败',icon:'none'})});
   },
-  callService(){wx.makePhoneCall({phoneNumber:this.data.serviceContact || '15527111396'})}
+  // 用户已明确要打电话：用兜底常量（其既定角色），而不是拨一个空号。
+  callService(){wx.makePhoneCall({phoneNumber:this.data.serviceContact || FALLBACK_SERVICE_CONTACT})}
 });

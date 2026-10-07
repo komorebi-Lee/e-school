@@ -1,6 +1,6 @@
 const { request, userId } = require("../../services/api");
 const { loginWeChat } = require("../../lib/cloud-request");
-const { loadBusinessConfig } = require("../../services/business");
+const { FALLBACK_SERVICE_CONTACT, loadBusinessConfig } = require("../../services/business");
 const { openLink } = require("../../utils/navigation");
 const loadState = require("../../utils/load-state");
 
@@ -77,7 +77,10 @@ Page({
     verified: false,
     identityBadgeText: '读取中',
     identity: null,
-    customerService: "15527111396",
+    // ★ 客服联系方式初值是**空串**，不是硬编码号码：本页菜单在 `onShow` 后立刻渲染，
+    //   而配置是异步回来的。若写死号码，管理员改号后用户会先看到**已过期**的号。
+    //   `profile.wxml` 的两处 `menu-note` 对本字段做了 `wx:if`，未取到配置时不展示。
+    customerService: "",
     merchantBadge: false,
     notifications: [],
     unreadNotificationCount: 0,
@@ -90,9 +93,9 @@ Page({
   onShow() { this.refreshLoginState(); this.loadIdentity(); this.loadMerchantBadge(); this.loadNotifications(); this.loadOrderMessageState(); },
   onLoad() {
     // 配置加载：`loadBusinessConfig` 内部已用缓存/默认值兜底、永不 reject，
-    // 失败也不影响可见内容（客服电话回落到默认值），故显式忽略。
+    // 失败也不影响可见内容（客服电话保持空值、不展示），故显式忽略。
     loadBusinessConfig().then((config) => this.setData({
-      customerService: config.servicePhone || config.serviceWechat || '15527111396'
+      customerService: config.servicePhone || config.serviceWechat || ''
     })).catch(loadState.ignoreSilently);
   },
   refreshLoginState() {
@@ -321,6 +324,7 @@ Page({
   },
   goPlate() { wx.navigateTo({ url: "/pages/plate/plate" }); },
   goAgreement() { wx.navigateTo({ url: "/pages/agreement/agreement?type=privacy" }); },
-  callService() { wx.makePhoneCall({ phoneNumber: this.data.customerService }); },
-  copyWechat() { wx.setClipboardData({ data: this.data.customerService }); }
+  // 用户已明确要打电话/复制：用兜底常量（其既定角色），而不是拨一个空号/复制空串。
+  callService() { wx.makePhoneCall({ phoneNumber: this.data.customerService || FALLBACK_SERVICE_CONTACT }); },
+  copyWechat() { wx.setClipboardData({ data: this.data.customerService || FALLBACK_SERVICE_CONTACT }); }
 });

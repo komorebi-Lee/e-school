@@ -1532,11 +1532,17 @@ test('M2-P1-03：已下架商品给出常驻的「该商品已下架」，而不
   const harness = createHarness();
   t.after(() => harness.restore());
 
-  // 服务端对已下架商品返回 404 + PRODUCT_NOT_FOUND（server 侧断言 ③ 已锁住这个事实）。
+  // 服务端 `GET /api/products/:id`（`server/src/app.js`）按 `active` 过滤，未命中时
+  // 返回 404 + `PRODUCT_NOT_FOUND`，文案取自 `notFoundMessage('PRODUCT_NOT_FOUND')`
+  // = **`商品不存在`**。★ 该端点**无法区分**「从未存在」与「已下架」，所以桩只复现
+  // 服务端真正会返回的那句话，不替服务端编造「已下架」这个它给不出的事实。
+  // 页面的「该商品已下架」措辞是页面自己的选择：`detail.js` 按
+  // `error.code === 'PRODUCT_NOT_FOUND' || Number(error.statusCode) === 404` 判定，
+  // **完全不看 message**，故桩的文案不影响本用例结果。
   harness.setApiHandler((requestPath) => {
     if (requestPath.startsWith('/api/products/')) {
       return Promise.reject(Object.assign(
-        new Error('Product not found'), { code: 'PRODUCT_NOT_FOUND', statusCode: 404 }
+        new Error('商品不存在'), { code: 'PRODUCT_NOT_FOUND', statusCode: 404 }
       ));
     }
     return Promise.resolve({ data: [] });

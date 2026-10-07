@@ -57,5 +57,6 @@
   </view>
 
   <view class="notice">具体材料、审核标准、办理地点和充电资格以华中农业大学最新规定及实际审核结果为准。本服务仅提供流程辅助，不承诺审核必然通过。</view>
-  <button class="ghost-button service-button" bindtap="callService">电话咨询 {{serviceContact}}</button>
+  <!-- 号码在配置返回前是空串，此时按钮只剩「电话咨询」四个字，不展示可能过期的号码。 -->
+  <button class="ghost-button service-button" bindtap="callService">电话咨询 <text wx:if="{{serviceContact}}">{{serviceContact}}</text></button>
 </view>

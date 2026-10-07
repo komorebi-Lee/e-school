@@ -1,6 +1,6 @@
 const { request, userId } = require('../../services/api');
 const { payPaymentOrderById } = require('../../services/payment');
-const { loadBusinessConfig } = require('../../services/business');
+const { FALLBACK_SERVICE_CONTACT, loadBusinessConfig } = require('../../services/business');
 // 租赁订单展示层：进度条 / 应还倒计时 / 卡片文案 / 归还入口判定。
 // 全部是纯函数，可被 test/miniapp-runtime.test.js 真实加载断言。
 const rentalJourney = require('../../utils/rental-journey');
@@ -45,7 +45,10 @@ function buildSessionFrom(record) {
 }
 
 Page({
-  data:{ active:'ALL', records:[], filtered:[], linkage:[], loading:true, consult:null, reviewing:false, serviceContact:'15527111396', responseHours:24, focusId:'', recordsError:'' },
+  // ★ `serviceContact` 的初值是**空串**，不是硬编码号码：配置是异步回来的，
+  //   本字段会经 `openConsult` 写进弹窗的 `consult.phone`、并作为拨号链的一环。
+  //   若写死号码，管理员改号后弹窗会先显示、并可能拨到**已过期**的号。
+  data:{ active:'ALL', records:[], filtered:[], linkage:[], loading:true, consult:null, reviewing:false, serviceContact:'', responseHours:24, focusId:'', recordsError:'' },
   onShow(){
     const storedFocusId = wx.getStorageSync('campusGoOrderFocusId');
     if (storedFocusId) {
@@ -70,9 +73,9 @@ Page({
     if (options.focusId) this.focusId = options.focusId;
     if (options.recordType) this.focusRecordType = options.recordType;
     // 配置加载：`loadBusinessConfig` 内部已用缓存/默认值兜底、永不 reject，
-    // 失败也不影响可见内容（客服电话/响应时长回落到默认值），故显式忽略。
+    // 失败也不影响可见内容（客服电话保持空值、由拨号链兜底，响应时长回落默认值），故显式忽略。
     loadBusinessConfig().then((config) => this.setData({
-      serviceContact: config.servicePhone || config.serviceWechat || '15527111396',
+      serviceContact: config.servicePhone || config.serviceWechat || '',
       responseHours: Number(config.leadResponseHours || 24)
     })).catch(loadState.ignoreSilently);
   },
@@ -441,7 +444,8 @@ Page({
       id:record.id, type:record.type, business, interest, title:record.title, recordNo:record.recordNo,
       status:record.status, statusLabel:record.statusLabel || record.status,
       questions:consultQuestions[record.type] || ['请帮我查询订单进度'],
-      phone:this.data.serviceContact || '15527111396',
+      // 弹窗里的电话：优先用已取到的配置值，未取到时用兜底常量（其既定角色）。
+      phone:this.data.serviceContact || FALLBACK_SERVICE_CONTACT,
       sessionFrom:buildSessionFrom(record),
       summary:[`订单：${record.title}`,`编号：${record.recordNo}`,`状态：${record.statusLabel || record.status}`].join('\n'),
       sending:''
@@ -471,7 +475,8 @@ Page({
     });
   },
   callConsultPhone(){
-    wx.makePhoneCall({phoneNumber:this.data.consult?.phone || this.data.serviceContact || '15527111396'});
+    // 用户已明确要打电话：逐级回落到兜底常量，而不是拨一个空号。
+    wx.makePhoneCall({phoneNumber:this.data.consult?.phone || this.data.serviceContact || FALLBACK_SERVICE_CONTACT});
   },
   goConsultForm(){
     const consult=this.data.consult;

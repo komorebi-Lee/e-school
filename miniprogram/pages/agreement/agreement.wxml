@@ -8,7 +8,9 @@
     <view class="section-heading">{{section.heading}}</view>
     <view class="doc-item" wx:for="{{section.items}}" wx:key="*this" wx:for-item="text"><text class="dot"></text><text class="doc-text">{{text}}</text></view>
   </view>
-  <view class="contact-card card">
+  <!-- 客服卡片：`contact` 在配置返回前是空串，此时整块不渲染。
+       宁可暂时没有联系方式，也不能展示一个可能已过期的号码。 -->
+  <view class="contact-card card" wx:if="{{contact}}">
     <view><view class="contact-title">仍有疑问？</view><view class="muted">客服电话 / 微信：{{contact}}</view></view>
     <button class="ghost-button" bindtap="contactService">联系客服</button>
   </view>

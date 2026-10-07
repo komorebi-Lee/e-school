@@ -1,4 +1,4 @@
-const { loadBusinessConfig } = require('../../services/business');
+const { FALLBACK_SERVICE_CONTACT, loadBusinessConfig } = require('../../services/business');
 const loadState = require('../../utils/load-state');
 
 const docTypes = {
@@ -23,18 +23,23 @@ const docTypes = {
 };
 
 Page({
-  data: { doc: null, contact: '15527111396' },
+  // ★ `contact` 的初值是**空串**，不是硬编码号码。本页 `onLoad` 会**同步**
+  //   `setData({ doc })`（见下），页面立刻可渲染；而配置是异步回来的。
+  //   若初值写死号码，管理员改号后用户会先看到、并可能拨到**已过期**的号。
+  //   `agreement.wxml` 的客服卡片对本字段做了 `wx:if`，未取到配置时不展示。
+  data: { doc: null, contact: '' },
   onLoad(options) {
     const key = options.type === 'service' ? 'service' : 'privacy';
     this.setData({ doc: docTypes[key] });
     wx.setNavigationBarTitle({ title: docTypes[key].title });
     // 配置加载：`loadBusinessConfig` 内部已用缓存/默认值兜底、永不 reject，
-    // 失败也不影响可见内容（正文是本地文案，客服电话回落到默认值），故显式忽略。
+    // 失败也不影响可见内容（正文是本地文案，客服电话保持空值、不展示），故显式忽略。
     loadBusinessConfig().then((config) => this.setData({
-      contact: config.servicePhone || config.serviceWechat || '15527111396'
+      contact: config.servicePhone || config.serviceWechat || ''
     })).catch(loadState.ignoreSilently);
   },
   contactService() {
-    wx.makePhoneCall({ phoneNumber: this.data.contact || '15527111396' });
+    // 用户已明确要打电话：用兜底常量（其既定角色），而不是拨一个空号。
+    wx.makePhoneCall({ phoneNumber: this.data.contact || FALLBACK_SERVICE_CONTACT });
   }
 });
