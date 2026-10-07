@@ -45,7 +45,21 @@ function resolveMaxOrderQuantityPerItem(config) {
 }
 
 Page({
-  data: { scooter: null, config: null, deliveryTimeSlots: [], deliveryTimeIndex: 0, name: '', phone: '', date: '', minDate: '', deliveryAddress: '', addresses: [], selectedAddressId: '', saveAddress: true, submitting: false, payToken: '', itemsFee: 0, deliveryFee: 0, totalFee: 0, agreed: false, quantity: 1, maxQuantity: 1, isRental: false, rentalPlan: null, rentalUnits: 1, rentalUnitLabel: '', rentalFees: null, rentalDue: null, addressesError: '' },
+  data: { scooter: null, config: null, deliveryTimeSlots: [], deliveryTimeIndex: 0, name: '', phone: '', date: '', minDate: '', deliveryAddress: '', addresses: [], selectedAddressId: '', saveAddress: true, submitting: false, payToken: '', itemsFee: 0, deliveryFee: 0, totalFee: 0, agreed: false, quantity: 1, maxQuantity: 1, isRental: false, rentalPlan: null, rentalUnits: 1, rentalUnitLabel: '', rentalFees: null, rentalDue: null, addressesError: '',
+    // ★ `productLoaded` / `productError`（T50）：把「取商品」这一块补成三态。
+    //
+    //   改造前这块**没有任何状态**：`scooter` 的初值是 `null`，而整页被
+    //   `checkout.wxml:1` 的 `wx:if="{{scooter}}"` 包住 —— 于是
+    //   ① 首屏那一次请求还没回来时**整页空白**（连一句「正在加载」都没有）；
+    //   ② 请求**失败**时 `scooter` 永远是 `null`，而那条 catch 只弹一个 toast、
+    //      **不设任何错误态** → 页面**永久空白**，toast 一两秒就消失，
+    //      之后既没有内容也没有重试入口。这比我们修过的那批「假陈述」更糟：
+    //      那些至少说了句错话，这个是**什么都不说且无法恢复**。
+    //
+    //   `productLoaded` 的语义与 `plate.js` 的 `ordersLoaded` 同源：区分
+    //   「**还没取到**」与「取到了」，**成功与失败都置 `true`** —— 它回答的是
+    //   「有没有得到答复」，不是「成不成功」。
+    productLoaded: false, productError: '' },
   onShow() {
     const now = new Date();
     const minDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -55,8 +69,33 @@ Page({
   },
   onLoad(options) {
     const id = options.id || '';
+    // ★ T50：商品 id 存在实例上，供 `loadProduct()` / `retryProduct()` 复用。
+    //   不放进 `data` —— 它不参与渲染，放进去只会让每次 `setData` 都多带一份。
+    this.productId = id;
     this.setData({ payToken: `ebike-${id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` });
-    request(`/api/products/${encodeURIComponent(id)}`).then(({ data }) => {
+    // ★ T50：商品加载搬进 `loadProduct()`，好让失败重试能**复用同一条链**，
+    //   而不必重跑 `onLoad` —— 重跑会重新生成 `payToken`，那是提交路径上的东西。
+    //   于是 `payToken` 由 `onLoad` 独占，天然保证「**每次进页面只生成一次**」。
+    this.loadProduct();
+    loadBusinessConfig().then((config) => {
+      this.setData({ config, deliveryTimeSlots: config.deliveryTimeSlots });
+      this.refreshMaxQuantity();
+    });
+  },
+  /**
+   * 加载商品详情。
+   *
+   * ★ 本方法是 T50 从 `onLoad` 里**逐字节搬出来**的（原 `:60-88` 一行未改，
+   *   连缩进都没变，因为两边都是「方法 → then 回调」同一层）。搬出来**只有一个目的**：
+   *   让失败重试能复用同一条链。
+   *
+   * ★ 搬移后职责更清楚：`onLoad` 只做「进页面时做一次」的事（`payToken`、配置加载），
+   *   本方法只做「取商品」，`retryProduct()` 因此可以只重取商品而**不动 `payToken`**。
+   *
+   * @returns {Promise<unknown>} 商品请求的 promise（供重试与测试 await）。
+   */
+  loadProduct() {
+    return request(`/api/products/${encodeURIComponent(this.productId)}`).then(({ data }) => {
       const sellableStock = Number(data.availableStock ?? (data.stock || 0));
       const rentalPlan = readRentalPlan(data);
       const isRental = Boolean(rentalPlan);
@@ -86,13 +125,38 @@ Page({
         }
       });
       this.refreshMaxQuantity();
+      // ★ T50：得到了答复 —— 从此才允许撤掉加载态。见 `data.productLoaded` 的注释。
+      this.setData({ productError: '', productLoaded: true });
     }).catch((error) => {
-      wx.showToast({ title: error.message || '商品加载失败，请稍后重试', icon: 'none' });
+      // ★ T50：改造前这里**只弹一个 toast**（`wx.showToast`），没有任何常驻状态 ——
+      //   于是 `scooter` 永远是 `null`、整页永久空白，且**无法恢复**。
+      //   现在落成**常驻错误占位 + 重试入口**，与 T49 对 `notifications.js:52` /
+      //   `store.js` 的同一纪律：失败必须**可见 + 可重试**，不靠会消失的提示承载。
+      const text = loadState.blockErrorText(error);
+      this.setData({
+        // ★ 只在**兜底文案**这一种情形下加主语：这一屏上「常用地址」块也会渲染同一句
+        //   兜底文案（`loadAddresses`），两块都挂时用户会看到两句一模一样的
+        //   「加载失败，请重试」，分不清哪一块挂了。服务端给了真实错误信息时原样透传，
+        //   不替它编话。与 `plate.js` 的既有做法同源。
+        productError: text === loadState.DEFAULT_ERROR_TEXT ? '商品加载失败，请重试' : text,
+        // ★ 失败也算「得到了答复」：此后由 `productError` 决定说不说失败，
+        //   不再需要 `productLoaded` 兜着「还没问过」这一种状态。
+        productLoaded: true
+      });
     });
-    loadBusinessConfig().then((config) => {
-      this.setData({ config, deliveryTimeSlots: config.deliveryTimeSlots });
-      this.refreshMaxQuantity();
-    });
+  },
+  /**
+   * 重试商品加载。
+   *
+   * ★ 必须走 `loadProduct()`，**不得走 `onLoad()`**：`onLoad` 会重新生成
+   *   `payToken`（提交路径上的东西），重试商品不该动它。用例「重试后 `payToken`
+   *   逐字相同」就是钉住这一点的。
+   *
+   * @returns {Promise<unknown>} 同 `loadProduct()`。
+   */
+  retryProduct() {
+    this.setData({ productError: '', productLoaded: false });
+    return this.loadProduct();
   },
   /**
    * 重算「单笔最多可买几件」，并把已选数量夹到新上限内。

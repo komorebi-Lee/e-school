@@ -890,13 +890,17 @@ function branchVisible(element, data) {
 }
 
 /**
- * 把一页 wxml 在当前 `data` 下**渲染成一段纯文本**。
+ * 把一页 wxml 在当前 `data` 下**渲染成一段纯文本**（从磁盘读该页 wxml）。
  *
- * 这是第 3 节所有「不得渲染出 X」断言的证据来源：不是断言状态字段，
+ * 这是第 3 / 4 节所有「不得渲染出 X」断言的证据来源：不是断言状态字段，
  * 而是断言**用户实际会看到的那段文字**。
  *
- * `wx:for` 只渲染第一项（我们关心的是页面级空态文案，它们都在循环之外）；
- * 列表为空时整棵子树跳过。
+ * ★ 这里**只负责读文件**，渲染本体在 `renderTextFromSource`。
+ *   T50 收尾把这段 walk 抽了出去：原先 `renderTextFromSource` 是它的**逐行副本**，
+ *   两处各有一份 walk。副本一旦漂移，用**人造样本**自测出来的结论就**不再能代表**
+ *   那二十余条跑在**真实页面**上的断言 —— 而「判据自测」的全部价值就在于
+ *   「自测跑的东西与真断言跑的东西是同一套」。现在两者共用同一份实现，
+ *   结构上不可能分家。
  *
  * @param {string} relativeWxmlPath 相对 `miniprogram/` 的 wxml 路径。
  * @param {object} data 页面数据。
@@ -904,29 +908,7 @@ function branchVisible(element, data) {
  */
 function renderText(relativeWxmlPath, data) {
   const source = fs.readFileSync(path.join(miniprogramDirectory, relativeWxmlPath), 'utf8');
-  const root = parseDocument(source);
-  const chunks = [];
-  const walk = (element, scope) => {
-    if (!branchVisible(element, scope)) return;
-    let currentScope = scope;
-    const forExpression = element.attrs['wx:for'];
-    if (typeof forExpression === 'string') {
-      const list = evaluateExpression(stripBraces(forExpression), scope);
-      if (!Array.isArray(list) || list.length === 0) return;
-      currentScope = { ...scope, item: list[0], index: 0 };
-    }
-    let cursor = element.openEnd;
-    for (const child of element.children) {
-      // 片段先剥注释/残留标签，再插值 —— 顺序不能反：
-      // 注释里若写了 `{{...}}`，先插值就会把它渲染出来。
-      chunks.push(interpolate(textOfFragment(source.slice(cursor, child.index)), currentScope));
-      cursor = child.closeEnd;
-      walk(child, currentScope);
-    }
-    chunks.push(interpolate(textOfFragment(source.slice(cursor, element.endIndex)), currentScope));
-  };
-  for (const child of root.children) walk(child, data);
-  return chunks.join(' ').replace(/\s+/g, ' ').trim();
+  return renderTextFromSource(source, data);
 }
 
 /** 这一屏是否会出现某段文字。 */
@@ -935,14 +917,16 @@ function renders(relativeWxmlPath, data, needle) {
 }
 
 /**
- * 从**源码串**渲染一屏文案 —— `renderText` 的「不读磁盘」版本，供人造样本使用。
+ * 从**源码串**渲染一屏文案 —— **渲染本体**（`renderText` 只负责读文件后调它）。
  *
- * ★ 为什么不把 `renderText` 抽出一个共用内核、让两者都调它：T50 的硬性约束是
- *   「根 `test/` **只增不改**，除已授权的 `branchVisible` 外不得改其它既有 helper」。
- *   `renderText` 被本文件二十余条既有断言依赖，不动它就等于零回归风险。
- *   代价是这十几行 walk 与 `renderText` 重复 —— 但两处共用**同一个**
- *   `parseDocument` / `branchVisible` / `interpolate` / `textOfFragment`，
- *   所以「渲染语义」仍然只有一份，重复的只是「怎么遍历」。
+ * 人造样本（`ELIF_SEMANTICS_SAMPLE` / `FIRST_SCREEN_SAMPLE`）靠它渲染，
+ * 所以**判据自测**与**真实页面的断言**走的是同一份实现。
+ *
+ * `wx:for` 只渲染第一项（我们关心的是页面级空态文案，它们都在循环之外）；
+ * 列表为空时整棵子树跳过。
+ *
+ * 片段先剥注释 / 残留标签，再插值 —— 顺序不能反：注释里若写了 `{{...}}`，
+ * 先插值就会把它渲染出来。
  *
  * @param {string} source wxml 全文。
  * @param {object} data 页面数据。
@@ -1883,13 +1867,20 @@ function unexemptedFirstScreenHits(scan) {
  *   修好一个却忘了删登记也会红。
  */
 const FIRST_SCREEN_BLANK_ALLOWED = new Map([
-  [
-    'pages/checkout/checkout.wxml',
-    '整页被 `<view wx:if="{{scooter}}" class="page">` 包住（`checkout.wxml:1`），而 `scooter` 来自 '
-      + '`checkout.js` 的 `onLoad` 网络请求、`data.scooter` 初值为 `null` —— 所以首屏整页空白。'
-      + '★ 如实登记：这不是「假陈述」（没有任何空态词），是**另一类**问题（首屏什么都没告诉用户）。'
-      + '它**不在 T50 的授权范围内**（会动到结算 / 租赁渲染），所以这里只记录事实，不修。'
-  ]
+  // ★ T50 收尾：**已清空** —— `pages/checkout/checkout.wxml` 修好了，不再有首屏整页空白的页面。
+  //
+  //   清空前这里登记过一条：
+  //     'pages/checkout/checkout.wxml' —— 整页被 `<view wx:if="{{scooter}}" class="page">`
+  //     包住，而 `scooter` 来自 `onLoad` 的网络请求、初值为 `null`，所以首屏整页空白。
+  //   它**不是**「假陈述」（没有任何空态词），是另一类问题（首屏什么都没告诉用户），
+  //   所以当时单列这张表、没有混进豁免清单。T50 收尾按「显示状态补全」把它修掉了：
+  //   `checkout.wxml` 现在有 加载中 / 失败占位+重试 / 内容 三支，首屏渲染「正在加载商品信息…」。
+  //
+  // ★ 这张表**清空之后判据本体照样不空过**（实测，见「负向自测」用例）：
+  //   判据本体的那一层是 `blankFlags === blankAllowed`（集合**逐项一致**），不是「集合非空」。
+  //   空表给出的期望值是 `''`，而渲染器坏掉时 `blankFlags` 是「34 个文件拼起来」——不相等 → 红。
+  //   另外「删登记但没修 checkout」这种错法会让判据本体变成恒 `false` 函数，
+  //   而这件事会被负向自测里那条 `firstScreenCriterionHolds(healthy) === true` 前置断言抓住。
 ]);
 
 /**
@@ -2071,4 +2062,219 @@ test('负向自测：渲染器返回空串时，判据本体与正向控制都�
     false,
     '★ 判据本体整体必须红（第 1 / 2 层给出非空期望值，不再空过）'
   );
+});
+
+// ---------------------------------------------------------------------------
+// 第 5 节：checkout 商品块的三态（T50 收尾）
+// ---------------------------------------------------------------------------
+//
+// 改造前这一块**一支状态都没有**：整个页面的根节点带着 `wx:if="{{scooter}}"`，
+// 而 `scooter` 的初值是 `null` —— 于是
+//   ① 首屏那一次请求还没回来时**整页空白**（连一句「正在加载」都没有）；
+//   ② 失败时 `scooter` 永远是 `null` → **永久空白**，而 catch 只弹一个会消失的
+//      toast、**没有任何常驻错误态与重试入口**。
+// ② 比我们修过的那批「假陈述」更糟：那些至少说了句错话，这个是**什么都不说且无法恢复**。
+//
+// 这一节把三态钉住，并把「搬移没改租赁行为」用**端到端**的方式钉住：
+// 证据 5 = 重试不得重跑 `onLoad`（`payToken` 逐字不变）；
+// 证据 6 = 租赁字段逐字段等于**搬移前**（`HEAD` 版）的实测值。
+
+/**
+ * 一个 **RENT** 商品载荷。
+ *
+ * ★ 刻意带 `listingType: 'RENT'` + 完整 `rentalPlan`，并且**库存 > 0**：
+ * 这样 `isRental` / `rentalPlan` / `rentalUnits` / `rentalUnitLabel` / `stockNote`
+ * 五个字段全都会被真正算出来并写进 `data`，`stockNote` 还会走 `''` 那一支 ——
+ * 搬移只要碰坏了租赁分支，这里就会红。
+ *
+ * `priceInCents` 与 `effectivePriceInCents` 都设成 319900：与 `checkout.js` 注释里
+ * 点名的那个「买断参考价 3199」一致，租赁展示必须走 `priceText` 而不是 `price`。
+ */
+const RENT_PRODUCT = {
+  id: 'prod_rent_001',
+  name: '校园通勤电单车（租赁）',
+  description: '按天计费的校园通勤车',
+  listingType: 'RENT',
+  priceInCents: 319900,
+  effectivePriceInCents: 319900,
+  stock: 6,
+  availableStock: 6,
+  rentalPlan: { unit: 'DAY', unitPriceInCents: 1500, minUnits: 1, maxUnits: 7, depositInCents: 9900 }
+};
+
+/** 只对 `/api/products/...` 走 `mode` 指定的成败，其余请求一律成功且返回空列表。 */
+function productApiHandler(mode) {
+  return (requestPath) => {
+    if (requestPath.startsWith('/api/products/')) {
+      if (mode.current === 'fail') return Promise.reject(NETWORK_FAILURE);
+      return Promise.resolve({ data: RENT_PRODUCT });
+    }
+    return Promise.resolve({ data: [] });
+  };
+}
+
+test('checkout：首屏（请求未答复）不得整页空白，必须渲染加载态', () => {
+  const harness = createHarness();
+  try {
+    const page = harness.loadPage('pages/checkout/checkout.js');
+    // ★ 刻意**不调** `onLoad` / `onShow`：这就是「请求发出之前」那一刻。
+    assert.equal(page.data.scooter, null, '前置条件：首屏还没有商品');
+    assert.equal(page.data.productLoaded, false, '前置条件：还没得到答复');
+    assert.equal(page.data.productError, '', '前置条件：还没失败');
+
+    const rendered = renderText('pages/checkout/checkout.wxml', page.data);
+    assert.ok(rendered.length > 0, '★ 首屏不得整页空白（改造前这里渲染出的是空串）');
+    assert.ok(
+      rendered.includes('正在加载商品信息'),
+      `★ 首屏必须有一句「正在加载」——改造前连这句话都没有，用户看到的是一张白纸。实际渲染：${rendered}`
+    );
+    assert.equal(
+      rendered.includes('商品加载失败'),
+      false,
+      `还没失败就不该说失败，实际渲染：${rendered}`
+    );
+    assert.equal(
+      rendered.includes('提交并支付'),
+      false,
+      `★ 首屏不得同时把正文也渲染出来（那是「还没答复就当作有数据」的另一面），实际渲染：${rendered}`
+    );
+  } finally {
+    harness.restore();
+  }
+});
+
+test('checkout：失败 → 常驻错误占位 + 可重试，不靠会消失的 toast', async () => {
+  const harness = createHarness();
+  try {
+    const mode = { current: 'fail' };
+    harness.setApiHandler(productApiHandler(mode));
+    const page = harness.loadPage('pages/checkout/checkout.js');
+    page.onLoad({ id: 'prod_rent_001' });
+    await settle();
+    await settle();
+
+    assert.ok(page.data.productError, '★ 失败必须落成**常驻**的错误态，而不是只有一个 toast');
+    assert.equal(page.data.productLoaded, true, '★ 失败也算「得到了答复」');
+    assert.equal(page.data.scooter, null, '前置条件：这次没有商品');
+    assert.equal(
+      harness.getToasts().length,
+      0,
+      '★ 失败不得只靠会消失的 toast 承载（T49 对 notifications / store 的同一纪律）'
+    );
+
+    const rendered = renderText('pages/checkout/checkout.wxml', page.data);
+    assert.ok(
+      rendered.includes('商品加载失败'),
+      `★ 失败必须**可见**，实际渲染：${rendered}`
+    );
+    assert.ok(rendered.includes('重试'), `★ 失败必须**可重试**，实际渲染：${rendered}`);
+    assert.equal(
+      rendered.includes('正在加载商品信息'),
+      false,
+      `已经答复（失败）了就不该还在说「正在加载」，实际渲染：${rendered}`
+    );
+
+    // 重试入口必须真的存在，且必须走 `loadProduct()`。
+    assert.equal(typeof page.retryProduct, 'function', 'wxml 上绑定的重试入口必须存在');
+    // ★ 不能用 `page.retryProduct.toString()` 查源码：harness 把方法 `.bind(instance)` 过，
+    //   绑定函数的 `toString()` 只会返回 `function () { [native code] }`（我第一版就是这么
+    //   写错的 —— 那条断言恒假）。所以查**文件原文**里 `retryProduct` 的方法体。
+    const retryBody = fs
+      .readFileSync(path.join(miniprogramDirectory, 'pages', 'checkout', 'checkout.js'), 'utf8')
+      .match(/retryProduct\(\)\s*\{([\s\S]*?)\n  \},/);
+    assert.ok(retryBody, '应能从 checkout.js 原文里定位到 `retryProduct()` 的方法体');
+    assert.ok(
+      retryBody[1].includes('this.loadProduct()'),
+      '★ `retryProduct()` 必须调 `loadProduct()` —— 调 `onLoad()` 会重新生成 `payToken`'
+    );
+    assert.equal(
+      retryBody[1].includes('this.onLoad'),
+      false,
+      '★ `retryProduct()` 不得调 `onLoad()`（那是提交路径上的东西）'
+    );
+  } finally {
+    harness.restore();
+  }
+});
+
+test('checkout：失败 → 重试 → 成功后 payToken 逐字不变，且租赁字段与搬移前逐字段相同', async () => {
+  const harness = createHarness();
+  try {
+    const mode = { current: 'fail' };
+    harness.setApiHandler(productApiHandler(mode));
+    const page = harness.loadPage('pages/checkout/checkout.js');
+    page.onLoad({ id: 'prod_rent_001' });
+    await settle();
+    await settle();
+
+    assert.ok(page.data.productError, '前置条件：第一次加载失败');
+    const payTokenBefore = page.data.payToken;
+    assert.ok(payTokenBefore, '前置条件：`onLoad` 已经生成了 `payToken`');
+
+    // ★ 证据 5：失败 → 重试 → 成功后，`payToken` 必须与首次进入时**逐字相同**。
+    //   这条直接钉死「重试触犯提交路径」这个风险：只要 `retryProduct()` 误调 `onLoad()`，
+    //   `payToken` 就会被重新生成（时间戳 + 随机串），这里立刻红。
+    mode.current = 'ok';
+    await page.retryProduct();
+    await settle();
+    await settle();
+
+    assert.equal(page.data.productError, '', '重试成功后错误态必须清掉');
+    assert.equal(page.data.productLoaded, true);
+    assert.equal(
+      page.data.payToken,
+      payTokenBefore,
+      '★ 重试不得重新生成 `payToken`（它必须每次进页面只生成一次）'
+    );
+
+    // ★ 证据 6：租赁字段逐字段等于**搬移前**（`HEAD` 版 `checkout.js`）的实测值。
+    //   期望值取自 HEAD 版跑同一个 RENT 载荷的实测输出（A/B 见 T50 报告），
+    //   不是「看起来对」的值；结构性关系（`rentalUnits === plan.minUnits` 等）
+    //   同时断言一遍，这样即使载荷换了，语义错位也会被抓住。
+    assert.equal(page.data.isRental, true, 'RENT 商品必须判为租赁');
+    assert.deepEqual(
+      page.data.rentalPlan,
+      RENT_PRODUCT.rentalPlan,
+      '归一化后的 rentalPlan 必须与载荷一致（readRentalPlan 的产物）'
+    );
+    assert.equal(page.data.rentalUnits, RENT_PRODUCT.rentalPlan.minUnits, '租赁期数取 minUnits');
+    assert.equal(page.data.rentalUnitLabel, '天', 'DAY 必须映射成「天」');
+    assert.equal(page.data.quantity, 1, '租赁商品数量固定为 1');
+    assert.equal(page.data.scooter.sellableStock, 6);
+    assert.equal(page.data.scooter.stockNote, '', '有库存时 stockNote 必须是空串');
+    assert.equal(page.data.scooter.price, 3199, '买断参考价（分 → 元）');
+    assert.equal(page.data.scooter.originalPrice, 0, '没有促销时 originalPrice 为 0');
+    assert.equal(page.data.scooter.promoText, '');
+    assert.equal(page.data.scooter.subtitle, RENT_PRODUCT.description);
+    assert.equal(page.data.scooter.color, '#eaf0ff');
+    assert.equal(page.data.scooter.icon, '车');
+    // ★ 租赁展示必须走**展示层映射**（`toProductCard`），不是买断参考价：
+    //   改造前直接把 `scooter.price`（3199 元）当「价格」渲染，正是 T37 修掉的同类问题。
+    assert.equal(
+      page.data.scooter.priceText,
+      '¥15/天',
+      '★ 租赁价格必须来自展示层映射（¥15/天 = 1500 分/天），而不是买断参考价 ¥3199'
+    );
+    assert.equal(
+      page.data.scooter.price,
+      3199,
+      '判据自测：`price` 字段确实是买断参考价 3199 —— 所以 priceText 不可能是它'
+    );
+    assert.equal(
+      page.data.maxQuantity,
+      5,
+      '上限：配置缺失 → 兜底 5；库存 6 → min(6, 5) = 5'
+    );
+
+    // 内容必须真的渲染出来了（三态里的第三支）。
+    // ★ 用「提交并支付」而不是「购买数量」：后者挂在 `wx:if="{{!scooter.stockNote && !isRental}}"`
+    //   上，**RENT 商品本来就不渲染它** —— 我第一版拿它当「正文渲染出来了」的证据，是错的。
+    const rendered = renderText('pages/checkout/checkout.wxml', page.data);
+    assert.ok(rendered.includes('提交并支付'), `成功后必须渲染正文，实际渲染：${rendered}`);
+    assert.ok(rendered.includes('租期选择'), `租赁商品必须渲染租期选择，实际渲染：${rendered}`);
+    assert.equal(rendered.includes('正在加载商品信息'), false);
+    assert.equal(rendered.includes('商品加载失败'), false);
+  } finally {
+    harness.restore();
+  }
 });

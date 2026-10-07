@@ -1,3 +1,12 @@
+<!-- ★ 三态守卫（T50）：这一页整页被「有商品才渲染」包住，
+     于是「还没取到」和「取失败」两种时机都会渲染出一张白纸。
+     下面两支把「尚未答复」与「已答复但失败」分开，第三支才是正文。
+     注意：注释里刻意不写出带尖括号的标签字面量 —— miniapp.test.js 的配平判据按原文数标签，注释也会被数进去。 -->
+<view wx:if="{{productError}}" class="load-error card">
+  <view class="muted">{{productError}}</view>
+  <button size="mini" class="ghost-button" bindtap="retryProduct">重试</button>
+</view>
+<view wx:elif="{{!productLoaded}}" class="empty card"><view class="muted">正在加载商品信息…</view></view>
   <view wx:if="{{scooter}}" class="page">
   <view class="summary card"><view class="mark" style="background: {{scooter.color}}">{{scooter.icon}}</view><view><view class="name">{{scooter.name}}</view><view class="muted">{{scooter.subtitle}}</view><view class="price-line"><block wx:if="{{isRental}}"><text class="price">{{scooter.priceText}}</text><text wx:if="{{scooter.originalPriceText}}" class="original">{{scooter.originalPriceText}}</text></block><block wx:else><text class="price">¥{{scooter.price}}</text><text wx:if="{{scooter.originalPrice}}" class="original">¥{{scooter.originalPrice}}</text><text wx:if="{{scooter.promoText}}" class="promo">{{scooter.promoText}}</text></block></view><view class="muted small" wx:if="{{isRental && scooter.sellableStock < 5}}">{{scooter.sellableStock > 0 ? '仅剩 ' + scooter.sellableStock + ' 台可租' : '已租满'}}</view><view class="muted small" wx:if="{{!isRental && scooter.sellableStock < 5}}">{{scooter.sellableStock > 0 ? '仅剩 ' + scooter.sellableStock + ' 件' : '已售罄'}}</view></view></view>
   <view class="quantity-row card" wx:if="{{!scooter.stockNote && !isRental}}">

@@ -34,3 +34,7 @@
 .load-error { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; padding: 20rpx 24rpx; margin: 18rpx 0 0; background: #fff4f2; border: 2rpx solid #ffd9d3; border-radius: 18rpx; }
 .load-error .muted { flex: 1; min-width: 0; color: #a3341f; line-height: 1.45; }
 .load-error .ghost-button { min-width: 120rpx; margin: 0; flex-shrink: 0; }
+/* 加载中 / 空态占位（T50）：本页原先没有 `.empty`，因为改造前整页被 `wx:if="{{scooter}}"` 包住、
+   首屏压根不渲染任何东西。形态与 addresses / favorites 等页一致。 */
+.empty { margin-top: 30rpx; padding: 70rpx 30rpx; text-align: center; }
+.empty .muted { color: #536078; line-height: 1.5; }
