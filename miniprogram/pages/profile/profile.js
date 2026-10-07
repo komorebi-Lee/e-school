@@ -86,6 +86,13 @@ Page({
     unreadNotificationCount: 0,
     // ★ 业务提醒的失败状态（T49）。非空即表示「当前展示的是失败态」。
     notificationsError: "",
+    // ★ `notificationsLoaded`（T50）：区分「**还没取到**」与「取到了、但确实为空」。
+    //   没有它，`profile.wxml` 那句「暂无业务提醒」只被 `!notificationsError` 守着，
+    //   而它的初值是空串 —— 于是**首屏那一次请求还没回来时**，页面已经渲染出
+    //   「暂无业务提醒」，而同一屏上方的认证状态还在说「正在读取认证状态…」。
+    //   同一条假陈述的第三种触发时机（前两种是接口失败、以及改造前的清空数据）。
+    //   ★ 成功与失败都要置 `true` —— 它回答的是「有没有得到答复」，不是「成不成功」。
+    notificationsLoaded: false,
     latestApprovedAt: "",
     userId: "",
     loginState: "loading",
@@ -152,8 +159,19 @@ Page({
         unread: !item.read,
         link: item.link || ""
       }));
-      this.setData({ notifications: items, unreadNotificationCount: (data || []).filter((item) => !item.read).length, notificationsError: "" });
-    }).catch((error) => this.setData({ notificationsError: loadState.blockErrorText(error) }));
+      this.setData({
+        notifications: items,
+        unreadNotificationCount: (data || []).filter((item) => !item.read).length,
+        notificationsError: "",
+        // 得到了答复（哪怕答复是空列表）—— 从此才允许说「暂无业务提醒」。
+        notificationsLoaded: true
+      });
+    }).catch((error) => this.setData({
+      notificationsError: loadState.blockErrorText(error),
+      // ★ 失败也算「得到了答复」：此后由 `!notificationsError` 决定说不说空态，
+      //   不再需要 `notificationsLoaded` 兜着「还没问过」这一种状态。
+      notificationsLoaded: true
+    }));
   },
   retryNotifications() { return this.loadNotifications(); },
   markNotificationsRead() {

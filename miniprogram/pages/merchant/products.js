@@ -44,7 +44,17 @@ Page({
     form: emptyForm, editId: '', loading: true,
     stockMovements: [], stockMovementFilters, stockMovementFilter: 'ALL',
     // ★ 两个块的失败状态（T49），**互相独立**：一个块失败不能让另一个块也进错误态。
-    productsError: '', stockMovementsError: ''
+    productsError: '', stockMovementsError: '',
+    // ★ `stockMovementsLoaded`（T50）：区分「**还没取到**」与「取到了、但确实为空」。
+    //   没有它，库存流水的空态只被 `!stockMovementsError` 守着，而它的初值是空串
+    //   —— 于是**首屏那一次请求还没回来时**，页面已经渲染出「暂无库存流水」，
+    //   而同一屏上商品块的「正在加载…」还在转。同一条假陈述的第三种触发时机
+    //   （前两种是接口失败、以及改造前的清空数据）。
+    //   ★ 为什么不能用 `!loading`：`loading` 是**商品块**的标志，而流水是
+    //   **独立发起**的请求（见 `onLoad` 里那两行的注释），两者各自先后回来 ——
+    //   拿商品块的标志去守流水的空态，只是把假陈述的窗口挪了个位置。
+    //   ★ 成功与失败都要置 `true` —— 它回答的是「有没有得到答复」，不是「成不成功」。
+    stockMovementsLoaded: false
   },
   onLoad(options = {}) {
     if (options.focusId) this.focusId = options.focusId;
@@ -119,10 +129,16 @@ Page({
     const movementType = this.data.stockMovementFilter;
     return this.request('/api/merchant/stock-movements?limit=50')
       .then(({ data }) => {
-        this.setData({ stockMovements: this.decorateStockMovements(data || []), stockMovementsError: '' });
+        // 得到了答复（哪怕答复是空列表）—— 从此才允许说「暂无库存流水」。
+        this.setData({ stockMovements: this.decorateStockMovements(data || []), stockMovementsError: '', stockMovementsLoaded: true });
         return data;
       })
-      .catch((error) => this.setData({ stockMovementsError: loadState.blockErrorText(error) }));
+      .catch((error) => this.setData({
+        stockMovementsError: loadState.blockErrorText(error),
+        // ★ 失败也算「得到了答复」：此后由 `!stockMovementsError` 决定说不说空态，
+        //   不再需要 `stockMovementsLoaded` 兜着「还没问过」这一种状态。
+        stockMovementsLoaded: true
+      }));
   },
   retryStockMovements() { return this.loadStockMovements(); },
   setStockMovementFilter(event) {

@@ -9,6 +9,24 @@
     </view>
   </view>
 
+  <!-- ★ 失败占位（T49 建立，T50 修正为**独立一条链**）：
+       这里要把**两条**被修掉的路都说清 —— 它们同源、危害相同（都让商家看到一张全新
+       空白入驻表单，于是重复提交），但发生在两个不同的时机：
+         ① **失败路径（T49）**：改造前接口失败会把 `application` 置空，页面直接落进
+            「全新申请表单」那一支；正在审核中甚至已被驳回的商家都会看到空白表，
+            被驳回的商家还会丢掉「补充资质材料」这条复审入口。
+         ② **成功路径的结构缺陷（T50）**：这个失败占位原本写成 `wx:elif`、挂在「已驳回」
+            那条链上，而链头又是 `wx:if`（见下面那条注释）—— 于是 REVIEWING / APPROVED
+            的商家照样会落进最后那支空白表单。这条路 T49 没覆盖到。
+       所以这个占位必须**独立一条链**：`wx:elif` 只在前面的分支全为假时求值，
+       只要「有申请」成立，挂在链上的失败占位就**渲染不出来**。
+       失败时**保留旧数据 + 明确告知可重试**是本仓既有纪律；用户看到的是
+       「上次的内容 + 一句失败说明」，而不是任何形式的空白。 -->
+  <view wx:if="{{applicationError}}" class="load-error card">
+    <view class="muted">{{applicationError}}</view>
+    <button size="mini" class="ghost-button" bindtap="retryApplication">重试</button>
+  </view>
+
   <block wx:if="{{application && application.status !== 'REJECTED'}}">
     <view class="status card">
       <view class="status-head">
@@ -30,7 +48,16 @@
     </view>
   </block>
 
-  <block wx:if="{{application && application.status === 'REJECTED'}}">
+  <!-- ★ T50 修正：这里原本是 `wx:if`，于是它**自开一条新链**，把紧随其后的
+       `wx:elif="{{applicationError}}"` 与 `wx:else` 全新申请表单都绑到了「已驳回」这个
+       条件上 —— 结果是**任何有申请、且不是 REJECTED 的状态（REVIEWING / APPROVED）**
+       都会掉进最后那条 `wx:else`，一个「审核中」的商家会**同时**看到自己的状态卡和
+       一张全新的空白入驻表单（重复提交）。
+       改成 `wx:elif` 后，这一层才是一条真正的链：
+         有申请且非驳回 → 状态卡 ／ 有申请且已驳回 → 驳回视图 + 补充材料 ／
+         无申请且无错 → 全新申请表单。
+       （T49 只修了**失败路径**上的同一个危害；**成功路径**上的这一处是 T50 补上的。） -->
+  <block wx:elif="{{application && application.status === 'REJECTED'}}">
     <view class="status card">
       <view class="status-head">
         <view>
@@ -72,16 +99,11 @@
     </view>
   </block>
 
-  <!-- ★ 失败占位（T49）：改造前失败会把 `application` 置空，页面直接落进下面的
-       `wx:else` 全新申请表单 —— 一个**正在审核中甚至已被驳回**的商家会看到一张空白表，
-       于是重复提交；被驳回的商家还会丢掉「补充资质材料」这条复审入口。
-       现在失败走这一支：说明 + 重试，绝不渲染那张空白表单。 -->
-  <view wx:elif="{{applicationError}}" class="load-error card">
-    <view class="muted">{{applicationError}}</view>
-    <button size="mini" class="ghost-button" bindtap="retryApplication">重试</button>
-  </view>
-
-  <block wx:else>
+  <!-- ★ T50 修正：这里原本是 `wx:else`（等价于「不是已驳回」），而它**语义上要表达的是
+       「压根没有任何申请」**。两者在有申请时正好相反 —— 见上面那条注释。
+       显式写成「没有申请 **且** 没有失败」，既保住了 T49 的修复（失败时不落空白表单），
+       又不再需要依赖前面分支的否定形式。 -->
+  <block wx:elif="{{!application && !applicationError}}">
     <view class="section-title">选择开店主体</view>
     <view class="type-grid">
       <view

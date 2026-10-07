@@ -818,6 +818,31 @@ function interpolate(text, data) {
 /**
  * 判断一个元素在当前 `data` 下是否渲染（`wx:if` / `wx:elif` / `wx:else` 链语义）。
  *
+ * ★ `wx:if` / `wx:elif` / `wx:else` 是一条**有序链**：从链头开始逐个求值，
+ *   **第一个为真的分支渲染，其余全都不渲染**。所以三者的语义分别是：
+ *   - `wx:if`   —— 开链，只看自己的条件；
+ *   - `wx:elif` —— 前面所有分支都为假 **且** 自己为真；
+ *   - `wx:else` —— 前面所有分支都为假。
+ *
+ * ★ 这里修的是一个**真实缺陷**（T50 决策 1）。旧实现的循环写成
+ *   `for (let cursor = index; …) { … if (cursor === index) return value; }` ——
+ *   第一轮就 `return`，于是**返回的是本元素自己的条件，前面的兄弟分支从未被检查**，
+ *   `wx:elif` 被当成了 `wx:if`。（`wx:else` 走的是另一条分支、本来就正确，
+ *   所以**只有 `wx:elif` 错**。）
+ *
+ *   实测（T50 勘察）：`merchant/orders.wxml` 在 `loading === true` 时会被旧实现
+ *   渲染成「正在加载… **暂无订单**」—— 而 `:8 wx:if="{{loading}}"` 为真时，
+ *   `:12 wx:elif` 在 WXML 里**根本不求值**，这两句不可能同屏。
+ *
+ *   影响面要说清：旧行为让 `renderText` **多渲染**，对「不得渲染出 X」这类断言
+ *   属**保守方向**（更容易红，不产生假绿），所以它没有掏空 T49 的既有断言；
+ *   但它**不能**用来回答「首屏到底渲染什么」—— 而本文件第 4 节的首屏判据要的
+ *   正是后者，所以必须修正。
+ *
+ * ★ 链断了（`wx:elif` / `wx:else` 前面找不到紧邻的链头，或链中间夹了非链元素）时
+ *   一律返回 `true`：那是 WXML 编译器会直接报错的写法，本仓没有；真出现时宁可
+ *   **多渲染**（让「不得渲染出 X」的断言更容易红），也不要少渲染而放过缺陷。
+ *
  * @param {object} element 元素。
  * @param {object} data 页面数据。
  * @returns {boolean} 是否渲染。
@@ -832,30 +857,34 @@ function branchVisible(element, data) {
   const index = siblings.indexOf(element);
   if (index < 0) return true;
 
-  if (hasElse) {
-    // `wx:else`：只有前面所有分支都为假时才渲染。
+  // 找链头：`wx:if` 自己就是链头；否则往前找**紧邻**的 `wx:if`。
+  let head = index;
+  if (!hasIf) {
+    head = -1;
     for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
       const sibling = siblings[cursor];
-      const siblingIf = typeof sibling.attrs['wx:if'] === 'string';
-      const siblingElif = typeof sibling.attrs['wx:elif'] === 'string';
-      if (!siblingIf && !siblingElif) return true;
-      const value = Boolean(evaluateExpression(stripBraces(siblingIf ? sibling.attrs['wx:if'] : sibling.attrs['wx:elif']), data));
-      if (value) return false;
-      if (siblingIf) return true;
+      if (typeof sibling.attrs['wx:if'] === 'string') { head = cursor; break; }
+      const isChainMember = typeof sibling.attrs['wx:elif'] === 'string'
+        || Object.prototype.hasOwnProperty.call(sibling.attrs, 'wx:else');
+      if (!isChainMember) break;
     }
-    return true;
+    if (head < 0) return true;
   }
 
-  for (let cursor = index; cursor >= 0; cursor -= 1) {
+  // 从链头走到本元素：第一个为真的分支渲染，其余都不渲染。
+  for (let cursor = head; cursor <= index; cursor += 1) {
     const sibling = siblings[cursor];
     const siblingIf = typeof sibling.attrs['wx:if'] === 'string';
     const siblingElif = typeof sibling.attrs['wx:elif'] === 'string';
-    if (!siblingIf && !siblingElif) return false;
-    const condition = siblingIf ? sibling.attrs['wx:if'] : sibling.attrs['wx:elif'];
-    const value = Boolean(evaluateExpression(stripBraces(condition), data));
+    const siblingElse = Object.prototype.hasOwnProperty.call(sibling.attrs, 'wx:else');
+    if (!siblingIf && !siblingElif && !siblingElse) return true;
+    const value = siblingElse
+      ? true
+      : Boolean(evaluateExpression(
+        stripBraces(siblingIf ? sibling.attrs['wx:if'] : sibling.attrs['wx:elif']), data
+      ));
     if (cursor === index) return value;
     if (value) return false;
-    if (siblingIf) return true;
   }
   return false;
 }
@@ -904,6 +933,105 @@ function renderText(relativeWxmlPath, data) {
 function renders(relativeWxmlPath, data, needle) {
   return renderText(relativeWxmlPath, data).includes(needle);
 }
+
+/**
+ * 从**源码串**渲染一屏文案 —— `renderText` 的「不读磁盘」版本，供人造样本使用。
+ *
+ * ★ 为什么不把 `renderText` 抽出一个共用内核、让两者都调它：T50 的硬性约束是
+ *   「根 `test/` **只增不改**，除已授权的 `branchVisible` 外不得改其它既有 helper」。
+ *   `renderText` 被本文件二十余条既有断言依赖，不动它就等于零回归风险。
+ *   代价是这十几行 walk 与 `renderText` 重复 —— 但两处共用**同一个**
+ *   `parseDocument` / `branchVisible` / `interpolate` / `textOfFragment`，
+ *   所以「渲染语义」仍然只有一份，重复的只是「怎么遍历」。
+ *
+ * @param {string} source wxml 全文。
+ * @param {object} data 页面数据。
+ * @returns {string} 渲染出的文案。
+ */
+function renderTextFromSource(source, data) {
+  const root = parseDocument(source);
+  const chunks = [];
+  const walk = (element, scope) => {
+    if (!branchVisible(element, scope)) return;
+    let currentScope = scope;
+    const forExpression = element.attrs['wx:for'];
+    if (typeof forExpression === 'string') {
+      const list = evaluateExpression(stripBraces(forExpression), scope);
+      if (!Array.isArray(list) || list.length === 0) return;
+      currentScope = { ...scope, item: list[0], index: 0 };
+    }
+    let cursor = element.openEnd;
+    for (const child of element.children) {
+      chunks.push(interpolate(textOfFragment(source.slice(cursor, child.index)), currentScope));
+      cursor = child.closeEnd;
+      walk(child, currentScope);
+    }
+    chunks.push(interpolate(textOfFragment(source.slice(cursor, element.endIndex)), currentScope));
+  };
+  for (const child of root.children) walk(child, data);
+  return chunks.join(' ').replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * ★ 决策 1 要求的**判据自测**：把 `wx:if` / `wx:elif` / `wx:else` 的**链语义**钉死。
+ *
+ * 为什么要专门钉它：T50 勘察发现 `branchVisible` 的旧实现从**本元素自己的下标**起步，
+ * 第一轮就 `return` 了自己的条件 —— 于是 `wx:elif` 被当成 `wx:if` 求值，
+ * **前面的兄弟分支从未被检查**。后果是 `renderText` **多渲染**：
+ * `merchant/orders.wxml` 在首屏被渲染成「正在加载… 暂无订单」（两句不可能同屏）。
+ *
+ * 这个 bug 是**隐蔽**的：多渲染只会让「不得渲染出 X」的断言**更容易红**，所以 T49
+ * 那批断言没有因此假绿；它甚至让 `merchant/apply` 那条「结构上不可能成立」的断言
+ * **恰好通过**。换句话说，**本文件原有的任何一条断言都发现不了它** ——
+ * 这条自测就是补上这个缺口的：人造一份最小 wxml，逐种取值断言**只有一个分支被渲染**。
+ *
+ * ★ 旧实现（T50 前）在本用例的取值 ① 与 ④ 下必红 —— 它会把「乙分支」也渲染出来。
+ *   这正是决策 1 说的「把 `wx:elif` 的语义改回旧行为 → 本自测必须红」。
+ */
+const ELIF_SEMANTICS_SAMPLE = [
+  '<view class="page">',
+  '  <view wx:if="{{flag}}" class="a">甲分支</view>',
+  '  <view wx:elif="{{other}}" class="b">乙分支</view>',
+  '  <view wx:else class="c">丙分支</view>',
+  '</view>'
+].join('\n');
+
+test('判据自测：wx:elif 只在前面的分支都为假时才渲染（链语义，钉住 branchVisible 的修复）', () => {
+  // ① `wx:if` 为真 → 只有甲分支；`wx:elif` 自己也为真，但**不得**渲染（旧实现正是在这里错）。
+  const first = renderTextFromSource(ELIF_SEMANTICS_SAMPLE, { flag: true, other: true });
+  assert.ok(first.includes('甲分支'), `正向控制：wx:if 为真时甲分支必须渲染，实际：${first}`);
+  assert.equal(first.includes('乙分支'), false, `★ wx:if 为真时 wx:elif 不得渲染，实际：${first}`);
+  assert.equal(first.includes('丙分支'), false, `wx:if 为真时 wx:else 不得渲染，实际：${first}`);
+
+  // ② `wx:if` 为假、`wx:elif` 为真 → 只有乙分支。
+  const second = renderTextFromSource(ELIF_SEMANTICS_SAMPLE, { flag: false, other: true });
+  assert.equal(second.includes('甲分支'), false, `wx:if 为假时甲分支不得渲染，实际：${second}`);
+  assert.ok(second.includes('乙分支'), `正向控制：wx:elif 为真时乙分支必须渲染，实际：${second}`);
+  assert.equal(second.includes('丙分支'), false, `wx:elif 为真时 wx:else 不得渲染，实际：${second}`);
+
+  // ③ 前两个分支都为假 → 只有丙分支。
+  const third = renderTextFromSource(ELIF_SEMANTICS_SAMPLE, { flag: false, other: false });
+  assert.equal(third.includes('甲分支'), false, `两个分支都为假时甲分支不得渲染，实际：${third}`);
+  assert.equal(third.includes('乙分支'), false, `两个分支都为假时乙分支不得渲染，实际：${third}`);
+  assert.ok(third.includes('丙分支'), `正向控制：wx:else 必须渲染，实际：${third}`);
+
+  // ④ 链被**非链元素**打断（`wx:elif` 前面不再是紧邻的链成员）→ `branchVisible`
+  //    保守返回「渲染」。这是有意的取舍：真出现这种写法（WXML 编译器本会报错）
+  //    时，宁可**多渲染**（让「不得渲染出 X」的断言更容易红），也不要少渲染而放过缺陷。
+  //    旧实现在这里返回自己的条件（假）→ 本组取值下也会红。
+  const brokenChain = [
+    '<view class="page">',
+    '  <view wx:if="{{flag}}" class="a">甲分支</view>',
+    '  <view class="divider">分隔</view>',
+    '  <view wx:elif="{{other}}" class="b">乙分支</view>',
+    '</view>'
+  ].join('\n');
+  const fourth = renderTextFromSource(brokenChain, { flag: true, other: false });
+  assert.ok(
+    fourth.includes('乙分支'),
+    `链被非链元素打断时 branchVisible 保守返回 true（多渲染），实际：${fourth}`
+  );
+});
 
 /**
  * 搭好页面运行环境。
@@ -1407,6 +1535,76 @@ test('merchant/apply：首屏失败 → 错误占位，绝不渲染空白入驻�
   }
 });
 
+/**
+ * T50 [A]：**成功路径**上的空白入驻表单。
+ *
+ * 为什么需要这条新断言：T49 修掉的是**失败路径**（失败时把 `application` 置空 → 落进
+ * 最后那条「全新申请表单」）。但 `apply.wxml` 里「已驳回」那一支当时写的是 `wx:if`
+ * 而不是 `wx:elif` —— 它**自开一条新链**，把紧随其后的 `wx:elif` / `wx:else` 都绑到了
+ * 「已驳回」这个条件上。于是**任何有申请、且不是 REJECTED 的状态**（REVIEWING / APPROVED）
+ * 都会掉进那条 `wx:else`：
+ *
+ *   `:12` 为真 → 渲染状态卡；`:33` 为假 → `:else` 为真 → **同时**渲染一张全新的空白表单。
+ *
+ * 后果与 T49 认定的最高危害同源：一个「审核中」的商家看到空白入驻表单 → **重复提交**。
+ * 而且**没有任何断言覆盖成功路径**，所以它一直没被发现。
+ *
+ * ★ 这条断言是**新增**的（根 `test/` 只增不改），它守的正是本次修掉的那条路。
+ */
+test('merchant/apply：审核中的商家（成功路径）不得渲染全新空白入驻表单', async () => {
+  const harness = createHarness();
+  try {
+    harness.setApiHandler(() => Promise.resolve({
+      data: [{ id: 'm2', name: '审核中店铺', status: 'REVIEWING' }]
+    }));
+    const page = harness.loadPage('pages/merchant/apply.js');
+    page.onShow();
+    await settle();
+    await settle();
+
+    assert.equal(page.data.application.status, 'REVIEWING', '前置条件：已取到审核中的申请');
+    assert.equal(page.data.applicationError, '', '前置条件：这次没有失败');
+    const rendered = renderText('pages/merchant/apply.wxml', page.data);
+    assert.equal(
+      rendered.includes('选择开店主体'),
+      false,
+      `★ 审核中的商家不得看到「全新申请表单」—— 那会让他重复提交，实际渲染：${rendered}`
+    );
+    assert.ok(rendered.includes('平台审核'), `审核中的商家应看到自己的状态卡，实际渲染：${rendered}`);
+    assert.ok(
+      rendered.includes('平台正在核对资质材料'),
+      `审核中的商家应看到进度说明，实际渲染：${rendered}`
+    );
+    assert.equal(
+      rendered.includes('加载失败，请重试'),
+      false,
+      `这次没有失败，不该出现错误占位，实际渲染：${rendered}`
+    );
+
+    // 同一个状态 + 刷新失败：错误占位**必须可见**（它现在是一条独立的链），
+    // 同时状态卡照旧、空白表单仍然不得出现。
+    harness.setApiHandler(() => Promise.reject(NETWORK_FAILURE));
+    await page.loadApplication();
+    await settle();
+    await settle();
+    assert.equal(page.data.application.status, 'REVIEWING', '★ 失败不得把 application 置空');
+    assert.equal(page.data.applicationError, '加载失败，请重试');
+    const failed = renderText('pages/merchant/apply.wxml', page.data);
+    assert.ok(
+      failed.includes('加载失败，请重试'),
+      `★ 审核中的商家刷新失败时也必须看到错误占位（它现在与内容链解耦），实际渲染：${failed}`
+    );
+    assert.ok(failed.includes('平台审核'), `失败时旧数据仍应可见，实际渲染：${failed}`);
+    assert.equal(
+      failed.includes('选择开店主体'),
+      false,
+      `★ 失败时同样不得渲染空白表单，实际渲染：${failed}`
+    );
+  } finally {
+    harness.restore();
+  }
+});
+
 test('scooters：缓存为空时失败 → 错误占位，不落「没有匹配的车型」', async () => {
   const harness = createHarness();
   try {
@@ -1483,4 +1681,394 @@ test('豁免验证：merchant/index 在所有请求失败时不停在工作台�
   } finally {
     harness.restore();
   }
+});
+
+// ---------------------------------------------------------------------------
+// 第 4 节：首屏行为判据 —— 第三种时机（「请求发出之前」）
+// ---------------------------------------------------------------------------
+//
+// 为什么需要这一节（T50 的核心问题）：
+//
+// 第 2 节的**静态判据**问的是「空态块的条件里有没有引用失败标志」。它挡住了
+// 「接口失败 → 落空态」这个时机，但**挡不住首屏**：把 `detail.wxml:15` 的 `!loading`
+// 拿掉，条件仍然是 `{{!scooter && !loadError}}` —— 它**确实引用了失败标志**，
+// 静态判据照样绿。可首屏那一刻 `scooter` 还没取到、`loadError` 也还是空串，
+// 于是条件成立、空态文案照渲染。**静态判据问不出这个问题，因为它问的不是同一件事。**
+//
+// 所以这一节换一个**行为判据**：不解析 wxml，而是把页面**真的装起来**、
+// 取它**自己声明的初值**、把整页**渲染成纯文本**，然后断言这段文本里
+// **不出现**任何「关于『这里没有东西』的事实陈述」。
+//
+// ★ 作用域（这份判据覆盖什么）
+//   - **时机**：只有**首屏**这一个 —— `harness.loadPage` 内部是
+//     `JSON.parse(JSON.stringify(definition.data))`，取页面自己声明的初值，
+//     且**不调 `onLoad` / `onShow`**，所以拿到的正是「请求发出之前」那一刻。
+//   - **页面**：`pages/**/*.wxml` 里**每一个**有同名 js 的页面（实测 34 个，全配对）。
+//     这比第 2 节更宽 —— 第 2 节只覆盖「有空态块」的 25 个页面，本节的词表判据
+//     对**没有空态块**的 9 个页面同样生效（它们一样可能在首屏渲染出空态文案）。
+//   - **判定对象**：用户实际会看到的那段文字，而不是状态字段。所以祖先守卫、
+//     兄弟链、块内三元分流三种合规形态**自动被覆盖** —— 不需要分别建模。
+//
+// ★ 盲区（这份判据覆盖不到什么）—— 必须写在明处
+//   1. **只覆盖首屏这一个时机**。「接口失败」那个时机归第 3 节（T49 那批用例）与
+//      第 2 节的静态判据；「改造前清空数据」也归它们。三条互补，刻意不重叠。
+//   2. **它只认词表**。这是**行为**判据，不是语义判据：文案换一种说法
+//      （例如「这里空空如也」）而词表没收录，就漏。所以词表必须**显式枚举 +
+//      逐词给理由**，新增文案时要同步维护（见 `FIRST_SCREEN_ABSENCE_WORDS`）。
+//   3. `renderText` 的 `wx:for` **只渲染第一项**、列表为空时整棵子树跳过。
+//      首屏列表都是空的，所以循环体里的逐项文案不会进渲染 —— 这对本判据是**有利**的：
+//      循环体里的「暂无库存」是**逐项**文案，不是页面级空态，不该算命中。
+//      代价是「循环体在首屏渲染出空态词」这种情况本判据看不见（本仓没有这种写法）。
+//   4. 本仓**没有自定义组件**（`miniprogram/` 下无 `components/` 目录，`app.json`
+//      无 `usingComponents`），所以不需要考虑组件内部的空态；将来引入组件要回来补。
+
+/**
+ * 首屏**不得出现**的「空态词」——**显式枚举 + 逐词给理由**。
+ *
+ * 入选标准（两条都要满足）：
+ *   a. 该词表达的是**关于某个集合 / 状态为空的事实断言**（「这里没有东西」）；
+ *   b. 首屏那一刻**结构上无从得知**该事实（还没发出请求，或请求还没回来）。
+ *
+ * 排除标准：只表示**加载中**（「正在加载」）或**失败**（「加载失败」）的词 ——
+ * 那两句在首屏是**真话**，必须允许。它们由正向控制单独计数。
+ *
+ * ★ 为什么用「包含」而不是正则边界：本仓文案是中文，没有词边界；逐词用
+ *   `String.includes` 是最不容易出错的做法。代价是可能误伤（见每条 reason 里
+ *   标注的「误伤风险」）。
+ */
+const FIRST_SCREEN_ABSENCE_WORDS = [
+  {
+    word: '暂无',
+    reason: '「暂无 X」是对**某个集合为空**的直接事实断言。首屏还没得到任何答复，集合为空只是因为还没填 —— 说出来就是假陈述。T50 勘察实测：本仓的空态文案以这个形态为主（2 处真缺陷都用它）。误伤风险：低 —— 本仓没有「暂无」出现在非空态语境里的写法。'
+  },
+  {
+    word: '已售罄',
+    reason: '「该套餐已售罄，暂不可办理」（`card.wxml:66`）等价于「这里没有可办理的东西」，是关于**可售状态**的事实断言。首屏无从得知（T50 决策 4 明确要求收录）。误伤风险：低 —— 本仓只有套餐卡用它，而套餐数据首屏必然为空。'
+  },
+  {
+    word: '不存在',
+    reason: '最强的空态断言（「店铺不存在」「车型不存在」）。首屏无从得知对象是否存在。误伤风险：低。'
+  },
+  {
+    word: '未找到',
+    reason: '「不存在」的同义变体，搜索结果为空时的常用说法。误伤风险：低。'
+  },
+  {
+    word: '没有匹配',
+    reason: '「没有匹配的结果」—— 对**筛选 / 搜索结果为空的**事实断言。首屏还没筛过。误伤风险：低。'
+  },
+  {
+    word: '没有符合',
+    reason: '同上。本仓 `store.wxml:71` 用的正是这个措辞（「没有符合筛选的商品」）。误伤风险：低。'
+  },
+  {
+    word: '还没',
+    reason: '「还没有常用地址」这类**弱化形态**。T48 实测漏过一次（`checkout.wxml:40`）—— 形态与「暂无」不同，但同样是关于「这里没有东西」的断言。误伤风险：**中** —— 「还没」也可能出现在「还没选好车型」这类**引导**语境里；当前 0 命中，将来若命中要逐条看，而不是直接加豁免。'
+  },
+  {
+    word: '这个筛选下',
+    reason: 'T23–T26 既有空态文案的固定开头（「这个筛选下暂无消息」）。收录它 = 收录那批文案，与既有 `ABSENCE_WORDS` 保持同一口径。误伤风险：低。'
+  },
+  {
+    word: '未通过',
+    reason: '「店铺不存在或未通过平台核准」（`store.wxml:10`）—— 对**平台核准状态**的事实断言。首屏无从得知。误伤风险：低 —— 需要 `storeNotFound` 为真才会渲染，而首屏它必然为假。'
+  },
+  {
+    word: '已下架',
+    reason: '「该商品已下架」—— 对**上架状态**的事实断言，首屏无从得知。M2-P1-03 那轮消灭的假陈述就是它。误伤风险：低。'
+  },
+  {
+    word: '无记录',
+    reason: '「暂无记录」的同义变体。误伤风险：低。'
+  }
+];
+
+/**
+ * 首屏**必须允许**出现的「加载态词」—— 正向控制用。
+ *
+ * 直接复用第 2 节的 `LOADING_WORDS`：那批词已经由 T23–T26 的既有成果
+ * 反向验证过（它们确实出现在本仓的加载态分支里）。这里不再另立一套，
+ * 避免两处词表漂移。
+ */
+const FIRST_SCREEN_LOADING_WORDS = LOADING_WORDS;
+
+/**
+ * 正向控制的下限：首屏必须能数出 ≥ 这么多页面在渲染加载态文案。
+ *
+ * ★ 为什么需要它：本节的判据本体是「命中集合为空」—— 一个 `=== 0` 形态的
+ *   负向断言。渲染器一旦坏掉（返回空串、或 `loadPage` 拿不到页面），
+ *   命中自然为 0，判据**静默通过**。T47 变异 ② 立下的纪律就是给它配一条
+ *   「能数出 X」的正向控制，让渲染器坏掉时**这一条先红**。
+ *
+ * ★ 为什么是 10 而不是「全部 34 个」：并非每个页面首屏都有加载态分支
+ *   （例如 `pages/agreement` 是纯静态文档，`pages/plate` 的首屏要看
+ *   `source` 分支，`pages/profile` 首屏说的是「正在读取认证状态…」—— 那句话
+ *   不在 `LOADING_WORDS` 里）。T50 实测值是 **22 个页面**，
+ *   10 是它向下留出余量后的下限 —— 远高于 0，又不会因为某页合法地
+ *   去掉一个加载占位而假红。
+ */
+const FIRST_SCREEN_LOADING_PAGE_MIN = 10;
+
+/** 页面配对：`pages/x/y.wxml` + 同名 `.js`（实测 34 个 wxml 全部配对，无缺无余）。 */
+function listPagePairs() {
+  return listPageWxmlFiles()
+    .filter((relative) => fs.existsSync(
+      path.join(miniprogramDirectory, relative.replace(/\.wxml$/, '.js'))
+    ))
+    .map((relative) => ({ wxml: relative, js: relative.replace(/\.wxml$/, '.js') }));
+}
+
+/** 文本里命中了哪些空态词（按词表顺序返回，便于报告原文）。 */
+function firstScreenAbsenceWordsIn(text) {
+  return FIRST_SCREEN_ABSENCE_WORDS
+    .filter((entry) => text.includes(entry.word))
+    .map((entry) => entry.word);
+}
+
+/** 文本里命中了哪些加载态词。 */
+function firstScreenLoadingWordsIn(text) {
+  return FIRST_SCREEN_LOADING_WORDS.filter((word) => text.includes(word));
+}
+
+/**
+ * 首屏扫描：逐个页面「装起来 → 取真实初值 → 渲染整页 → 查词表」。
+ *
+ * @param {object} [options] 入参。
+ * @param {boolean} [options.brokenRenderer] **仅供负向自测**：模拟「渲染器返回空串」。
+ * @returns {object} 扫描结果。
+ */
+function firstScreenScan(options = {}) {
+  const harness = createHarness();
+  const pages = [];
+  try {
+    for (const pair of listPagePairs()) {
+      const page = harness.loadPage(pair.js);
+      const text = options.brokenRenderer === true ? '' : renderText(pair.wxml, page.data);
+      pages.push({
+        file: pair.wxml,
+        text,
+        absenceWords: firstScreenAbsenceWordsIn(text),
+        loadingWords: firstScreenLoadingWordsIn(text)
+      });
+    }
+  } finally {
+    harness.restore();
+  }
+  return {
+    pages,
+    hits: pages.filter((page) => page.absenceWords.length > 0),
+    loadingPages: pages.filter((page) => page.loadingWords.length > 0),
+    // ★ 「渲染出空文本」= 渲染器坏掉、或页面真的什么都没渲染。两者都该红：
+    //   前者是工具坏了，后者说明这页在首屏是一张白纸（那本身就是一个缺陷）。
+    emptyRenders: pages.filter((page) => page.text.length === 0)
+  };
+}
+
+/** 去掉显式豁免之后剩下的命中 —— 才是真违规。 */
+function unexemptedFirstScreenHits(scan) {
+  return scan.hits.filter((page) => !EXEMPT_FIRST_SCREEN_PAGES.has(page.file));
+}
+
+/**
+ * 首屏**允许整页渲染为空**的页面 —— 显式枚举 + 理由（目前 1 个）。
+ *
+ * ★ 这一类和「空态词」是**两件不同的事**，所以单列一张表，不要混进豁免清单：
+ *   - 空态词 = **假陈述**（「这里没有东西」），T50 要消灭的就是它；
+ *   - 整页空白 = **什么都没说**（连「正在加载」都没有）。它不撒谎，但用户看到白屏。
+ *
+ * ★ 为什么必须显式枚举而不是「允许有空渲染」：`firstScreenCriterionHolds` 的第 1 层
+ *   要求「每个页面都必须渲染出非空文本」，那一层是判据本体**不空过**的支点
+ *   （渲染器坏掉时它先红）。一旦放宽成「允许有空渲染」，这个支点就没了。
+ *   枚举 + 逐项一致，等于把这个支点换成**非空的期望值**：新增一个空白页会红，
+ *   修好一个却忘了删登记也会红。
+ */
+const FIRST_SCREEN_BLANK_ALLOWED = new Map([
+  [
+    'pages/checkout/checkout.wxml',
+    '整页被 `<view wx:if="{{scooter}}" class="page">` 包住（`checkout.wxml:1`），而 `scooter` 来自 '
+      + '`checkout.js` 的 `onLoad` 网络请求、`data.scooter` 初值为 `null` —— 所以首屏整页空白。'
+      + '★ 如实登记：这不是「假陈述」（没有任何空态词），是**另一类**问题（首屏什么都没告诉用户）。'
+      + '它**不在 T50 的授权范围内**（会动到结算 / 租赁渲染），所以这里只记录事实，不修。'
+  ]
+]);
+
+/**
+ * 首屏判据本体**整体**是否成立 —— 四层，**刻意做成不空过**：
+ * 1. 每个页面都必须渲染出**非空**文本（渲染器坏掉时这一层先红 —— 这是本节的
+ *    「不空过」设计，比第 2 节第 662 条更进一步，那里第一层确实是空过的）；
+ * 2. 空渲染的页面集合必须与 `FIRST_SCREEN_BLANK_ALLOWED` **逐项一致**；
+ * 3. 去掉显式豁免后没有命中；
+ * 4. 实际命中的页面集合与豁免清单**逐项一致**（僵尸豁免、未登记标红都红）。
+ *
+ * @param {object} scan `firstScreenScan` 的结果。
+ * @returns {boolean} 是否成立。
+ */
+function firstScreenCriterionHolds(scan) {
+  const flagged = scan.hits.map((page) => page.file).sort().join('|');
+  const exempt = [...EXEMPT_FIRST_SCREEN_PAGES.keys()].sort().join('|');
+  const blankFlags = scan.emptyRenders.map((page) => page.file).sort().join('|');
+  const blankAllowed = [...FIRST_SCREEN_BLANK_ALLOWED.keys()].sort().join('|');
+  return blankFlags === blankAllowed
+    && unexemptedFirstScreenHits(scan).length === 0
+    && flagged === exempt;
+}
+
+/**
+ * 首屏判据的**显式豁免**清单 —— 目前**为空**。
+ *
+ * ★ 空不是「没写」，而是**有意的结论**：T50 实测全仓 34 个页面在首屏只有 2 处命中，
+ *   而那 2 处都是**真缺陷**（`merchant/products.wxml:63`、`profile.wxml:82`），
+ *   已在 T50 第三步修掉。所以现在没有「必须出现空态词」的页面需要豁免。
+ *
+ * ★ 保留这个空 Map 而不是删掉它，有两个作用：
+ *   1. 判据本体第 3 层拿它当**非空期望值**（`flagged === exempt`）；
+ *   2. 将来真出现必须豁免的页面时，**必须显式登记 + 配一条行为验证**，
+ *      而不是放宽判据 —— 这正是第 2 节 `EXEMPT_ABSENCE_BLOCKS` 的既有纪律。
+ *
+ * ★ 豁免一条的唯一正当理由：该页在首屏**确实**应该显示这句话（例如它断言的是
+ *   一个**本地常量**而不是网络数据）。届时请连同那条行为用例一起写在这里。
+ */
+const EXEMPT_FIRST_SCREEN_PAGES = new Map();
+
+test('首屏行为判据：任何页面在「请求发出之前」都不得渲染空态文案', () => {
+  const scan = firstScreenScan();
+  const summary = scan.hits
+    .map((page) => `  ${page.file}\n    命中：${page.absenceWords.join(' / ')}\n    渲染：${page.text}`)
+    .join('\n');
+
+  // 第 1 层：渲染器必须真的渲染出东西（这一层让判据本体不空过）。
+  // ★ `FIRST_SCREEN_BLANK_ALLOWED` 里登记的页面是**显式**例外，且必须逐项一致 ——
+  //   新增一个首屏空白的页面会在这里红，而不是悄悄滑过去。
+  assert.deepEqual(
+    scan.emptyRenders.filter((page) => !FIRST_SCREEN_BLANK_ALLOWED.has(page.file)).map((page) => page.file),
+    [],
+    '每个页面都应渲染出非空文本；渲染出空文本说明渲染器坏了、或这页在首屏是一张白纸'
+  );
+  assert.deepEqual(
+    scan.emptyRenders.map((page) => page.file).sort(),
+    [...FIRST_SCREEN_BLANK_ALLOWED.keys()].sort(),
+    '「首屏整页空白」的页面必须与登记表逐项一致（新增空白页要登记，修好后要删登记）'
+  );
+
+  // 第 2 层：去掉显式豁免后，不得有任何命中。
+  assert.deepEqual(
+    unexemptedFirstScreenHits(scan).map((page) => page.file),
+    [],
+    `有 ${unexemptedFirstScreenHits(scan).length} 个页面在「请求发出之前」就渲染出了空态文案 —— `
+      + `那一刻用户还没等到任何答复，这些句子是关于「这里没有东西」的假陈述：\n${summary}`
+  );
+
+  // 第 3 层：命中集合与豁免清单逐项一致。
+  assert.deepEqual(
+    scan.hits.map((page) => page.file).sort(),
+    [...EXEMPT_FIRST_SCREEN_PAGES.keys()].sort(),
+    '豁免清单必须与实际命中的页面逐项一致（不能有僵尸豁免，也不能有未登记的命中）'
+  );
+
+  assert.equal(scan.pages.length, 34, '前置条件：应扫描到 34 个页面（实测值，变更时请同步理由）');
+});
+
+test('正向控制：首屏必须能数出 ≥10 个页面在渲染加载态文案（防空过）', () => {
+  const scan = firstScreenScan();
+  const found = scan.loadingPages.map((page) => page.file);
+  assert.ok(
+    scan.loadingPages.length >= FIRST_SCREEN_LOADING_PAGE_MIN,
+    `首屏应至少数出 ${FIRST_SCREEN_LOADING_PAGE_MIN} 个页面在渲染加载态文案，实际 ${scan.loadingPages.length} 个`
+      + `（命中页面：${found.join(', ')}）`
+  );
+  // 控制点必须点名几处**确定**有加载态分支的页面，否则「≥10」可能被别的东西凑数满足。
+  for (const expected of ['pages/merchant/index.wxml', 'pages/orders/orders.wxml', 'pages/notifications/notifications.wxml']) {
+    assert.ok(found.includes(expected), `正向控制里应包含 ${expected}（首屏必然处于加载态）`);
+  }
+});
+
+/**
+ * 判据自测用的人造页面：**同一段 wxml、同一份数据形状，只改 `loading` 一个字段**。
+ *
+ * 这样就把「判据到底在测什么」钉死了：它测的不是「有没有空态块」，而是
+ * **「请求还没答复时，空态块会不会渲染出来」**。
+ */
+const FIRST_SCREEN_SAMPLE = [
+  '<view class="page">',
+  '  <view wx:if="{{block.loading}}" class="empty card"><view class="muted">正在加载…</view></view>',
+  '  <view wx:elif="{{!block.data.length && !block.error}}" class="empty card"><view class="muted">暂无记录</view></view>',
+  '</view>'
+].join('\n');
+
+test('判据自测：人造页面上「未答复」必须命中，加载中必须不命中', () => {
+  // ① 真实初值形态（`initialListBlock()`：`loading: true`）→ 只渲染加载态，0 命中。
+  const pending = renderTextFromSource(FIRST_SCREEN_SAMPLE, {
+    block: { loading: true, error: '', data: [] }
+  });
+  assert.ok(pending.includes('正在加载'), `正向控制：加载态必须渲染，实际：${pending}`);
+  assert.deepEqual(
+    firstScreenAbsenceWordsIn(pending),
+    [],
+    `「请求发出之前」不得命中空态词，实际命中：${firstScreenAbsenceWordsIn(pending).join('/')}｜渲染：${pending}`
+  );
+
+  // ② 把 `loading` 拿掉（= T50 要抓的那种写法）→ 必须命中，且报出的渲染原文含「暂无记录」。
+  //    ★ 这一格钉住的是：判据**确实**能发现「漏了 loading 守卫」这个类。
+  const leaked = renderTextFromSource(FIRST_SCREEN_SAMPLE, {
+    block: { loading: false, error: '', data: [] }
+  });
+  const hit = firstScreenAbsenceWordsIn(leaked);
+  // ★ 两个词同时命中是**设计如此**：「暂无记录」里既含「暂无」也含「无记录」。
+  //   词表是**探测器**（宁可多报、由人看渲染原文），不是互斥的分类体系 ——
+  //   所以命中要连同渲染原文一起报出来。
+  assert.deepEqual(hit, ['暂无', '无记录'], `拿掉 loading 守卫后必须命中，实际命中：${hit.join('/')}`);
+  assert.ok(hit.includes('暂无'), `命中里必须含「暂无」，实际：${hit.join('/')}`);
+  assert.ok(leaked.includes('暂无记录'), `报出的渲染原文应包含「暂无记录」，实际：${leaked}`);
+
+  // ③ 失败形态（`error` 非空、数据保留）→ 空态块被 error 守卫拦住，0 命中。
+  const failed = renderTextFromSource(FIRST_SCREEN_SAMPLE, {
+    block: { loading: false, error: '加载失败，请重试', data: [] }
+  });
+  assert.deepEqual(
+    firstScreenAbsenceWordsIn(failed),
+    [],
+    `有失败标志时必须由它分流，不得落空态，实际：${failed}`
+  );
+});
+
+test('负向自测：渲染器返回空串时，判据本体与正向控制都必须红', () => {
+  const healthy = firstScreenScan();
+  const broken = firstScreenScan({ brokenRenderer: true });
+
+  // 前置：健康扫描器确实有东西可数（与「当前这棵树是否干净」无关）。
+  assert.equal(healthy.pages.length, 34, '前置条件：健康扫描器应扫到 34 个页面');
+  assert.ok(
+    healthy.loadingPages.length >= FIRST_SCREEN_LOADING_PAGE_MIN,
+    '前置条件：健康扫描器应能数出 ≥10 个加载态页面'
+  );
+  // ★ 这一条是判据本体自己的「正向控制」：它证明 `firstScreenCriterionHolds` 不是一个
+  //   恒 `false` 的函数。否则下面那句「坏渲染器时判据本体必须红」会**空过**。
+  //   （它同时也会在「代码真有首屏缺陷」时红 —— 那不是误报，是真的有话要说。）
+  assert.equal(
+    firstScreenCriterionHolds(healthy),
+    true,
+    '前置条件：健康渲染器下判据本体必须成立（否则「坏渲染器时必红」这条断言本身会空过）'
+  );
+
+  // ★ 正向控制会红 —— 这就是它存在的理由。
+  assert.equal(broken.loadingPages.length, 0, '渲染器坏掉时它数出的加载态页面必然是 0 个');
+  assert.ok(
+    broken.loadingPages.length < FIRST_SCREEN_LOADING_PAGE_MIN,
+    '渲染器坏掉时正向控制必须红（数不出 ≥10 个）'
+  );
+
+  // ★★ 「命中集合为空」这一层**必然空过** —— 渲染器返回空串时命中当然是空的。
+  //    这是 `=== 0` 形态负向断言的通病，与第 662 条实测的结论一致。
+  assert.deepEqual(broken.hits, [], '渲染器坏掉时「命中」自然是空集 —— 这一层确实还在空过');
+  assert.deepEqual(unexemptedFirstScreenHits(broken), [], '去掉豁免后同样是空集');
+  assert.equal(broken.emptyRenders.length, 34, '渲染器坏掉时 34 个页面全部渲染成空串');
+
+  // ★★★ 但判据本体**整体不空过** —— 这是本节相对第 662 条的加固：
+  //    判据本体的**第 1 / 第 2 层**（「每个页面都必须渲染出非空文本」+「空渲染集合
+  //    必须与登记表逐项一致」）给判据**非空的期望值**，于是渲染器坏掉时先红在那里。
+  assert.equal(
+    firstScreenCriterionHolds(broken),
+    false,
+    '★ 判据本体整体必须红（第 1 / 2 层给出非空期望值，不再空过）'
+  );
 });

@@ -60,7 +60,14 @@
     <view class="muted">{{stockMovementsError}}</view>
     <button size="mini" class="ghost-button" bindtap="retryStockMovements">重试</button>
   </view>
-  <view wx:if="{{!stockMovements.length && !stockMovementsError}}" class="empty card"><view class="muted">暂无库存流水</view></view>
+  <!-- ★ 只守 `!stockMovementsError` 还不够（T50）：它的初值是空串，而**首屏**那一次
+       请求还没回来时 `stockMovements` 也是 `[]` —— 于是同一屏上「暂无库存流水」
+       会和下面商品块的「正在加载…」同时出现（用户刚进页面就被告知「没有流水」）。
+       所以再要一个 `stockMovementsLoaded`（成功与失败都置 true）把「还没取到」
+       这一种状态排除掉。
+       ★ 不能用 `!loading`：`loading` 是**商品块**的标志，流水是独立发起的请求，
+       两者会各自先后回来 —— 那只是把假陈述的窗口挪了个位置。 -->
+  <view wx:if="{{stockMovementsLoaded && !stockMovements.length && !stockMovementsError}}" class="empty card"><view class="muted">暂无库存流水</view></view>
   <block wx:if="{{stockMovements.length}}">
     <view class="movement card" wx:for="{{stockMovements}}" wx:key="id">
       <view class="movement-main">

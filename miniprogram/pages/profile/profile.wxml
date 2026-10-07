@@ -78,8 +78,13 @@
       <button size="mini" class="ghost-button" bindtap="retryNotifications">重试</button>
     </view>
     <!-- ★ 失败时不得落「暂无业务提醒」：改造前判的是 `!notifications.length`，
-         任何失败都会断言「平台没给你发过提醒」。 -->
-    <view wx:if="{{!notifications.length && !notificationsError}}" class="notification-empty">暂无业务提醒</view>
+         任何失败都会断言「平台没给你发过提醒」。
+         ★ 但只守 `!notificationsError` 还不够（T50）：它的初值是空串，而**首屏**
+         那一次请求还没回来时 `notifications` 也是 `[]` —— 于是同一屏上方还在说
+         「正在读取认证状态…」、这里已经断言「暂无业务提醒」。
+         所以再要一个 `notificationsLoaded`（成功与失败都置 true）把「还没取到」
+         这一种状态排除掉。 -->
+    <view wx:if="{{notificationsLoaded && !notifications.length && !notificationsError}}" class="notification-empty">暂无业务提醒</view>
     <button class="message-toggle" bindtap="toggleOrderMessages">{{orderMessageSubscribed ? '关闭订单微信提醒' : '开启订单微信提醒'}}</button>
   </view>
   <view class="login-card card">
