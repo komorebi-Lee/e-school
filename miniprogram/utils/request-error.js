@@ -25,10 +25,21 @@
  *   —— 服务端 `ApiError` 的状态码由 `lib/cloud-request.js` 的 `responseError()`
  *   挂在错误对象上（`error.statusCode = statusCode`）。
  * - `error.code` 以 `_NOT_FOUND` 结尾
- *   —— 兜底：万一 `statusCode` 丢失，服务端所有「资源不存在」错误码都遵循
- *   这个命名（实测 `server/src/app.js` 里 36 个 404 码**全部**如此：
- *   `PRODUCT_NOT_FOUND` / `STOREFRONT_NOT_FOUND` / `MARKET_ITEM_NOT_FOUND` /
- *   `FORUM_POST_NOT_FOUND` / `NOTIFICATION_NOT_FOUND` …）。
+ *   —— **兜底**判据：`statusCode` 不为 404 时用的第二条线索。
+ *   **实测（T49 复核）`server/src/app.js` 里 404 码共 37 个**（去重后），其中
+ *   **35 个**遵循 `_NOT_FOUND` 命名：`PRODUCT_NOT_FOUND` / `STOREFRONT_NOT_FOUND` /
+ *   `MARKET_ITEM_NOT_FOUND` / `FORUM_POST_NOT_FOUND` / `NOTIFICATION_NOT_FOUND` …
+ *   **2 个例外**：`PRODUCT_NOT_IN_ORDER`（`app.js:4849`）、`NOT_FOUND`（`app.js:8397`）。
+ *
+ * ★ **这 2 个例外的实际影响，如实写在这里**（不用「全部如此」盖过去）：
+ *   主判据是 `statusCode === 404`，而 `lib/cloud-request.js:21` 的 `responseError()`
+ *   **无条件**把 `statusCode` 挂到错误对象上（`Number(response.statusCode || 0)`）——
+ *   所以服务端返回的 404 响应，这 2 个码照样被正确判成 404，后缀只是**兜底**。
+ *   只有在 `statusCode` 不为 404 的场合（响应里没有 `statusCode` 时它是 `0`），
+ *   兜底判据才会对它们失灵：这 2 个码会被判成「可重试」，用户看到的是
+ *   「加载失败，请重试」而不是「不存在」。这是一处**可接受**的近似 ——
+ *   兜底判据宁可漏认「不存在」（最多让用户多点一次重试），也不要误认：
+ *   反过来把网络失败说成「不存在」才是本项目要消灭的假陈述。
  *
  * ★ **必须能接受任意值，不能假定它有 `statusCode` / `code`**：
  *   `wx.cloud.callContainer` 网络失败时抛出的是**只有 `errMsg` 的普通对象**，

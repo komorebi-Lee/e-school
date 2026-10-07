@@ -1182,6 +1182,24 @@ test('plate：购车订单加载失败 → 不落「请先完成模拟购车」�
   try {
     harness.setApiHandler(() => Promise.reject(NETWORK_FAILURE));
     const page = harness.loadPage('pages/plate/plate.js');
+
+    // ★ 首屏（`onShow` 之前，请求还没发出）也必须干净（T49 收尾补的一段）。
+    //   这是同一条假陈述的**第三种触发时机**：`ordersError` 的初值是 `''`，
+    //   所以只被 `!ordersError` 守着的空态在「还没取到」时同样成立 ——
+    //   改造后由 `ordersLoaded` 区分「还没问过」与「问过、确实为空」。
+    assert.equal(page.data.ordersLoaded, false, '前置：首屏还没得到答复');
+    const beforeLoad = renderText('pages/plate/plate.wxml', page.data);
+    assert.equal(
+      beforeLoad.includes('请先完成模拟购车'),
+      false,
+      `首屏还没取到订单时不得渲染引导下单的文案，实际渲染：${beforeLoad}`
+    );
+    assert.equal(
+      beforeLoad.includes('选择购车订单'),
+      false,
+      `首屏还没取到订单时不得留下一个空字段标签，实际渲染：${beforeLoad}`
+    );
+
     page.onShow();
     await settle();
     await settle();
@@ -1189,6 +1207,7 @@ test('plate：购车订单加载失败 → 不落「请先完成模拟购车」�
     // ★ 文案带主语：这一屏上 `statusBlock` 也有错误占位，两句一样的「加载失败，请重试」
     //   叠在一起会让用户分不清哪块挂了。
     assert.equal(page.data.ordersError, '购车订单加载失败，请重试');
+    assert.equal(page.data.ordersLoaded, true, '失败也算「得到了答复」');
     assert.equal(page.data.eligibleOrders.length, 0, '失败本来就没有数据，这里不涉及清空');
     const rendered = renderText('pages/plate/plate.wxml', page.data);
     assert.ok(rendered.includes('加载失败，请重试'), `应渲染错误占位，实际渲染：${rendered}`);
@@ -1196,6 +1215,11 @@ test('plate：购车订单加载失败 → 不落「请先完成模拟购车」�
       rendered.includes('请先完成模拟购车'),
       false,
       `失败时不得渲染引导下单的文案，实际渲染：${rendered}`
+    );
+    assert.equal(
+      rendered.includes('选择购车订单'),
+      false,
+      `失败时不得留下一个空字段标签，实际渲染：${rendered}`
     );
     assert.equal(typeof page.retryOrders, 'function');
   } finally {

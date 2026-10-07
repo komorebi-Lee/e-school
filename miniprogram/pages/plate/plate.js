@@ -7,7 +7,14 @@ Page({
   // ★ `serviceContact` 的初值是**空串**，不是硬编码号码：本页 `onLoad` 后立即可渲染，
   //   而配置是异步回来的。若写死号码，管理员改号后用户会先看到**已过期**的号。
   //   `plate.wxml` 的咨询按钮对本字段做了 `wx:if`，未取到配置时不展示号码。
-  data:{source:'platform',vehicleModel:'',name:'',studentNo:'',phone:'',eligibleOrders:[],selectedOrderIndex:0,serviceFee:49,statusBlock:loadState.initialBlock(),charging:{eligible:false,stateLabel:'',detail:''},submitting:false,serviceContact:'',ordersError:''},
+  data:{source:'platform',vehicleModel:'',name:'',studentNo:'',phone:'',eligibleOrders:[],selectedOrderIndex:0,serviceFee:49,statusBlock:loadState.initialBlock(),charging:{eligible:false,stateLabel:'',detail:''},submitting:false,serviceContact:'',ordersError:'',
+    // ★ `ordersLoaded`（T49 收尾）：区分「**还没取到**」与「取到了、但确实为空」。
+    //   没有它，`plate.wxml` 的空态只被 `!ordersError` 守着，而 `ordersError` 的初值是 `''`
+    //   —— 于是**首屏那一次请求还没回来时**，页面已经渲染出
+    //   「暂无已支付购车订单，请先完成模拟购车，或选择"自带电瓶车"。」：
+    //   同一条假陈述的第三种触发时机（前两种是失败、以及改造前的清空）。
+    //   成功与失败都要置 `true` —— 它回答的是「有没有得到答复」，不是「成不成功」。
+    ordersLoaded:false},
   onShow(){this.loadOrders();this.loadStatus();this.loadCharging()},
   onLoad(){
     // 配置加载：`loadBusinessConfig` 内部已用缓存/默认值兜底、永不 reject，
@@ -35,6 +42,8 @@ Page({
         .filter(order=>!['CANCELLED','PENDING_PAYMENT'].includes(order.status)&&order.items&&order.items.length);
       this.setData({
         ordersError:'',
+        // 得到了答复（哪怕答复是空列表）—— 从此才允许说「暂无已支付购车订单」。
+        ordersLoaded:true,
         eligibleOrders:ebikeOrders.map(order=>({
           ...order,
           productName:(order.items||[]).map(item=>`${item.name}${Number(item.quantity)>1?` ×${item.quantity}`:''}`).join(' + ')
@@ -46,7 +55,12 @@ Page({
       //   分不清哪一块挂了。所以只在**兜底文案**这一种情形下加主语；服务端给了真实
       //   错误信息时原样透传，不替它编话。
       const text = loadState.blockErrorText(error);
-      this.setData({ordersError: text === loadState.DEFAULT_ERROR_TEXT ? '购车订单加载失败，请重试' : text});
+      this.setData({
+        ordersError: text === loadState.DEFAULT_ERROR_TEXT ? '购车订单加载失败，请重试' : text,
+        // ★ 失败也算「得到了答复」：此后由 `!ordersError` 决定说不说空态，
+        //   不再需要 `ordersLoaded` 兜着「还没问过」这一种状态。
+        ordersLoaded:true
+      });
     });
   },
   retryOrders(){return this.loadOrders()},

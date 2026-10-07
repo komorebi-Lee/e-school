@@ -6,8 +6,16 @@
     <button size="mini" class="ghost-button" bindtap="retryProduct">重试</button>
   </view>
   <!-- ★ 只有**确定是 404**（`goneText` 被换成「该商品已下架」）或缓存里确实没有时才落这句。
-       改造前网络失败也会走到这里，把一次抖动说成「车型不存在或已下架」。 -->
-  <view wx:elif="{{!scooter && !loadError}}" class="empty card"><view class="muted">{{goneText}}</view></view>
+       改造前网络失败也会走到这里，把一次抖动说成「车型不存在或已下架」。
+       ★ `!loading` 是 T49 收尾时补上的 —— 同一条假陈述的**第三种触发时机**
+       （前两种：① `catch` 落空态；② 改造前失败时把数据清空），第三种是
+       **首屏那一次请求还没回来**：此时失败标志初值为空、数据也为空，空态条件成立。
+       这一支挂在
+       **另一条链**上（链头是第 4 行的 `wx:if="{{loadError}}"`），所以第 2 行的
+       `wx:if="{{loading}}"` **挡不住它** —— 首屏那一次请求还没回来时
+       `scooter === null && loadError === ''`，页面会**同时**渲染
+       「正在加载车型…」和「车型不存在或已下架」。`!loading` 把这一段挡住。 -->
+  <view wx:elif="{{!loading && !scooter && !loadError}}" class="empty card"><view class="muted">{{goneText}}</view></view>
   <block wx:if="{{scooter}}">
   <view class="visual" style="background: {{scooter.color}}"><view class="pill badge">{{scooter.badge}}</view><image wx:if="{{scooter.imageUrl}}" class="product-image" src="{{scooter.imageUrl}}" mode="aspectFit" data-url="{{scooter.imageUrl}}" bindtap="previewProductImage" /><text wx:else>{{scooter.icon}}</text></view>
   <view class="main card"><view class="name">{{scooter.name}}</view><view class="muted">{{scooter.subtitle}}</view><view class="price-line"><text wx:if="{{scooter.isRental}}" class="price">{{scooter.priceText}}</text><text wx:else class="price">¥{{scooter.promotionPrice || scooter.price}}</text><text wx:if="{{scooter.originalPriceText}}" class="original">{{scooter.originalPriceText}}</text><text wx:if="{{scooter.originalPrice}}" class="original">¥{{scooter.originalPrice}}</text><text wx:if="{{scooter.promotionStatusText}}" class="promo">{{scooter.promotionStatusText}}</text></view><view class="rental-line" wx:if="{{scooter.isRental}}"><text class="rental-tag">可租赁</text><text class="muted">{{scooter.depositText}} · {{scooter.rentalRangeText}}</text></view><view class="seller-line"><text class="seller">{{scooter.merchantName}}</text><text wx:if="{{scooter.merchantRectify}}" class="rectify-badge tone-{{scooter.merchantRectify.toneClass}}">{{scooter.merchantRectify.badgeText}}</text><text class="muted">{{scooter.stockText}}</text></view><view class="muted small" wx:if="{{scooter.stockHint}}">{{scooter.stockHint}}</view></view>

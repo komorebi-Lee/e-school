@@ -45,7 +45,6 @@ Page({
     applicationError: '',
     resubmitNote: '',
     resubmitSubmitting: false,
-    canForm: true,
     submitting: false
   },
 
@@ -58,7 +57,7 @@ Page({
    *
    * ★ 失败时**不得**把 `application` 置空（T49）。
    *
-   * 改造前失败路径是 `setData({ application: null, canForm: true })`，而
+   * 改造前失败路径是 `setData({ application: null })`，而
    * `apply.wxml` 的结构是：
    *   `:12 wx:if="{{application && status !== 'REJECTED'}}"`（审核中/已通过）
    *   `:33 wx:if="{{application && status === 'REJECTED'}}"`（被驳回 + 补充材料）
@@ -70,7 +69,15 @@ Page({
    *   2. 被驳回的商家看不到驳回原因，也看不到「补充资质材料」入口 ——
    *      即 M2 里那条「被驳回不能变成死单」的路径被这次网络抖动关掉了。
    *
-   * 现在失败只写 `applicationError`，`application` / `canForm` 一律不动。
+   * 现在失败只写 `applicationError`，`application` 一律不动。
+   *
+   * ★ 顺带删掉了 `canForm`（T49 收尾）：它曾是本页的 data 字段，被 4 处 `setData`
+   *   写过 `true` / `false`，但**没有任何读取方**（`grep -rn canForm miniprogram/`
+   *   去掉本条注释后为 0 处，`test/` 与 `server/test/` 也各为 0 处）—— 一个只会
+   *   让人误以为「它在控制什么」的死字段。表单该不该出现，实际由 `apply.wxml` 里
+   *   `application` 的三个分支决定。
+   *   之所以把「删过它」写在这里：将来有人想加回一个「能不能填表」的开关时，
+   *   会先看到这条，知道开关在模板的分支里、不需要新的 data 字段。
    */
   loadApplication() {
     return request(`/api/merchants?userId=${encodeURIComponent(userId())}`).then(({ data }) => {
@@ -80,7 +87,6 @@ Page({
         if (rejected) {
           this.setData({
             application: rejected,
-            canForm: false,
             applicationError: '',
             licenseNo: rejected.licenseNo || '',
             licenseExpireDate: rejected.licenseExpireDate || '',
@@ -92,14 +98,14 @@ Page({
           });
           return;
         }
-        this.setData({ application: null, canForm: true, applicationError: '' });
+        this.setData({ application: null, applicationError: '' });
         return;
       }
       if (active.status === 'APPROVED') {
         wx.redirectTo({ url: '/pages/merchant/index' });
         return;
       }
-      this.setData({ application: active, canForm: false, applicationError: '' });
+      this.setData({ application: active, applicationError: '' });
     }).catch((error) => this.setData({ applicationError: loadState.blockErrorText(error) }));
   },
   retryApplication() { return this.loadApplication(); },

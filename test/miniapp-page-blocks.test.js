@@ -1574,9 +1574,51 @@ test('M2-P1-03：已下架商品给出常驻的「该商品已下架」，而不
   const detailOnNetworkFailure = harness.loadPage(path.join('pages', 'detail', 'detail.js'));
   detailOnNetworkFailure.onLoad({ id: 'prod_ebike_001' });
   await settle();
+  // ★ 改造（T49，team-lead 授权只改这一条断言）：
+  //
+  // 原来断言的是 `data.goneText === '车型不存在或已下架'` —— 那是**一个不再被渲染的
+  // 数据字段**：它通过只是因为 `goneText` 停留在初值，**不是因为行为正确**；
+  // 而且它把那句**假陈述钉成了期望值**，将来有人把失败路径的 `goneText` 清成 `''`
+  // （合理的清理），它会**为错误的原因转红**。
+  //
+  // 现在改成检查**用户实际看到的东西**，两步合起来才构成证明：
+  //   ① 数据层：网络故障必须落成常驻的错误占位（不是任何「不存在」类空态）；
+  //   ② 模板层：把**唯一**渲染 `goneText` 的那一支的条件，在**真实 data** 上求值，
+  //      必须为假 —— ①+② ⇒ 那句假陈述在任何网络故障下都不会出现在屏幕上。
+  //      求值的是 wxml 里的**原始表达式文本**，不是我重写的一份判断。
+  assert.notEqual(
+    detailOnNetworkFailure.data.loadError, '',
+    '⑬ ★ 正向控制：网络故障必须落成常驻的错误占位（可重试），不得停留在「不存在/已下架」这类空态'
+  );
+  const detailWxmlSource = fs.readFileSync(
+    path.join(miniprogramDirectory, 'pages', 'detail', 'detail.wxml'), 'utf8'
+  );
+  const goneTextBranches = detailWxmlSource
+    .split('\n')
+    .filter((line) => line.includes('{{goneText}}'));
+  assert.equal(goneTextBranches.length, 1, '`goneText` 应恰好一个渲染点，否则下面这一步不构成证明');
+  const goneTextGate = goneTextBranches[0].match(/wx:elif="\{\{([\s\S]+?)\}\}"/);
+  assert.ok(goneTextGate, '渲染 `goneText` 的那一支应带 `wx:elif` 守卫');
+  const goneTextRendered = (data) => Boolean(
+    new Function('data', `with (data) { return (${goneTextGate[1]}); }`)(data)
+  );
   assert.equal(
-    detailOnNetworkFailure.data.goneText, '车型不存在或已下架',
-    '⑬ ★ 正向控制：网络故障不得被说成「已下架」'
+    goneTextRendered(detailOnNetworkFailure.data),
+    false,
+    '⑬ ★ 网络故障时渲染「不存在/已下架」的那一支求值必须为假 —— 否则用户会看到这句假陈述'
+  );
+  // ③ 同一句假陈述还有**第三种触发时机**：首屏那一次请求还没回来时
+  //    （`scooter === null && loadError === ''`）。那一支挂在**另一条链**上
+  //    （链头是 `wx:if="{{loadError}}"`），所以「正在加载」那条 `wx:if` **挡不住它**，
+  //    页面会同时说「正在加载车型…」和「车型不存在或已下架」。
+  //    这里用**刚 loadPage、还没 onLoad** 的页面 data 作为「首屏」状态，不新增用例。
+  const detailBeforeLoad = harness.loadPage(path.join('pages', 'detail', 'detail.js'));
+  assert.equal(detailBeforeLoad.data.loading, true, '前置：首屏应处于加载中');
+  assert.equal(detailBeforeLoad.data.scooter, null, '前置：首屏还没有商品');
+  assert.equal(
+    goneTextRendered(detailBeforeLoad.data),
+    false,
+    '⑬ ★ 首屏加载中不得渲染「不存在/已下架」—— 那同样是断言一个我们并不知道的事实'
   );
   assert.equal(
     harness.getToasts().at(-1)?.title, '商品加载失败',
