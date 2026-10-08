@@ -2336,21 +2336,58 @@ test('checkout：失败 → 重试 → 成功后 payToken 逐字不变，且租�
 // 未知态下点击按钮的语义变成「**重新获取状态**」（`toggle*` 顶部提前 `return`），
 // 而不是盲取反 —— 这样重试入口是**真的**、且不需要额外加一个按钮。
 //
-// ## 不修的第四处：`profile.loadMerchantBadge`（理由已登记在源码里）
+// ## ★ 判据的**语义限定词**（必须写在这里，不能只写在 `loadMerchantBadge()` 的注释里）
 //
-// 它失败时也写 `merchantBadge: false`，但**不属于这一类**：失败渲染的是「什么都没有」
-// （红点元素不出现），不是一句关于用户状态的**断言**；方向保守（漏一次提醒）；
-// 不是状态的唯一载体（点进商家工作台能看到真实状态）；红点只有两态、**没有第三态可表达**。
-// 四条理由与残留风险写在 `profile.js` 的 `loadMerchantBadge()` 上方（T49 豁免同一模式）。
+// 本节的判据是：**失败时不得把「我们没问到」渲染成「一句关于用户的确定状态」**。
+// 这句话里的限定词是「**一句**」与「**关于用户的确定状态**」—— 判据**不是**
+// 「失败时不得有任何用户可见的默认值」。
+//
+// ★ 按**字面机械执行**，下面第四处（`merchantBadge`）**确实是第 4 个命中**；
+//   把它排除靠的是这个限定词，**不是**「它落在判据的字面之外」。
+//   限定词必须与判据写在一起 —— 否则下一个人按字面执行会得出相反的结论。
+//
+// ## 不修的第四处：`profile.loadMerchantBadge`
+//
+// 它失败时也写 `merchantBadge: false`。**限定词**把它排除，靠的是三条**硬约束**：
+//
+// 1. **没有第二处相互矛盾的陈述** —— 失败时红点元素不出现，用户读作「没有新提醒」。
+//    ★ 如实说清：那**仍然是**一个我们并不知道的事实，只是它是**约定俗成的 UI
+//      惯用语**（「没红点 = 没新提醒」），**弱得多**，而且没有第二处地方同时把
+//      「未读」说死。所以准确表述是「**弱得多、且没有第二处相互矛盾的隐式陈述**」，
+//      **不是**「它不是一个断言」—— 后者是我最初的写法，**措辞过头了**
+//      （T52 独立验证指出，我接受）。
+// 2. **方向保守**：默认值 `false` = **漏一次提醒**；而那三处是**激进**方向 =
+//    假陈述（用户据此**相信一个关于自己的错误事实**）。
+// 3. **不是状态的唯一载体**：点进「商家入驻 / 商家工作台」照样能看到真实状态；
+//    而收藏 / 提醒开关在页面上**没有第二处显示**。
+// 4. 红点只有「显示 / 不显示」两态，**没有第三态可表达**；为它加一个「状态未知」
+//    占位，等于每次网络抖动都在个人中心菜单上挂一条错误提示 —— 那是噪音，不是信息。
+//
+// ★ 一条支持这个限定词的**一致性证据**（独立验证者提供）：本仓对「**一句话**形式的
+//   空态」是当假陈述处理的 —— `profile.wxml:87` 的「暂无业务提醒」被
+//   `notificationsLoaded` + `!notifications.length` + `!notificationsError` 三重守卫。
+//   **句子被守、点不被守** —— 这条线在本仓是**一致的**，不是我们临时为它开的口子。
+//
+// 四条理由与残留风险同时写在 `profile.js` 的 `loadMerchantBadge()` 上方（T49 豁免同一模式）。
 //
 // ## 这一节覆盖什么 / 覆盖不到什么
 //
-// 覆盖：三处开关在「**问失败**」与「**先成功再失败**」两种时机下的**渲染文案**
-//      （不是状态字段），以及点击后的**真实行为**（重取状态 vs 取反）。
+// 覆盖：三处开关在「**问失败**」「**先成功再失败**」「**还没问到**」三种时机下的
+//      **渲染文案**（不是状态字段），以及点击后的**真实行为**（重取状态 vs 取反）。
+//
+// ★ 头注修正（T52 独立验证发现）：本节原先在「覆盖不到」里写着
+//   「① 「**还没问到**」那一瞬 —— 归第 4 节的首屏判据」。**那一句是假事实**：
+//   第 4 节是**空态词词表**判据（`暂无 / 已售罄 / 不存在 / 未找到 / 没有匹配 /
+//   没有符合 / 还没 / 这个筛选下 / 未通过 / 已下架 / 无记录`），**看不见**
+//   `☆ 收藏` / `到货提醒我` / `开启订单微信提醒` 这三句确定态文案 —— 三句里
+//   一个词都不在词表内。实测：只砍掉 wxml 里 `!*Loaded` 那一支（失败路径保持
+//   正确、表达式仍平衡）→ 全量 **41/41/0 + 295/295/0 全绿**，
+//   也就是说「**只坏首屏、不坏失败路径**」的回退当时**无人能抓**。
+//   现在补了 `#42` 把这一瞬真正覆盖掉（不再「归」任何别处）。
+//
 // 覆盖不到：
-//   ① 「**还没问到**」那一瞬 —— 归第 4 节的首屏判据（那里 `*Loaded` 为 `false`）；
-//   ② `merchantBadge`（判定为不改，见上）；
-//   ③ 视觉层：`.unknown` 的虚线灰样式只能做**源码存在性**断言，
+//   ① `merchantBadge`（按上面的**语义限定词** + 四条理由排除，不是「判据之外」）；
+//   ② 视觉层：`.unknown` 的虚线灰样式只能做**源码存在性**断言，
 //      `renderText` 只产文本、不产 CSS，所以「看起来是否真的区分得开」本文件答不了。
 
 /** 三处开关的**确定态**文案（逐字取自修复前的 wxml，不是「看起来对」的改写）。 */
@@ -2417,6 +2454,32 @@ function switchApiHandler(state, log) {
     if (method === 'GET' && requestPath.endsWith('/restock-alert')) {
       if (state.restock === 'fail') return Promise.reject(NETWORK_FAILURE);
       return Promise.resolve({ data: { subscribed: state.restock === true } });
+    }
+    if (requestPath.startsWith('/api/products/')) {
+      return Promise.resolve({ data: SWITCH_PRODUCT });
+    }
+    return Promise.resolve({ data: [] });
+  };
+}
+
+/**
+ * 「**状态端点永不答复**」的桩 —— `#42` 专用。
+ *
+ * 为什么不复用 `switchApiHandler`：那一个只会 `resolve` / `reject`，
+ * 表达不了「请求已经发出去了、但**还没回来**」这**第三种**时机 ——
+ * 而 `#42` 要钉的恰恰是它（`*Loaded === false && *Error === ''`）。
+ *
+ * 商品请求仍然立刻成功（否则 `scooter` 为 `null`，底部按钮行整块不渲染，
+ * 断言会**空过**）；只有两个状态端点挂起。
+ *
+ * @returns {Function} `apiHandler`。
+ */
+function pendingSwitchApiHandler() {
+  return (requestPath, options) => {
+    const method = (options && options.method) || 'GET';
+    if (method === 'GET' && (requestPath.endsWith('/favorite') || requestPath.endsWith('/restock-alert'))) {
+      // 永不 settle：模拟「请求在路上」。
+      return new Promise(() => {});
     }
     if (requestPath.startsWith('/api/products/')) {
       return Promise.resolve({ data: SWITCH_PRODUCT });
@@ -2493,8 +2556,11 @@ test('detail：收藏 / 到货提醒状态取不到 → 不得渲染确定态，
     // ── ① 失败时用户**不会**看到一个确定的用户状态（本节主判据）
     //
     // ★ 这一条**排在三态字段断言之前**是刻意的：它是本节的主判据，
-    //   变异时必须是**它**先红（否则「回退修复 → 对应断言必红」的证据链
-    //   会停在一条旁证上，看不出主判据到底有没有生效）。
+    //   **若它该红，它就会是第一个红的**（否则「回退修复 → 对应断言必红」的
+    //   证据链会停在一条旁证上，看不出主判据到底有没有生效）。
+    //   ★ 注意它**不保证**在任何变异下都先红：变异 D（只拿掉 `toggle*` 的未知态
+    //     分流）**不动渲染路径**，所以它**不该**红 —— 那时先红的是
+    //     「点击必须发 GET」那一条。两种情形都对，别把前者读成恒真。
     const rendered = renderText('pages/detail/detail.wxml', page.data);
     assert.deepEqual(
       certainSwitchTextsIn(rendered),
@@ -2827,6 +2893,78 @@ test('端到端：profile 先成功（已开启）→ 再刷新失败 → 不得
     const recovered = renderText('pages/profile/profile.wxml', page.data);
     assert.ok(recovered.includes('关闭订单微信提醒'), `★ 重试成功后必须回到确定态。实际渲染：${recovered}`);
     assert.equal(recovered.includes('订单提醒未知'), false, `实际渲染：${recovered}`);
+  } finally {
+    harness.restore();
+  }
+});
+
+test('「还没问到」那一瞬：三处开关尚未得到答复时不得渲染确定态（第 4 节看不见这三句）', async () => {
+  const harness = createHarness();
+  try {
+    // ── ① profile：**首屏**（刻意**不调** `onShow`，这就是「请求发出之前」那一刻）
+    //
+    // ★ 这条断言**不是空过的**：`.message-toggle` 挂在 `profile.wxml:88`，
+    //   而它的祖先 `.notification-card`（`:60`）**没有** `wx:if` 守卫 ——
+    //   所以首屏这一屏**真的会渲染这个按钮**（下面「订单提醒未知」那句就是证据）。
+    const profile = harness.loadPage('pages/profile/profile.js');
+    assert.equal(profile.data.orderMessageStateLoaded, false, '前置条件：还没得到答复');
+    assert.equal(profile.data.orderMessageStateError, '', '前置条件：还没失败');
+
+    const profileText = renderText('pages/profile/profile.wxml', profile.data);
+    assert.deepEqual(
+      certainSwitchTextsIn(profileText),
+      [],
+      `★ 首屏那一刻「我们还没问到」，不得渲染任何确定态文案。实际渲染：${profileText}`
+    );
+    assert.ok(
+      profileText.includes('订单提醒未知'),
+      `★ 首屏必须落到中性态（这句同时是「按钮真的渲染了」的防空过支点）。实际渲染：${profileText}`
+    );
+
+    // ── ② detail：**请求在途**（商品已到、两个状态端点永不答复）
+    //
+    // ★ 为什么**不**照搬 ① 的「不调 onLoad」：底部按钮行被
+    //   `<block wx:if="{{scooter}}">`（`detail.wxml:19`）整块包住，而 `scooter`
+    //   初值是 `null` —— 首屏那一屏**两个按钮根本不渲染**，
+    //   「不得渲染确定态」在那里会**空过**（`includes` 对一个不存在的按钮恒为假）。
+    //
+    // ★ 真正可达的「还没问到」是这一段窗口：`loadProduct()` 成功回调里先
+    //   `setData({ scooter })`、**再**发两个状态请求 —— 商品已经显示、状态还在路上，
+    //   用户在这一刻**看得见这两个按钮**。所以用 `pendingSwitchApiHandler()`
+    //   让两个状态端点永不 settle，把这一瞬**稳定地**造出来。
+    harness.setApiHandler(pendingSwitchApiHandler());
+    const detail = harness.loadPage('pages/detail/detail.js');
+    detail.onLoad({ id: SWITCH_PRODUCT.id });
+    await settle();
+    await settle();
+    await settle();
+
+    assert.ok(detail.data.scooter, '前置条件：商品已到，底部按钮行才会渲染');
+    assert.equal(detail.data.scooter.sellableStock, 0, '前置条件：无库存，到货提醒按钮才会渲染');
+    assert.equal(detail.data.favoriteStateLoaded, false, '前置条件：收藏状态请求还在路上');
+    assert.equal(detail.data.restockStateLoaded, false, '前置条件：到货提醒状态请求还在路上');
+    assert.equal(detail.data.favoriteStateError, '', '前置条件：还没失败');
+    assert.equal(detail.data.restockStateError, '', '前置条件：还没失败');
+
+    const detailText = renderText('pages/detail/detail.wxml', detail.data);
+    // ★ 防空过支点：先钉住「按钮行真的渲染了」。「咨询」这个按钮**永远**在
+    //   底部按钮行里、且没有 `wx:if` —— 它出现 = 整行出现。
+    assert.ok(
+      detailText.includes('咨询'),
+      `★ 防空过支点：底部按钮行真的渲染了（它在 \`<block wx:if="{{scooter}}">\` 里，商品没到就整块不渲染）。实际渲染：${detailText}`
+    );
+    assert.deepEqual(
+      certainSwitchTextsIn(detailText),
+      [],
+      `★ 状态请求还在路上时不得渲染任何确定态文案。实际渲染：${detailText}`
+    );
+    assert.ok(detailText.includes('收藏未知'), `★ 必须落到中性态。实际渲染：${detailText}`);
+    assert.ok(detailText.includes('提醒未知'), `★ 必须落到中性态。实际渲染：${detailText}`);
+    assert.equal(
+      detailText.includes('重试'),
+      false,
+      `★ 「还没问到」不写「重试」（那是失败态才有的；用户还没失败过，没有可重试的东西）。实际渲染：${detailText}`
+    );
   } finally {
     harness.restore();
   }
