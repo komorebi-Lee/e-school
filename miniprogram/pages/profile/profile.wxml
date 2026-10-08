@@ -85,7 +85,7 @@
          所以再要一个 `notificationsLoaded`（成功与失败都置 true）把「还没取到」
          这一种状态排除掉。 -->
     <view wx:if="{{notificationsLoaded && !notifications.length && !notificationsError}}" class="notification-empty">暂无业务提醒</view>
-    <button class="message-toggle" bindtap="toggleOrderMessages">{{orderMessageSubscribed ? '关闭订单微信提醒' : '开启订单微信提醒'}}</button>
+    <button class="message-toggle {{(!orderMessageStateLoaded || orderMessageStateError) ? 'unknown' : ''}}" bindtap="toggleOrderMessages">{{!orderMessageStateLoaded ? '订单提醒未知' : (orderMessageStateError ? '订单提醒未知·重试' : (orderMessageSubscribed ? '关闭订单微信提醒' : '开启订单微信提醒'))}}</button>
   </view>
   <view class="login-card card">
     <view class="login-info">

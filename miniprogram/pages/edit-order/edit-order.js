@@ -21,6 +21,15 @@ Page({
         loading: false
       });
     }).catch(() => {
+      // ★ 这里**不补** `navigateBack` 的 `fail` 兜底（T51 勘察判定，T52 登记）。
+      //
+      // 前提：本页的唯一入口是 `orders.js` 的 `editOrder()`（`wx.navigateTo`），
+      // 所以页面栈里**必定**还有上一页，`navigateBack` 必然成功。失败时先 toast
+      // 「订单加载失败」再退回订单页，用户不会停在一个空表单上（`edit-order.wxml`
+      // 的表单块是 `wx:if="{{!loading}}"`，失败时表单根本没渲染，停在加载文案）。
+      //
+      // ★ 若将来加了**分享 / 深链**入口（页面栈里可能没有上一页），这里就必须补
+      //   `fail` 兜底 —— 否则 `navigateBack` 静默失败，用户会**卡在加载态**。
       wx.showToast({ title: '订单加载失败', icon: 'none' });
       setTimeout(() => wx.navigateBack(), 500);
     });

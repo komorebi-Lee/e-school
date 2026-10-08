@@ -158,6 +158,22 @@ Page({
     loading: true,
     restockSubscribed: false,
     favorited: false,
+    // ★ 「收藏 / 到货提醒」两个开关的**三态**（T52）。
+    //
+    // 改造前这两处的 catch 都写 `xxx: false` —— 把「我们没问到」渲染成
+    // 「你没收藏过 / 没登记过」。这是**假陈述**：用户据此再点一次，
+    // 而 `toggle*` 是**取反**，于是在「其实已收藏」时反而把收藏**取消**掉。
+    //
+    // 三态由两个字段共同表达：
+    //   `*Loaded === false`              → 还没问到（请求尚未答复）
+    //   `*Loaded === true && *Error`     → 问失败了（文案非空，可重试）
+    //   `*Loaded === true && !*Error`    → 服务端明确答复，`favorited` / `restockSubscribed` 可信
+    // 成功与失败**都**把 `*Loaded` 置 true —— 与 `ordersLoaded` 同一范式
+    // （它区分的是「还没取到」与「取到了」，不是「成功」与「失败」）。
+    favoriteStateLoaded: false,
+    favoriteStateError: '',
+    restockStateLoaded: false,
+    restockStateError: '',
     // 商品取不到时的常驻说明文案。默认值与改造前 wxml 里写死的那句逐字一致，
     // 只有确认「已下架」时才会被换成更准确的措辞。
     goneText: '车型不存在或已下架',
@@ -240,19 +256,57 @@ Page({
     if (!scooter) return { title: "狮山智生活 · 校园好物" };
     return { title: `${scooter.name} · 狮山智生活`, query: `id=${encodeURIComponent(scooter.id)}` };
   },
+  /**
+   * 读取「到货提醒」状态。
+   *
+   * ★ 失败时**不得**把 `restockSubscribed` 写成 `false`（T52）：那是向用户断言
+   *   「你没登记过到货提醒」，而我们其实**不知道**。失败只落 `restockStateError`，
+   *   `restockSubscribed` 保留上一次的值 —— 与 `loadState.rejectBlock` 的
+   *   「失败不清空数据」同一条纪律；渲染层则改看 `restockStateError`，不读这个旧值。
+   *
+   * @param {string} productId 商品 id。
+   * @returns {Promise<void>} 请求结束后解析（本函数不 rethrow）。
+   */
   loadRestockState(productId) {
-    request(`/api/products/${encodeURIComponent(productId)}/restock-alert`).then(({ data }) => {
-      this.setData({ restockSubscribed: data.subscribed === true });
-    }).catch(() => this.setData({ restockSubscribed: false }));
+    return request(`/api/products/${encodeURIComponent(productId)}/restock-alert`).then(({ data }) => {
+      this.setData({ restockSubscribed: data.subscribed === true, restockStateLoaded: true, restockStateError: '' });
+    }).catch((error) => {
+      this.setData({ restockStateLoaded: true, restockStateError: loadState.blockErrorText(error) });
+    });
   },
+  /**
+   * 读取「收藏」状态。语义与 {@link loadRestockState} 完全一致。
+   *
+   * @param {string} productId 商品 id。
+   * @returns {Promise<void>} 请求结束后解析（本函数不 rethrow）。
+   */
   loadFavoriteState(productId) {
-    request(`/api/products/${encodeURIComponent(productId)}/favorite`).then(({ data }) => {
-      this.setData({ favorited: data.favorited === true });
-    }).catch(() => this.setData({ favorited: false }));
+    return request(`/api/products/${encodeURIComponent(productId)}/favorite`).then(({ data }) => {
+      this.setData({ favorited: data.favorited === true, favoriteStateLoaded: true, favoriteStateError: '' });
+    }).catch((error) => {
+      this.setData({ favoriteStateLoaded: true, favoriteStateError: loadState.blockErrorText(error) });
+    });
+  },
+  /**
+   * 这个按钮此刻的语义是「切换收藏」还是「重新获取收藏状态」。
+   *
+   * ★ 状态未知时**绝不能**盲 toggle（T52）：`favorited` 在未知态还是初值 `false`，
+   *   取反就会在「其实已收藏」时把收藏**取消**掉 —— 用户以为在收藏，实际在取消。
+   *   所以未知态下按钮直接变成重试入口。
+   *
+   * @returns {boolean} true = 状态未知，本次点击应当重试而不是切换。
+   */
+  favoriteStateUnknown() {
+    return !this.data.favoriteStateLoaded || Boolean(this.data.favoriteStateError);
+  },
+  /** 「到货提醒」状态是否未知（语义同 {@link favoriteStateUnknown}）。 */
+  restockStateUnknown() {
+    return !this.data.restockStateLoaded || Boolean(this.data.restockStateError);
   },
   toggleFavorite() {
     const scooter = this.data.scooter;
     if (!scooter) return;
+    if (this.favoriteStateUnknown()) return this.loadFavoriteState(scooter.id);
     const favorited = !this.data.favorited;
     request(`/api/products/${encodeURIComponent(scooter.id)}/favorite`, {
       method: 'POST', data: { favorited }
@@ -264,6 +318,7 @@ Page({
   toggleRestockAlert() {
     const scooter = this.data.scooter;
     if (!scooter) return;
+    if (this.restockStateUnknown()) return this.loadRestockState(scooter.id);
     const subscribed = !this.data.restockSubscribed;
     request(`/api/products/${encodeURIComponent(scooter.id)}/restock-alert`, {
       method: 'POST', data: { subscribed }

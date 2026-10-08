@@ -21,6 +21,9 @@
 .notification-empty { padding: 24rpx 0 8rpx; color: #8895a8; font-size: 24rpx; }
 .message-toggle { height: 68rpx; line-height: 66rpx; margin: 18rpx 0 0; border-radius: 999rpx; background: #eaf0ff; color: #002fa7; font-size: 23rpx; font-weight: 800; }
 .message-toggle::after { border: 0; }
+/* ★ 「状态未知」（T52）：还没问到 / 问失败了。必须与「已开启」「未开启」都区分开 ——
+   它是**第三种**状态。文案里的「·重试」只在**失败**时出现。 */
+.message-toggle.unknown { background: #fff; color: #78849a; border: 2rpx dashed #c6cddb; }
 .notification-entry { margin-bottom: 20rpx; }
 /* 失败占位：与 forum / market 同一套样式（该页原先没有加载块，故本地补齐）。 */
 .load-error { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; padding: 20rpx 24rpx; margin: 20rpx 0 0; background: #fff4f2; border: 2rpx solid #ffd9d3; border-radius: 18rpx; }

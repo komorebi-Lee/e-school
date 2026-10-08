@@ -2278,3 +2278,556 @@ test('checkout：失败 → 重试 → 成功后 payToken 逐字不变，且租�
     harness.restore();
   }
 });
+
+// ---------------------------------------------------------------------------
+// 第 6 节：三态开关 —— 加载失败不得被渲染成「确定的用户状态」（T52）
+// ---------------------------------------------------------------------------
+//
+// ## 这一节钉的是哪一类缺陷
+//
+// T51 勘察把全仓「catch 里只有 toast、没有常驻错误态」的 51 条按语义分了两类：
+// **动作类 49 条**（toast 就是正确反馈，不动）与 **加载类 1 条**（`edit-order.js:23`，
+// 失败后必然 `navigateBack` 走掉）。**真正要修的是另一批** ——
+// 「**加载失败被渲染成「确定的用户状态」**」。T52 修的就是这批，共 3 处：
+//
+//   `detail.loadRestockState`       失败写 `restockSubscribed: false`   → 渲染「到货提醒我」
+//   `detail.loadFavoriteState`      失败写 `favorited: false`           → 渲染「☆ 收藏」
+//   `profile.loadOrderMessageState` 失败写 `orderMessageSubscribed: false`
+//                                                                  → 渲染「开启订单微信提醒」
+//
+// ## 伤害到底是什么（★ 我在这里纠正过一次自己的推论，纠正过程保留在下面）
+//
+// 我最初的说法是「用户据此做**反操作**：`toggle*` 是取反，会在『其实已收藏』时
+// 把收藏**取消**掉」。**这个说法是错的**，写这一节时逐行推了一遍才发现：
+//
+//   失败落的值是 `false`，渲染出的文案也是「未 X」—— **看到的与取反的是一致的**。
+//   用户点一下 → `!false === true` → POST `favorited: true` → 服务端本来就是 true
+//   → **幂等**，不会取消任何东西。三处都是这个形状（`restockSubscribed` /
+//   `orderMessageSubscribed` 同理）。
+//
+// 真正的伤害是**更普遍的那一条**：
+// **界面在向用户报告一个关于他自己的、我们并不知道的事实。**
+// 一个已经收藏了这辆车的用户看到「☆ 收藏」，会以为自己的收藏丢了 / 从没成功过；
+// 一个已经开着提醒的用户看到「开启订单微信提醒」，会以为提醒被关掉了而反复去开。
+// 这是本仓 T37 / T49 以来一直在消灭的同一类错误（「失败落空态」「失败清列表」），
+// 只是位置换到了「用户自己的开关」上。
+//
+// ★ 但「不会反操作」是**巧合**，不是设计：它成立的前提是「初值、失败值、文案」
+//   三者恰好都取 `false`。一旦有人把某处的失败值改成 `true`，或改成「保留上次值」
+//   而忘了改渲染层，同一段代码立刻变成**真的反操作**（看到「☆ 收藏」→ 取反得
+//   `false` → 把已收藏的**取消**掉）。所以修法的价值不只是修掉当前那句错话，
+//   更是**把这个巧合拿掉**：现在渲染层根本不读那个布尔值（只读 `*Loaded` / `*Error`），
+//   失败值改成什么都不影响用户看到什么。
+//
+// ## 修法（三态，与 `ordersLoaded` 同一范式）
+//
+//   `*Loaded === false`            → 还没问到（请求尚未答复）
+//   `*Loaded === true && *Error`   → 问失败了（文案非空 → 中性态 + 重试入口）
+//   `*Loaded === true && !*Error`  → 服务端明确答复，`favorited` / `restockSubscribed` 可信
+//
+// 成功与失败**都**置 `*Loaded = true`（它区分的是「还没取到」与「取到了」，
+// 不是「成功」与「失败」）；失败**只**写 `*Error`，**不写**那个布尔值、
+// 也**不**清掉上一次的值 —— 与 `loadState.rejectBlock` 的「失败不清空数据」同一条纪律。
+//
+// 渲染层改成**纯字段嵌套三元**。不能用方法调用（我第一版想写 `favoritedText()`）：
+// `evaluateExpression` 把表达式里的每个标识符当作 `new Function(...identifiers)` 的形参，
+// `resolvePath` 只按 `.` 分段推进 —— **不支持 `?.[]`、不支持方法调用**。
+//
+// 未知态下点击按钮的语义变成「**重新获取状态**」（`toggle*` 顶部提前 `return`），
+// 而不是盲取反 —— 这样重试入口是**真的**、且不需要额外加一个按钮。
+//
+// ## 不修的第四处：`profile.loadMerchantBadge`（理由已登记在源码里）
+//
+// 它失败时也写 `merchantBadge: false`，但**不属于这一类**：失败渲染的是「什么都没有」
+// （红点元素不出现），不是一句关于用户状态的**断言**；方向保守（漏一次提醒）；
+// 不是状态的唯一载体（点进商家工作台能看到真实状态）；红点只有两态、**没有第三态可表达**。
+// 四条理由与残留风险写在 `profile.js` 的 `loadMerchantBadge()` 上方（T49 豁免同一模式）。
+//
+// ## 这一节覆盖什么 / 覆盖不到什么
+//
+// 覆盖：三处开关在「**问失败**」与「**先成功再失败**」两种时机下的**渲染文案**
+//      （不是状态字段），以及点击后的**真实行为**（重取状态 vs 取反）。
+// 覆盖不到：
+//   ① 「**还没问到**」那一瞬 —— 归第 4 节的首屏判据（那里 `*Loaded` 为 `false`）；
+//   ② `merchantBadge`（判定为不改，见上）；
+//   ③ 视觉层：`.unknown` 的虚线灰样式只能做**源码存在性**断言，
+//      `renderText` 只产文本、不产 CSS，所以「看起来是否真的区分得开」本文件答不了。
+
+/** 三处开关的**确定态**文案（逐字取自修复前的 wxml，不是「看起来对」的改写）。 */
+const CERTAIN_SWITCH_TEXTS = [
+  '☆ 收藏',
+  '★ 已收藏',
+  '到货提醒我',
+  '已登记到货提醒',
+  '开启订单微信提醒',
+  '关闭订单微信提醒'
+];
+
+/**
+ * 渲染结果里出现了哪几句确定态文案（空数组 = 一句都没有）。
+ *
+ * @param {string} rendered 渲染出的整屏文案。
+ * @returns {string[]} 命中的文案。
+ */
+function certainSwitchTextsIn(rendered) {
+  return CERTAIN_SWITCH_TEXTS.filter((text) => rendered.includes(text));
+}
+
+/**
+ * 详情页用的载荷。
+ *
+ * ★ `availableStock: 0` 是**刻意**的：`restock-button` 挂在
+ *   `wx:if="{{!scooter.sellableStock}}"` 上，有库存时它**根本不渲染** ——
+ *   那样「到货提醒按钮不得渲染确定态」这条断言会**空过**（按钮不存在，
+ *   `includes` 当然为假）。所以载荷必须让这个按钮真的出现，并且要用
+ *   `assert.ok(page.data.scooter)` + `sellableStock === 0` 把前置条件显式钉住。
+ */
+const SWITCH_PRODUCT = {
+  id: 'prod_switch_001',
+  name: '校园通勤电单车',
+  description: '校内配送 · 可协助上牌',
+  listingType: 'SALE',
+  priceInCents: 239900,
+  effectivePriceInCents: 239900,
+  stock: 0,
+  availableStock: 0
+};
+
+/**
+ * 详情页的请求桩。
+ *
+ * ★ 必须按 **method** 区分：`/api/products/:id/favorite` 既是「读状态」（GET）
+ *   又是「切换」（POST），只看路径会把两者混成一个。`state.favorite === 'fail'`
+ *   只让 **GET** 失败、POST 仍然成功 —— 否则「状态已知时 toggle 行为逐字不变」
+ *   那条断言无法与「状态未知时点击必须重取」区分开。
+ *
+ * @param {{favorite?: (boolean|string), restock?: (boolean|string)}} state 状态开关；
+ *   值 `'fail'` 表示该 GET 失败，`true` / `false` 表示服务端明确答复。
+ * @param {Array} [log] 传了就记录每次请求（用于断言发的是 GET 还是 POST、带了什么 data）。
+ * @returns {Function} `apiHandler`。
+ */
+function switchApiHandler(state, log) {
+  return (requestPath, options) => {
+    const method = (options && options.method) || 'GET';
+    if (log) log.push({ requestPath, method, data: options && options.data });
+    if (method === 'GET' && requestPath.endsWith('/favorite')) {
+      if (state.favorite === 'fail') return Promise.reject(NETWORK_FAILURE);
+      return Promise.resolve({ data: { favorited: state.favorite === true } });
+    }
+    if (method === 'GET' && requestPath.endsWith('/restock-alert')) {
+      if (state.restock === 'fail') return Promise.reject(NETWORK_FAILURE);
+      return Promise.resolve({ data: { subscribed: state.restock === true } });
+    }
+    if (requestPath.startsWith('/api/products/')) {
+      return Promise.resolve({ data: SWITCH_PRODUCT });
+    }
+    return Promise.resolve({ data: [] });
+  };
+}
+
+/**
+ * 个人中心页的请求桩：只关心 `/api/order-message-subscriptions` 的 GET，
+ * 其余（`/api/merchants`、`/api/my/identity`、`/api/my/notifications`…）一律成功返回空数组。
+ *
+ * @param {{subscribed?: (boolean|string)}} state 状态开关。
+ * @param {Array} [log] 传了就记录每次请求。
+ * @returns {Function} `apiHandler`。
+ */
+function profileStateApiHandler(state, log) {
+  return (requestPath, options) => {
+    const method = (options && options.method) || 'GET';
+    if (log) log.push({ requestPath, method, data: options && options.data });
+    if (requestPath === '/api/order-message-subscriptions' && method === 'GET') {
+      if (state.subscribed === 'fail') return Promise.reject(NETWORK_FAILURE);
+      return Promise.resolve({ data: { subscribed: state.subscribed === true } });
+    }
+    return Promise.resolve({ data: [] });
+  };
+}
+
+/** 人造样本：**修复前**的写法（失败时把「我们没问到」直接渲染成确定态）。 */
+const BROKEN_SWITCH_SAMPLE = [
+  '<view class="bottom-actions">',
+  "  <button class=\"favorite-button\">{{favorited ? '★ 已收藏' : '☆ 收藏'}}</button>",
+  "  <button class=\"restock-button\">{{restockSubscribed ? '已登记到货提醒' : '到货提醒我'}}</button>",
+  '</view>'
+].join('\n');
+
+test('判据自测：修复前的写法必须被这套「确定态文案」判据抓住（否则本节断言是空过的）', () => {
+  // 修复前：失败 → `catch` 把 `favorited` / `restockSubscribed` 写成 `false` → 渲染出确定态。
+  const broken = renderTextFromSource(BROKEN_SWITCH_SAMPLE, { favorited: false, restockSubscribed: false });
+  assert.deepEqual(
+    certainSwitchTextsIn(broken),
+    ['☆ 收藏', '到货提醒我'],
+    `★ 修复前的写法渲染出的正是这两句确定态文案，本判据必须抓住它。实际渲染：${broken}`
+  );
+
+  // 反面对照：同一段 wxml 在「服务端明确答复已收藏 / 已登记」时渲染的是另外两句 ——
+  // 说明这个判据能区分「确定态」与「另一种确定态」，不是恒真也不是恒假。
+  const answered = renderTextFromSource(BROKEN_SWITCH_SAMPLE, { favorited: true, restockSubscribed: true });
+  assert.deepEqual(
+    certainSwitchTextsIn(answered),
+    ['★ 已收藏', '已登记到货提醒'],
+    `实际渲染：${answered}`
+  );
+});
+
+test('detail：收藏 / 到货提醒状态取不到 → 不得渲染确定态，且必须有可见的重试入口', async () => {
+  const harness = createHarness();
+  try {
+    const log = [];
+    harness.setApiHandler(switchApiHandler({ favorite: 'fail', restock: 'fail' }, log));
+    const page = harness.loadPage('pages/detail/detail.js');
+    page.onLoad({ id: SWITCH_PRODUCT.id });
+    await settle();
+    await settle();
+    await settle();
+
+    // ── 前置条件：商品本身取到了、库存为 0，底部两个按钮**真的会渲染**。
+    //    不钉住这两条，下面的 `includes(...) === false` 可能只是因为按钮不存在。
+    assert.ok(page.data.scooter, '前置条件：商品详情已取到，底部按钮行才会渲染');
+    assert.equal(page.data.scooter.sellableStock, 0, '前置条件：无库存，到货提醒按钮才会渲染');
+    assert.equal(page.data.loading, false);
+    assert.equal(page.data.loadError, '', '前置条件：商品本身是成功的，这次只有两个状态端点失败');
+
+    // ── ① 失败时用户**不会**看到一个确定的用户状态（本节主判据）
+    //
+    // ★ 这一条**排在三态字段断言之前**是刻意的：它是本节的主判据，
+    //   变异时必须是**它**先红（否则「回退修复 → 对应断言必红」的证据链
+    //   会停在一条旁证上，看不出主判据到底有没有生效）。
+    const rendered = renderText('pages/detail/detail.wxml', page.data);
+    assert.deepEqual(
+      certainSwitchTextsIn(rendered),
+      [],
+      `★ 状态取不到时，一句确定态文案都不许出现 —— 界面不得报告一个我们并不知道的用户状态。实际渲染：${rendered}`
+    );
+
+    // ── ② 有**可见**的重试入口（中性文案 + 「重试」二字 + 真的能重取）
+    assert.ok(rendered.includes('收藏未知'), `★ 收藏按钮必须落到中性态。实际渲染：${rendered}`);
+    assert.ok(rendered.includes('提醒未知'), `★ 到货提醒按钮必须落到中性态。实际渲染：${rendered}`);
+    assert.ok(rendered.includes('重试'), `★ 必须有可见的重试入口。实际渲染：${rendered}`);
+    assert.ok(rendered.includes('收藏未知·重试'), `★ 失败态要写明「重试」（区别于「还没问到」）。实际渲染：${rendered}`);
+
+    // ── 三态字段（支撑证据：说明上面渲染成中性态是因为**状态未知**，不是别的原因）
+    assert.equal(page.data.favoriteStateLoaded, true, '失败也算「得到了答复」');
+    assert.equal(page.data.restockStateLoaded, true, '失败也算「得到了答复」');
+    assert.ok(page.data.favoriteStateError, '★ 失败必须落成**可见**的错误态，而不是只有一个 toast');
+    assert.ok(page.data.restockStateError, '★ 失败必须落成**可见**的错误态');
+
+    assert.equal(typeof page.toggleFavorite, 'function', 'wxml 上绑定的入口必须存在');
+    assert.equal(typeof page.toggleRestockAlert, 'function', 'wxml 上绑定的入口必须存在');
+
+    // ★ 重试入口必须是**真的**：未知态下点一下，必须**重新发 GET**，而不是盲取反发 POST。
+    log.length = 0;
+    await page.toggleFavorite();
+    await settle();
+    const favoriteCalls = log.filter((call) => call.requestPath.endsWith('/favorite'));
+    assert.equal(favoriteCalls.length, 1, '点一下必须只发一次请求');
+    assert.equal(
+      favoriteCalls[0].method,
+      'GET',
+      '★ 状态未知时点击的语义是「重新获取状态」（GET），不得盲取反（POST）'
+    );
+
+    log.length = 0;
+    await page.toggleRestockAlert();
+    await settle();
+    const restockCalls = log.filter((call) => call.requestPath.endsWith('/restock-alert'));
+    assert.equal(restockCalls.length, 1, '点一下必须只发一次请求');
+    assert.equal(restockCalls[0].method, 'GET', '★ 同上');
+
+    // ── ③ 视觉上必须与两种确定态都区分得开（源码级断言：本文件渲染不出 CSS）
+    const detailWxml = fs.readFileSync(path.join(miniprogramDirectory, 'pages', 'detail', 'detail.wxml'), 'utf8');
+    assert.ok(
+      detailWxml.includes("class=\"favorite-button {{(!favoriteStateLoaded || favoriteStateError) ? 'unknown' : (favorited ? 'active' : '')}}\""),
+      '★ 收藏按钮的 class 必须在「未知」时走第三支 `unknown`，而不是落进 `active` / 无 class'
+    );
+    assert.ok(
+      detailWxml.includes("class=\"restock-button {{(!restockStateLoaded || restockStateError) ? 'unknown' : ''}}\""),
+      '★ 到货提醒按钮同理'
+    );
+    const detailWxss = fs.readFileSync(path.join(miniprogramDirectory, 'pages', 'detail', 'detail.wxss'), 'utf8');
+    assert.ok(detailWxss.includes('.favorite-button.unknown'), '★ 第三态必须有独立样式，否则用户区分不开');
+    assert.ok(detailWxss.includes('.restock-button.unknown'), '★ 同上');
+  } finally {
+    harness.restore();
+  }
+});
+
+test('detail：成功路径逐字不变 —— 两种确定态与 `toggle*` 的取反行为都与改造前一致', async () => {
+  const harness = createHarness();
+  try {
+    const log = [];
+    const state = { favorite: false, restock: false };
+    harness.setApiHandler(switchApiHandler(state, log));
+    const page = harness.loadPage('pages/detail/detail.js');
+    page.onLoad({ id: SWITCH_PRODUCT.id });
+    await settle();
+    await settle();
+    await settle();
+
+    assert.ok(page.data.scooter, '前置条件：商品详情已取到');
+    assert.equal(page.data.scooter.sellableStock, 0, '前置条件：到货提醒按钮会渲染');
+    assert.equal(page.data.favoriteStateError, '', '成功路径不得落错误态');
+    assert.equal(page.data.restockStateError, '', '成功路径不得落错误态');
+
+    // ── 服务端明确答复「未收藏 / 未登记」→ 必须是改造前那两句原话
+    const notYet = renderText('pages/detail/detail.wxml', page.data);
+    assert.ok(notYet.includes('☆ 收藏'), `★ 答复「未收藏」时必须渲染原话。实际渲染：${notYet}`);
+    assert.ok(notYet.includes('到货提醒我'), `★ 答复「未登记」时必须渲染原话。实际渲染：${notYet}`);
+    assert.equal(notYet.includes('未知'), false, `★ 已经答复了就不该说「未知」。实际渲染：${notYet}`);
+
+    // ── 服务端明确答复「已收藏 / 已登记」→ 必须是改造前那两句原话
+    state.favorite = true;
+    state.restock = true;
+    await page.loadFavoriteState(SWITCH_PRODUCT.id);
+    await page.loadRestockState(SWITCH_PRODUCT.id);
+    await settle();
+    const done = renderText('pages/detail/detail.wxml', page.data);
+    assert.ok(done.includes('★ 已收藏'), `★ 答复「已收藏」时必须渲染原话。实际渲染：${done}`);
+    assert.ok(done.includes('已登记到货提醒'), `★ 答复「已登记」时必须渲染原话。实际渲染：${done}`);
+    assert.equal(done.includes('未知'), false, `实际渲染：${done}`);
+
+    // ── ③ 状态已知时，`toggleFavorite` 必须仍是**取反 + POST**（既有行为逐字不变）
+    log.length = 0;
+    page.toggleFavorite();
+    await settle();
+    await settle();
+    const favoriteCalls = log.filter((call) => call.requestPath.endsWith('/favorite'));
+    assert.equal(favoriteCalls.length, 1);
+    assert.equal(
+      favoriteCalls[0].method,
+      'POST',
+      '★ 状态已知时点击必须走 toggle（POST），不得被改成分流成 GET'
+    );
+    assert.equal(
+      favoriteCalls[0].data.favorited,
+      false,
+      '★ 原本 `favorited === true` → 取反后 POST `favorited: false`（与改造前逐字一致）'
+    );
+    assert.equal(page.data.favorited, false, 'POST 成功后本地状态跟着变（与改造前一致）');
+    assert.equal(harness.getToasts().length, 1, '成功后照旧弹 toast');
+    assert.equal(harness.getToasts()[0].title, '已取消收藏', 'toast 文案逐字不变');
+
+    log.length = 0;
+    page.toggleRestockAlert();
+    await settle();
+    await settle();
+    const restockCalls = log.filter((call) => call.requestPath.endsWith('/restock-alert'));
+    assert.equal(restockCalls.length, 1);
+    assert.equal(restockCalls[0].method, 'POST');
+    assert.equal(restockCalls[0].data.subscribed, false, '★ 原本 `restockSubscribed === true` → 取反后 POST false');
+    assert.equal(page.data.restockSubscribed, false);
+    assert.equal(harness.getToasts().length, 2);
+    assert.equal(harness.getToasts()[1].title, '已取消提醒', 'toast 文案逐字不变');
+  } finally {
+    harness.restore();
+  }
+});
+
+test('profile：订单提醒状态取不到 → 不得渲染确定态，且必须有可见的重试入口', async () => {
+  const harness = createHarness();
+  try {
+    const log = [];
+    const state = { subscribed: 'fail' };
+    harness.setApiHandler(profileStateApiHandler(state, log));
+    const page = harness.loadPage('pages/profile/profile.js');
+    page.onShow();
+    await settle();
+    await settle();
+
+    // ── ① 失败时用户**不会**看到一个确定的用户状态（本节主判据，刻意排在三态字段之前）
+    const rendered = renderText('pages/profile/profile.wxml', page.data);
+    assert.equal(
+      rendered.includes('开启订单微信提醒'),
+      false,
+      `★ 取不到状态时**绝不能**渲染「开启订单微信提醒」（那是断言「你没开提醒」）。实际渲染：${rendered}`
+    );
+    assert.equal(
+      rendered.includes('关闭订单微信提醒'),
+      false,
+      `★ 也不能把上一次的旧值当确定态渲染。实际渲染：${rendered}`
+    );
+
+    // ── ② 有**可见**的重试入口
+    assert.ok(rendered.includes('订单提醒未知'), `★ 必须落到中性态。实际渲染：${rendered}`);
+    assert.ok(rendered.includes('订单提醒未知·重试'), `★ 失败态要写明「重试」。实际渲染：${rendered}`);
+
+    // ── 三态字段（支撑证据）
+    assert.equal(page.data.orderMessageStateLoaded, true, '失败也算「得到了答复」');
+    assert.ok(page.data.orderMessageStateError, '★ 失败必须落成**可见**的错误态');
+
+    // ★ 重试入口必须是**真的**：未知态下点一下必须重新发 GET，而不是盲取反。
+    //   （`toggleOrderMessages` 的「开启」分支要读 `/api/subscribe-templates`，
+    //     盲取反会走那条链 —— 所以这里断言**只**发了状态查询这一个请求。）
+    log.length = 0;
+    await page.toggleOrderMessages();
+    await settle();
+    const calls = log.filter((call) => call.requestPath === '/api/order-message-subscriptions');
+    assert.equal(calls.length, 1, '点一下必须只发一次状态查询');
+    assert.equal(calls[0].method, 'GET', '★ 状态未知时点击的语义是「重新获取状态」（GET），不得盲取反（POST）');
+    assert.equal(
+      log.some((call) => call.requestPath === '/api/subscribe-templates'),
+      false,
+      '★ 未知态下不得走进「开启提醒」那条链（那会重新弹一次微信授权）'
+    );
+
+    // ── ③ 视觉上必须与两种确定态都区分得开（源码级断言：本文件渲染不出 CSS）
+    const profileWxml = fs.readFileSync(path.join(miniprogramDirectory, 'pages', 'profile', 'profile.wxml'), 'utf8');
+    assert.ok(
+      profileWxml.includes("class=\"message-toggle {{(!orderMessageStateLoaded || orderMessageStateError) ? 'unknown' : ''}}\""),
+      '★ 按钮的 class 必须在「未知」时走第三支 `unknown`'
+    );
+    const profileWxss = fs.readFileSync(path.join(miniprogramDirectory, 'pages', 'profile', 'profile.wxss'), 'utf8');
+    assert.ok(profileWxss.includes('.message-toggle.unknown'), '★ 第三态必须有独立样式');
+  } finally {
+    harness.restore();
+  }
+});
+
+test('profile：成功路径逐字不变 —— 两种确定态与 `toggleOrderMessages` 的行为都与改造前一致', async () => {
+  const harness = createHarness();
+  try {
+    const log = [];
+    const state = { subscribed: false };
+    harness.setApiHandler(profileStateApiHandler(state, log));
+    const page = harness.loadPage('pages/profile/profile.js');
+    page.onShow();
+    await settle();
+    await settle();
+
+    assert.equal(page.data.orderMessageStateError, '', '成功路径不得落错误态');
+
+    // 服务端明确答复「未开启」→ 必须是改造前那句原话
+    const off = renderText('pages/profile/profile.wxml', page.data);
+    assert.ok(off.includes('开启订单微信提醒'), `★ 答复「未开启」时必须渲染原话。实际渲染：${off}`);
+    assert.equal(off.includes('订单提醒未知'), false, `实际渲染：${off}`);
+
+    // 服务端明确答复「已开启」→ 必须是改造前那句原话
+    state.subscribed = true;
+    await page.loadOrderMessageState();
+    await settle();
+    const on = renderText('pages/profile/profile.wxml', page.data);
+    assert.ok(on.includes('关闭订单微信提醒'), `★ 答复「已开启」时必须渲染原话。实际渲染：${on}`);
+    assert.equal(on.includes('订单提醒未知'), false, `实际渲染：${on}`);
+
+    // ★ 状态已知时点击必须仍是**取反 + POST**（走「关闭」那一支，既有行为逐字不变）
+    log.length = 0;
+    page.toggleOrderMessages();
+    await settle();
+    await settle();
+    const posts = log.filter(
+      (call) => call.requestPath === '/api/order-message-subscriptions' && call.method === 'POST'
+    );
+    assert.equal(posts.length, 1, '状态已知时点击必须走 POST');
+    assert.equal(posts[0].data.accepted, false, '★ 原本已开启 → POST `accepted: false`（与改造前逐字一致）');
+    assert.equal(page.data.orderMessageSubscribed, false);
+    assert.equal(harness.getToasts().length, 1);
+    assert.equal(harness.getToasts()[0].title, '已关闭提醒', 'toast 文案逐字不变');
+  } finally {
+    harness.restore();
+  }
+});
+
+test('端到端：detail 先成功（已收藏 / 已登记）→ 再刷新失败 → 不得回退成确定态，旧值不被清掉', async () => {
+  const harness = createHarness();
+  try {
+    const state = { favorite: true, restock: true };
+    harness.setApiHandler(switchApiHandler(state));
+    const page = harness.loadPage('pages/detail/detail.js');
+    page.onLoad({ id: SWITCH_PRODUCT.id });
+    await settle();
+    await settle();
+    await settle();
+
+    // ── 第一轮：服务端明确答复「已收藏 / 已登记」
+    const before = renderText('pages/detail/detail.wxml', page.data);
+    assert.ok(before.includes('★ 已收藏'), `前置条件：第一轮渲染出确定态。实际渲染：${before}`);
+    assert.ok(before.includes('已登记到货提醒'), `前置条件：第一轮渲染出确定态。实际渲染：${before}`);
+
+    // ── 第二轮：同两个端点失败（刷新），商品本身仍然成功
+    state.favorite = 'fail';
+    state.restock = 'fail';
+    await page.retryProduct();
+    await settle();
+    await settle();
+    await settle();
+
+    assert.equal(page.data.loadError, '', '前置条件：这一轮只有两个状态端点失败');
+
+    // ── 主判据（刻意排在「旧值不被清掉」之前）：刷新失败后一句确定态文案都不许出现
+    const after = renderText('pages/detail/detail.wxml', page.data);
+    assert.deepEqual(
+      certainSwitchTextsIn(after),
+      [],
+      `★ 刷新失败后一句确定态文案都不许出现。实际渲染：${after}`
+    );
+    assert.ok(after.includes('收藏未知·重试'), `★ 必须给中性 + 可重试的呈现。实际渲染：${after}`);
+    assert.ok(after.includes('提醒未知·重试'), `★ 必须给中性 + 可重试的呈现。实际渲染：${after}`);
+
+    // ★ 旧值**不得**被清成「未收藏 / 未登记」——失败不清空数据（`rejectBlock` 同一条纪律）
+    assert.equal(page.data.favorited, true, '★ 失败不得把上次确认过的 `favorited` 改掉');
+    assert.equal(page.data.restockSubscribed, true, '★ 失败不得把上次确认过的 `restockSubscribed` 改掉');
+
+    // ── 第三轮：网络恢复 → 中性态必须能自己走回确定态（重试入口是真的）
+    state.favorite = true;
+    state.restock = true;
+    await page.toggleFavorite();
+    await settle();
+    await page.toggleRestockAlert();
+    await settle();
+    const recovered = renderText('pages/detail/detail.wxml', page.data);
+    assert.ok(recovered.includes('★ 已收藏'), `★ 重试成功后必须回到确定态。实际渲染：${recovered}`);
+    assert.ok(recovered.includes('已登记到货提醒'), `★ 重试成功后必须回到确定态。实际渲染：${recovered}`);
+    assert.equal(recovered.includes('未知'), false, `实际渲染：${recovered}`);
+  } finally {
+    harness.restore();
+  }
+});
+
+test('端到端：profile 先成功（已开启）→ 再刷新失败 → 不得回退成「开启订单微信提醒」', async () => {
+  const harness = createHarness();
+  try {
+    const state = { subscribed: true };
+    harness.setApiHandler(profileStateApiHandler(state));
+    const page = harness.loadPage('pages/profile/profile.js');
+    page.onShow();
+    await settle();
+    await settle();
+
+    // ── 第一轮：服务端明确答复「已开启」
+    const before = renderText('pages/profile/profile.wxml', page.data);
+    assert.ok(before.includes('关闭订单微信提醒'), `前置条件：第一轮渲染出「已开启」。实际渲染：${before}`);
+
+    // ── 第二轮：刷新失败
+    state.subscribed = 'fail';
+    await page.loadOrderMessageState();
+    await settle();
+
+    // ── 主判据（刻意排在「旧值不被清掉」之前）
+    const after = renderText('pages/profile/profile.wxml', page.data);
+    assert.equal(
+      after.includes('开启订单微信提醒'),
+      false,
+      `★ 刷新失败后**绝不能**渲染「开启订单微信提醒」——那会让一个已经开着提醒的用户以为被关掉了。实际渲染：${after}`
+    );
+    assert.equal(
+      after.includes('关闭订单微信提醒'),
+      false,
+      `★ 也不能继续把旧值当确定态渲染（旧值只留在 data 里，不进渲染）。实际渲染：${after}`
+    );
+    assert.ok(after.includes('订单提醒未知·重试'), `★ 必须给中性 + 可重试的呈现。实际渲染：${after}`);
+
+    assert.equal(page.data.orderMessageSubscribed, true, '★ 失败不得把上次确认过的 `orderMessageSubscribed` 改掉');
+
+    // ── 第三轮：网络恢复 → 中性态走回确定态
+    state.subscribed = true;
+    await page.toggleOrderMessages();
+    await settle();
+    const recovered = renderText('pages/profile/profile.wxml', page.data);
+    assert.ok(recovered.includes('关闭订单微信提醒'), `★ 重试成功后必须回到确定态。实际渲染：${recovered}`);
+    assert.equal(recovered.includes('订单提醒未知'), false, `实际渲染：${recovered}`);
+  } finally {
+    harness.restore();
+  }
+});

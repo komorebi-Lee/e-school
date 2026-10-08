@@ -97,7 +97,20 @@ Page({
     userId: "",
     loginState: "loading",
     loggingIn: false,
-    orderMessageSubscribed: false
+    orderMessageSubscribed: false,
+    // ★ 「订单微信提醒」开关的三态（T52）。
+    //
+    // 改造前这一处的 catch 写 `orderMessageSubscribed: false` —— 把「我们没问到」
+    // 渲染成「你没开启提醒」。用户据此再点一次，而 `toggleOrderMessages` 是**取反**，
+    // 于是在「其实已开启」时反而把提醒**关掉**。
+    //
+    //   `orderMessageStateLoaded === false` → 还没问到（请求尚未答复）
+    //   `...Loaded === true && ...Error`    → 问失败了（可重试）
+    //   `...Loaded === true && !...Error`   → 服务端明确答复，`orderMessageSubscribed` 可信
+    // 成功与失败**都**置 `Loaded = true`（`ordersLoaded` 范式：它区分的是
+    // 「还没取到」与「取到了」，不是「成功」与「失败」）。
+    orderMessageStateLoaded: false,
+    orderMessageStateError: ""
   },
   onShow() { this.refreshLoginState(); this.loadIdentity(); this.loadMerchantBadge(); this.loadNotifications(); this.loadOrderMessageState(); },
   onLoad() {
@@ -128,6 +141,30 @@ Page({
       });
     });
   },
+  /**
+   * 读取「商家审核通过」红点角标。
+   *
+   * ★ **显式登记：失败时写 `merchantBadge: false` 保持不动（T52 判定）。**
+   *
+   * 这一处**不属于**「失败被渲染成确定的用户状态」那一类，理由是它与
+   * {@link loadOrderMessageState} / `detail.loadFavoriteState` 有本质区别：
+   *
+   * 1. **失败时它渲染的是「什么都没有」**（`profile.wxml` 里 `wx:if="{{merchantBadge}}"`
+   *    的红点元素），而不是一个**对用户状态的断言**。「没有红点」在用户读来是
+   *    「没有新提醒」，不是「我不是商家」—— 而「☆ 收藏」读来就是「你没收藏过」。
+   * 2. **它把「没问到」推向的方向是保守的**：默认值 `false` = **漏一次提醒**；
+   *    而那三处的默认值恰好是**激进**方向 = **假陈述**（用户据此做反操作）。
+   * 3. **它不是状态的唯一载体**：用户点进「商家入驻 / 商家工作台」照样能看到真实状态；
+   *    而收藏 / 提醒开关在页面上没有第二处显示。
+   * 4. 红点只有「显示 / 不显示」两态，**没有第三态可表达**；为它加一个「状态未知」
+   *    占位，等于每次网络抖动都在个人中心菜单上挂一条错误提示 —— 那是噪音，不是信息。
+   *
+   * **残留风险（如实记下）**：若 `GET /api/merchants` 长期失败，商家审核通过后
+   * 会一直看不到红点（漏提醒）。判定为可接受 —— 该请求在 `onShow` 每次都重试，
+   * 且漏提醒不改变任何用户可见的**断言**。
+   *
+   * @returns {void}
+   */
   loadMerchantBadge() {
     request(`/api/merchants?userId=${encodeURIComponent(userId())}`).then(({ data }) => {
       const approved = data.find((item) => item.status === "APPROVED");
@@ -185,12 +222,30 @@ Page({
     // 通知链接可能指向 tabBar 页面，统一交给 openLink 判定，失败不再静默
     openLink(link);
   },
+  /**
+   * 读取「订单微信提醒」是否已开启。
+   *
+   * ★ 失败时**不得**把 `orderMessageSubscribed` 写成 `false`（T52）：那是向用户
+   *   断言「你没开启提醒」，而我们其实**不知道**。失败只落 `orderMessageStateError`，
+   *   `orderMessageSubscribed` 保留上一次的值 —— 与 `loadState.rejectBlock` 的
+   *   「失败不清空数据」同一条纪律；渲染层改看 `orderMessageStateError`，不读这个旧值。
+   *
+   * @returns {Promise<void>} 请求结束后解析（本函数不 rethrow）。
+   */
   loadOrderMessageState() {
-    request("/api/order-message-subscriptions").then(({ data }) => {
-      this.setData({ orderMessageSubscribed: data.subscribed === true });
-    }).catch(() => this.setData({ orderMessageSubscribed: false }));
+    return request("/api/order-message-subscriptions").then(({ data }) => {
+      this.setData({ orderMessageSubscribed: data.subscribed === true, orderMessageStateLoaded: true, orderMessageStateError: "" });
+    }).catch((error) => {
+      this.setData({ orderMessageStateLoaded: true, orderMessageStateError: loadState.blockErrorText(error) });
+    });
   },
   toggleOrderMessages() {
+    // ★ 状态未知时**绝不能**盲 toggle（T52）：`orderMessageSubscribed` 在未知态还是
+    //   初值 `false`，取反就会在「其实已开启」时把提醒**关掉**。所以未知态下这个
+    //   按钮的语义是「重新获取状态」。
+    if (!this.data.orderMessageStateLoaded || this.data.orderMessageStateError) {
+      return this.loadOrderMessageState();
+    }
     if (this.data.orderMessageSubscribed) {
       request("/api/order-message-subscriptions", { method: "POST", data: { accepted: false } }).then(() => {
         this.setData({ orderMessageSubscribed: false });

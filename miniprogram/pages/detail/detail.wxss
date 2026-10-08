@@ -63,6 +63,11 @@
 .consult-button { margin: 0; padding: 0 22rpx; height: 78rpx; line-height: 78rpx; border-radius: 999rpx; background: #eaf0ff; color: #002fa7; font-size: 23rpx; font-weight: 800; }
 .favorite-button { margin: 0; padding: 0 24rpx; height: 78rpx; line-height: 78rpx; border-radius: 999rpx; background: #f2f5fa; color: #536078; font-size: 23rpx; font-weight: 800; }
 .favorite-button.active { background: #fff7e6; color: #d97706; }
+/* ★ 「状态未知」（T52）：还没问到 / 问失败了。视觉上必须与「已收藏」的暖色、
+   与「未收藏」的中性色都区分开 —— 它是**第三种**状态，不是任何一种确定状态。
+   文案里的「·重试」只在**失败**时出现（还没问到时不写，因为那只是加载中）。 */
+.favorite-button.unknown { background: #fff; color: #78849a; border: 2rpx dashed #c6cddb; }
+.restock-button.unknown { background: #fff; color: #78849a; border: 2rpx dashed #c6cddb; }
 .rental-line { display: flex; align-items: center; gap: 12rpx; flex-wrap: wrap; margin-top: 16rpx; }
 .rental-tag { padding: 4rpx 12rpx; border-radius: 999rpx; background: #002fa7; color: #fff; font-size: 19rpx; font-weight: 800; }
 .rental-plan { padding: 8rpx 24rpx 20rpx; }
