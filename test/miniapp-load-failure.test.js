@@ -2969,3 +2969,230 @@ test('「还没问到」那一瞬：三处开关尚未得到答复时不得渲�
     harness.restore();
   }
 });
+
+/**
+ * T53（M8-P1-03）：足迹页的「清空」与去重说明。
+ *
+ * 本用例把四件事钉死：
+ *  1. **二次确认**：清空不可逆，用户未确认前**一个请求都不发**；
+ *  2. **清空后落「正常空态」** —— 不是错误态、不是一直 loading；
+ *  3. **重进页面（`onShow`）不回填**；
+ *  4. **失败可见 + 可重试**，且那个「重试」重试的是**清空本身**（不是重新加载）。
+ *
+ * ★ 服务端桩是**有状态**的：`DELETE` 真的把记录删掉、`GET` 反映真实结果。
+ *   若桩永远返回同一份列表，「重进不回填」这条断言会**空过** —— 它证明不了任何东西。
+ *
+ * ★ 文案判据：用户可见文案里**不得出现「200」**。那个 200 是**所有用户共享**的
+ *   存储上限（`POST` 分支砍的是 `data.productFootprints` 这个全局数组），
+ *   而用户一次最多只看到 20 条。写 200 会让用户以为「我能翻到 200 条」。
+ */
+test('T53：足迹页清空 —— 取消不发请求、清空后落正常空态、重进不回填、失败可重试', async () => {
+  const harness = createHarness();
+  try {
+    const FOOTPRINTS_WXML = 'pages/footprints/footprints.wxml';
+    const sampleRecords = () => [
+      {
+        id: 'prod_card_service_001', category: 'PHONE_PLAN', name: '校园畅享卡',
+        merchantName: '平台自营', effectivePriceInCents: 2900, availableStock: 999
+      },
+      {
+        id: 'prod_ebike_001', category: 'E_BIKE_NEW', name: '轻风 通勤版',
+        merchantName: '狮山校园车行', effectivePriceInCents: 239900, availableStock: 8
+      }
+    ];
+    let records = sampleRecords();
+    let deleteShouldFail = false;
+    // 服务端「真实总数」。默认与列表长度一致；需要验证截断文案时单独调大。
+    let serverTotal = null;
+    const calls = [];
+    harness.setApiHandler((requestPath, options) => {
+      const method = (options && options.method) || 'GET';
+      calls.push({ path: requestPath, method });
+      if (requestPath !== '/api/my/footprints') return Promise.resolve({ data: [] });
+      if (method === 'DELETE') {
+        if (deleteShouldFail) {
+          return Promise.reject(serverError('FOOTPRINT_CLEAR_FAILED', 500, '清空失败，请重试'));
+        }
+        const removed = records.length;
+        records = [];
+        return Promise.resolve({ data: { removed } });
+      }
+      return Promise.resolve({
+        data: records.slice(),
+        total: serverTotal === null ? records.length : serverTotal
+      });
+    });
+    const deleteCalls = () => calls.filter((call) => call.method === 'DELETE');
+    const page = harness.loadPage('pages/footprints/footprints.js');
+
+    // ==================== ① 清空前：条数准确 + 去重说明可见 + 不提 200 ====================
+    await page.load();
+    assert.equal(page.data.footprintsBlock.data.length, 2, '① 前置：应加载出 2 条足迹');
+    const beforeText = renderText(FOOTPRINTS_WXML, page.data);
+    assert.ok(
+      beforeText.includes('最近浏览的 2 件商品'),
+      `① ★ 顶部必须说**用户实际看到的条数**。实际渲染：${beforeText}`
+    );
+    assert.ok(
+      beforeText.includes('重复浏览同一件商品会自动置顶'),
+      `① ★ 去重说明必须可见（PRD 验收项）。实际渲染：${beforeText}`
+    );
+    assert.ok(beforeText.includes('清空足迹'), `① ★ 必须有清空入口。实际渲染：${beforeText}`);
+    // ★ 这一条同时是「渲染器真的剥掉了注释」的守卫：wxml 注释里**确实**写了
+    //   「200」与「最多显示 20 件」，注释一旦泄漏进渲染结果，下面两条立刻红。
+    assert.equal(
+      beforeText.includes('200'),
+      false,
+      `① ★★ 用户可见文案里不得出现「200」（那是全局存储上限，对单个用户不成立）。实际渲染：${beforeText}`
+    );
+    assert.equal(
+      beforeText.includes('最多显示 20 件'),
+      false,
+      `① ★ 没被截断时不得声称「最多显示 20 件」。实际渲染：${beforeText}`
+    );
+
+    // ==================== ② 点「清空」→ 弹确认框，且**未确认前一个请求都不发** ====================
+    calls.length = 0;
+    page.clearFootprints();
+    assert.equal(harness.getModals().length, 1, '② ★ 清空不可逆，必须先弹二次确认');
+    assert.equal(harness.getModals().at(-1).title, '清空足迹', '② 确认框标题');
+    assert.equal(
+      harness.getModals().at(-1).content,
+      '清空后无法恢复，将删除你账号下的全部浏览记录。',
+      '② ★ 确认框必须说清「不可恢复」与「删的是什么」'
+    );
+    assert.equal(deleteCalls().length, 0, '② ★★ 用户还没确认，不得发任何 DELETE 请求');
+
+    // ==================== ③ 点「取消」→ 仍然一个请求都不发 ====================
+    harness.getModals().at(-1).success({ confirm: false });
+    await settle();
+    await settle();
+    assert.equal(
+      deleteCalls().length, 0,
+      '③ ★★ 点「取消」不得发请求（这是本交互最容易漏掉的缺陷）'
+    );
+    assert.equal(page.data.footprintsBlock.data.length, 2, '③ 取消后列表必须原样保留');
+
+    // ==================== ④ 点「确认」→ 真的发 DELETE（且只发一次） ====================
+    page.clearFootprints();
+    harness.getModals().at(-1).success({ confirm: true });
+    await settle();
+    await settle();
+    assert.equal(deleteCalls().length, 1, '④ ★ 确认后必须发出且只发一次 DELETE');
+
+    // ==================== ⑤ 清空后：**正常空态**（不是错误态、不是一直 loading） ====================
+    //
+    // ★ 判据顺序是**刻意**的：先断言「用户实际看到的那段文字」，再断言状态字段。
+    //   实测（变异 ④「清空后留旧数据」）：若把 `data.length` 排在最前，用例会在那条
+    //   **旁证**上就中断，**渲染判据根本没被求值** —— 于是「空态文案真的被判过吗」
+    //   拿不到证据。这与 T52 那次「旁证先红」是同一个坑。
+    const afterText = renderText(FOOTPRINTS_WXML, page.data);
+    assert.ok(
+      afterText.includes('暂无浏览记录'),
+      `⑤ ★★ 清空后必须落正常空态文案（本组主判据）。实际渲染：${afterText}`
+    );
+    assert.equal(
+      afterText.includes('最近浏览的'),
+      false,
+      `⑤ ★ 清空后不得再显示条数摘要。实际渲染：${afterText}`
+    );
+    assert.equal(
+      afterText.includes('清空足迹'),
+      false,
+      `⑤ ★ 清空后没有东西可清，不得再显示清空按钮。实际渲染：${afterText}`
+    );
+    assert.equal(page.data.footprintsBlock.data.length, 0, '⑤ 清空后列表应为空（旁证）');
+    assert.equal(page.data.footprintsBlock.loading, false, '⑤ ★ 清空后不得停在 loading');
+    assert.equal(page.data.footprintsBlock.error, '', '⑤ ★ 清空后是**正常空态**，不是错误态');
+    assert.equal(page.data.clearError, '', '⑤ 清空成功不得留下错误占位');
+
+    // ==================== ⑥ 重进页面（onShow）→ 不回填 ====================
+    // ★ 同 ⑤：渲染判据在前、状态字段（旁证）在后。
+    page.onShow();
+    await settle();
+    await settle();
+    const reenterText = renderText(FOOTPRINTS_WXML, page.data);
+    assert.equal(
+      reenterText.includes('最近浏览的'),
+      false,
+      `⑥ ★★ 重进后不得回填已清空的足迹（主判据：看用户实际看到什么）。实际渲染：${reenterText}`
+    );
+    assert.ok(
+      reenterText.includes('暂无浏览记录'),
+      `⑥ ★ 重进后仍是正常空态。实际渲染：${reenterText}`
+    );
+    assert.equal(page.data.footprintsBlock.data.length, 0, '⑥ 重进后列表应为空（旁证）');
+
+    // ==================== ⑦ 截断文案：只有服务端说被截断时才出现 ====================
+    records = sampleRecords();
+    serverTotal = 23;
+    await page.load();
+    assert.equal(
+      page.data.footprintTruncated, true,
+      '⑦ 服务端说真实总数 23 > 本页 2 条 → 应判定为被截断'
+    );
+    const truncatedText = renderText(FOOTPRINTS_WXML, page.data);
+    assert.ok(
+      truncatedText.includes('最多显示 20 件'),
+      `⑦ ★ 被截断时必须如实告知「最多显示 20 件」。实际渲染：${truncatedText}`
+    );
+    assert.ok(
+      truncatedText.includes('最近浏览的 2 件商品'),
+      `⑦ ★ 条数仍是**用户实际看到的**条数（2），不是真实总数（23）。实际渲染：${truncatedText}`
+    );
+
+    // ==================== ⑧ 失败：可见 + 可重试，且重试的是**清空本身** ====================
+    serverTotal = null;
+    deleteShouldFail = true;
+    calls.length = 0;
+    page.clearFootprints();
+    harness.getModals().at(-1).success({ confirm: true });
+    await settle();
+    await settle();
+    assert.equal(page.data.clearing, false, '⑧ 失败后不得把按钮锁在「清空中…」');
+    assert.ok(
+      page.data.clearError,
+      '⑧ ★ 失败必须落成**常驻**错误（可见），而不是只弹一个会消失的 toast'
+    );
+    assert.equal(
+      page.data.footprintsBlock.data.length, 2,
+      '⑧ ★ 失败时不得清空列表 —— 我们并不知道服务端到底删没删掉'
+    );
+    const failureText = renderText(FOOTPRINTS_WXML, page.data);
+    assert.ok(
+      failureText.includes(page.data.clearError),
+      `⑧ 错误文案必须渲染出来。实际渲染：${failureText}`
+    );
+    assert.ok(failureText.includes('重试'), `⑧ ★ 必须给出重试入口。实际渲染：${failureText}`);
+
+    // ★★ 「重试」必须重试**清空**本身。若它退化成 `load()`，用户点多少次都删不掉 ——
+    //    那个重试按钮就是假的。
+    //
+    // ★ 前置：进入重试前 `clearError` **必须非空**。`retryFootprints` 的分流依据就是
+    //   它 —— 若它在这里是空的，重试必然走 `load()` 分支，而下面那条断言会以
+    //   「0 !== 1」的形式失败，却看不出根因。先把状态钉住，失败才可归因。
+    assert.ok(
+      page.data.clearError,
+      `⑧ 前置：进入重试前 clearError 必须非空（它是 retryFootprints 的分流依据）。`
+      + `实得：${JSON.stringify(page.data.clearError)}`
+    );
+    calls.length = 0;
+    deleteShouldFail = false;
+    await page.retryFootprints();
+    await settle();
+    assert.equal(
+      deleteCalls().length, 1,
+      '⑧ ★★ 清空失败后的「重试」必须重试**清空**，而不是重新加载（重新加载删不掉任何东西）。'
+      // ★ 断言消息里带上**全部**判据依据：这条断言曾以「0 !== 1」失败过一次，
+      //   单看那两个数字无法归因（是 clearError 空了？还是请求没发出去？）。
+      + `证据：clearError=${JSON.stringify(page.data.clearError)}`
+      + ` clearing=${page.data.clearing}`
+      + ` calls=${JSON.stringify(calls)}`
+      + ` deleteShouldFail=${deleteShouldFail}`
+    );
+    assert.equal(page.data.clearError, '', '⑧ 重试成功后应清掉错误占位');
+    assert.equal(page.data.footprintsBlock.data.length, 0, '⑧ 重试成功后列表应为空');
+  } finally {
+    harness.restore();
+  }
+});

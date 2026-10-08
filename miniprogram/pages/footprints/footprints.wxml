@@ -5,11 +5,31 @@
     <button size="mini" class="ghost-button" bindtap="retryFootprints">重试</button>
   </view>
 
+  <!-- 清空失败：同样是**常驻**占位 + 重试（不是会消失的 toast）。
+       ★ 这里的「重试」重试的是**清空本身**，不是重新加载 —— 重新加载不会删掉
+       任何东西，用户点重试永远清不掉。分流见 `retryFootprints`。 -->
+  <view wx:if="{{clearError}}" class="load-error card">
+    <view class="muted">{{clearError}}</view>
+    <button size="mini" class="ghost-button" bindtap="retryFootprints">重试</button>
+  </view>
+
   <view wx:if="{{footprintsBlock.loading && !footprintsBlock.data.length}}" class="empty card"><view class="muted">正在加载足迹…</view></view>
   <!-- 空态：必须同时「不在加载」且「没有错误」，否则失败会被说成「暂无浏览记录」 -->
   <view wx:elif="{{!footprintsBlock.data.length && !footprintsBlock.error}}" class="empty card"><view class="muted">暂无浏览记录，逛逛商品详情页就会出现在这里</view></view>
   <block wx:else>
-    <view class="summary card" wx:if="{{footprintsBlock.data.length}}">最近看过 {{footprintsBlock.data.length}} 件商品</view>
+    <!-- ★ 顶部文案只说**用户实际看得到的东西**：
+         条数用本页真实渲染出的条数（不是服务端那个全局 200 的存储上限）；
+         「（最多显示 20 件）」只在服务端**明确告知被截断**时才出现。
+         改造前这里写的是「最近看过 N 件商品」，而 N 是**被截断后**的长度 ——
+         用户看过 50 件时它说「最近看过 20 件」，既少报、又用「最近」暗示这就是全部；
+         而且当时列表的顺序其实是商品目录顺序，根本不是最近的。 -->
+    <view class="summary card" wx:if="{{footprintsBlock.data.length}}">
+      <view class="summary-main">
+        <view>最近浏览的 {{footprintsBlock.data.length}} 件商品<text wx:if="{{footprintTruncated}}">（最多显示 20 件）</text></view>
+        <view class="muted summary-note">重复浏览同一件商品会自动置顶</view>
+      </view>
+      <button size="mini" class="ghost-button clear-button" disabled="{{clearing}}" bindtap="clearFootprints">{{clearing ? '清空中…' : '清空足迹'}}</button>
+    </view>
     <view class="footprint-card card" wx:for="{{footprintsBlock.data}}" wx:key="id" bindtap="goDetail" data-id="{{item.id}}">
       <view class="product-type scooter-type">{{item.categoryLabel}}</view>
       <view class="product-main">

@@ -1,5 +1,10 @@
 .page { padding: 20rpx 24rpx; }
-.summary { padding: 22rpx; color: #536078; font-size: 22rpx; margin-bottom: 18rpx; }
+.summary { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; padding: 22rpx; color: #536078; font-size: 22rpx; margin-bottom: 18rpx; }
+/* 左列：条数 + 去重说明。`min-width: 0` 让长文案能换行而不是把按钮挤出去。 */
+.summary-main { flex: 1; min-width: 0; }
+.summary-note { margin-top: 6rpx; font-size: 20rpx; line-height: 1.45; }
+/* 清空按钮：不抢宽度，但也不被压扁。 */
+.clear-button { min-width: 150rpx; margin: 0; flex-shrink: 0; }
 .footprint-card { display: flex; align-items: center; padding: 22rpx; margin-bottom: 15rpx; }
 .product-type { width: 94rpx; padding: 18rpx 8rpx; border-radius: 15rpx; text-align: center; font-size: 20rpx; font-weight: 900; }
 .scooter-type { background: #fff1b8; color: #7c5c00; }
