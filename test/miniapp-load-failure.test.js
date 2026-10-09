@@ -1168,7 +1168,7 @@ test('store：网络失败 → 错误占位 + 可重试，且三个渲染点都�
         `网络失败时不得渲染「${falseStatement}」，实际渲染：${rendered}`
       );
     }
-    assert.equal(typeof page.retryStorefront, 'function', 'wxml 上绑定的重试入口必须存在');
+    assert.equal(typeof page.retryStorefront, 'function', '页面对象上必须有 retryStorefront 方法（不涉及 wxml 绑定）');
   } finally {
     harness.restore();
   }
@@ -2175,7 +2175,7 @@ test('checkout：失败 → 常驻错误占位 + 可重试，不靠会消失的 
     );
 
     // 重试入口必须真的存在，且必须走 `loadProduct()`。
-    assert.equal(typeof page.retryProduct, 'function', 'wxml 上绑定的重试入口必须存在');
+    assert.equal(typeof page.retryProduct, 'function', '页面对象上必须有 retryProduct 方法（不涉及 wxml 绑定）');
     // ★ 不能用 `page.retryProduct.toString()` 查源码：harness 把方法 `.bind(instance)` 过，
     //   绑定函数的 `toString()` 只会返回 `function () { [native code] }`（我第一版就是这么
     //   写错的 —— 那条断言恒假）。所以查**文件原文**里 `retryProduct` 的方法体。
