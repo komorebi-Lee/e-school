@@ -74,6 +74,18 @@ Page({
     });
   },
 
+  /**
+   * 收起表单（`addresses.wxml:7` 的「收起」与 `:30` 的「取消」共用同一个入口）。
+   *
+   * ★ **只关表单，不清字段** —— 这是有意为之，不是漏写：
+   *   `startCreate()` 会把 `this.data.form.campusName` 当作**下次新增时的默认校区**，
+   *   若这里顺手把字段清空，用户刚选好的校区就丢了，下次还得重选一遍。
+   *   `saveAddress()` 成功后同样保留 `campusName`，两处行为一致。
+   */
+  cancelForm() {
+    this.setData({ 'form.visible': false });
+  },
+
   setField(event) {
     const key = event.currentTarget.dataset.key;
     if (!key) return;
