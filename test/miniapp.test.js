@@ -148,6 +148,11 @@ test('sold-out products can register restock alerts', () => {
 
   const markup = readMiniappFile(path.join('pages', 'detail', 'detail.wxml'));
   assert.ok(markup.includes('restockSubscribed'), 'detail should show the restock alert state');
+  // ★ 接线层：断言**精确形态** `bindtap="toggleRestockAlert"`，而不是裸名字。
+  //   裸名字只是「偶然有效」—— 该名字在 wxml 里恰好只出现在这一处绑定上；
+  //   一旦别处（注释 / 文案 / 另一个属性）也出现它，弱形态断言就会失效。
+  //   精确形态断言的才是「这个按钮真的接了这个 handler」。
+  assert.ok(markup.includes('bindtap="toggleRestockAlert"'), 'detail 的到货提醒按钮必须真实绑定点击事件');
 });
 
 test('checkout supports bounded e-bike purchase quantity', () => {
@@ -333,7 +338,7 @@ test('users can favorite products and revisit favorites', () => {
   assert.ok(detailSource.includes('/favorite'), 'detail should load and update favorite state');
   assert.ok(detailSource.includes('toggleFavorite'), 'detail should support favorite toggling');
   const detailMarkup = readMiniappFile(path.join('pages', 'detail', 'detail.wxml'));
-  assert.ok(detailMarkup.includes('toggleFavorite'), 'detail should provide a favorite action');
+  assert.ok(detailMarkup.includes('bindtap="toggleFavorite"'), 'detail should provide a favorite action');
 
   const favoritesSource = readMiniappFile(path.join('pages', 'favorites', 'favorites.js'));
   assert.ok(favoritesSource.includes('/api/my/favorites'), 'favorites page should load server favorites');
@@ -1172,7 +1177,7 @@ test('profile order reminders respect the WeChat authorization result', () => {
   assert.ok(profileJs.includes('wx.requestSubscribeMessage'), 'reminder toggle should request WeChat authorization');
   assert.ok(profileJs.includes('acceptedTemplates.length'), 'only accepted templates should activate the server subscription');
   assert.ok(profileJs.includes('没有获得微信提醒授权'), 'rejected authorization should keep the reminder off');
-  assert.ok(profileWxml.includes('toggleOrderMessages'), 'profile should expose the reminder toggle');
+  assert.ok(profileWxml.includes('bindtap="toggleOrderMessages"'), 'profile should expose the reminder toggle');
 });
 
 test('scooter list shows service score and commerce signals', () => {

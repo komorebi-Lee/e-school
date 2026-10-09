@@ -2595,8 +2595,13 @@ test('detail：收藏 / 到货提醒状态取不到 → 不得渲染确定态，
     assert.ok(page.data.favoriteStateError, '★ 失败必须落成**可见**的错误态，而不是只有一个 toast');
     assert.ok(page.data.restockStateError, '★ 失败必须落成**可见**的错误态');
 
-    assert.equal(typeof page.toggleFavorite, 'function', 'wxml 上绑定的入口必须存在');
-    assert.equal(typeof page.toggleRestockAlert, 'function', 'wxml 上绑定的入口必须存在');
+    // ★ 消息必须**如实描述它在查什么**：这两条查的是「**页面对象上有这个方法**」，
+    //   不是「wxml 上绑了这个方法」。wxml 绑定由 `test/miniapp.test.js` 的
+    //   `bindtap="..."` **精确形态**断言守卫 —— 两者是两件事，不要混为一谈。
+    //   （旧消息写「wxml 上绑定的入口必须存在」是**假陈述**：删掉 wxml 里的
+    //     `bindtap` 后它照样绿，因为 `typeof page.X === 'function'` 不受影响。）
+    assert.equal(typeof page.toggleFavorite, 'function', '页面对象上必须有 toggleFavorite 方法（不涉及 wxml 绑定）');
+    assert.equal(typeof page.toggleRestockAlert, 'function', '页面对象上必须有 toggleRestockAlert 方法（不涉及 wxml 绑定）');
 
     // ★ 重试入口必须是**真的**：未知态下点一下，必须**重新发 GET**，而不是盲取反发 POST。
     log.length = 0;
