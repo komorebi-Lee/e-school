@@ -190,8 +190,10 @@ function countOutsideComments(source, ranges, pattern) {
  *
  * @param {string} source wxml 全文。
  * @returns {{eventAttributeCount: number, dynamicAttributeCount: number,
- *   families: Map<string, number>, refs: Array<object>}} 解析结果。
- *   `refs` 每项为 `{ line, attribute, handler, dynamic }`。
+ *   dynamicWithoutBranchCount: number, families: Map<string, number>,
+ *   refs: Array<object>}} 解析结果。
+ *   `refs` 每项为 `{ line, attribute, handler, dynamic }`；
+ *   `dynamicWithoutBranchCount` = 带 `{{}}` 但**解析不出任何分支**的属性数（主判据要求它为 0）。
  */
 function collectBindings(source) {
   const ranges = commentRanges(source);
@@ -200,6 +202,7 @@ function collectBindings(source) {
   const refs = [];
   let eventAttributeCount = 0;
   let dynamicAttributeCount = 0;
+  let dynamicWithoutBranchCount = 0;
 
   EVENT_ATTRIBUTE_PATTERN.lastIndex = 0;
   let match = EVENT_ATTRIBUTE_PATTERN.exec(source);
@@ -213,19 +216,30 @@ function collectBindings(source) {
       families.set(attribute, (families.get(attribute) || 0) + 1);
       if (value.includes('{{')) {
         dynamicAttributeCount += 1;
+        const beforeBranch = refs.length;
         TERNARY_BRANCH_PATTERN.lastIndex = 0;
         let branch = TERNARY_BRANCH_PATTERN.exec(value);
         while (branch !== null) {
           refs.push({ line, attribute, handler: branch[1], dynamic: true });
           branch = TERNARY_BRANCH_PATTERN.exec(value);
         }
+        // ★★ 带 `{{}}` 却**不含三元**的写法（`bindtap="{{handler}}"` / `{{pick()}}`）。
+        //
+        // 这里**绝不能什么都不做**。第一版就是直接跳过的，后果不是「少报一个探针」而是：
+        // 这种写法解析出 0 个 handler ⇒ 不产生任何 `refs` ⇒ 主判据**既不会报悬空、也不计数**
+        // ⇒ `bindtap="{{nonExistentHandler}}"` 这种**真·悬空绑定会静默藏进来**。
+        // 而它长得**像**判据认识的动态绑定，比「冒号写法」「无引号写法」隐蔽得多 ——
+        // 本洞由 `t52-verifier` 的独立探针 `bindtap="{{ghostDynamicHandler}}"` 打中。
+        //
+        // 处置与另外两条探针同型：**只计数，由主判据显式失败**（不认识的写法 → 绝不静默跳过）。
+        if (refs.length === beforeBranch) dynamicWithoutBranchCount += 1;
       } else {
         refs.push({ line, attribute, handler: value.trim(), dynamic: false });
       }
     }
     match = EVENT_ATTRIBUTE_PATTERN.exec(source);
   }
-  return { eventAttributeCount, dynamicAttributeCount, families, refs };
+  return { eventAttributeCount, dynamicAttributeCount, dynamicWithoutBranchCount, families, refs };
 }
 
 /**
@@ -368,6 +382,7 @@ test('接线层：wxml 绑定的每一个事件处理器，都必须在页面对
   let checked = 0;
   let colonFormCount = 0;
   let unquotedFormCount = 0;
+  let dynamicWithoutBranchCount = 0;
 
   for (const file of wxmlFiles) {
     const relative = toPosix(path.relative(miniprogramDirectory, file));
@@ -382,6 +397,7 @@ test('接线层：wxml 绑定的每一个事件处理器，都必须在页面对
     checked += bindings.refs.length;
     colonFormCount += countOutsideComments(source, ranges, COLON_ATTRIBUTE_PATTERN);
     unquotedFormCount += countOutsideComments(source, ranges, UNQUOTED_ATTRIBUTE_PATTERN);
+    dynamicWithoutBranchCount += bindings.dynamicWithoutBranchCount;
     for (const [name, count] of bindings.families) {
       families.set(name, (families.get(name) || 0) + count);
     }
@@ -433,6 +449,18 @@ test('接线层：wxml 绑定的每一个事件处理器，都必须在页面对
     unquotedFormCount, 0,
     `发现 ${unquotedFormCount} 处不带引号的事件属性（如 \`bindtap=handler\`）—— `
     + '本判据只认带双引号的写法，其余会被静默跳过。'
+  );
+  // ★★ 第三种「未覆盖写法」：带 `{{}}` 但**不含三元**（`bindtap="{{handler}}"` / `{{pick()}}`）。
+  //
+  //    这一类最隐蔽 —— 它**长得像**判据认识的动态绑定，却在解析出 0 个分支时被静默跳过，
+  //    于是 `bindtap="{{nonExistentHandler}}"` 这种真·悬空绑定会藏在里面而判据看不见。
+  //    前两条探针（冒号 / 无引号）都拦不住它：`="{{…}}"` 后面跟着引号、也不是冒号写法；
+  //    防空过下界也拦不住（干净树 401，离下界 380 还有 21 的余量）。
+  assert.equal(
+    dynamicWithoutBranchCount, 0,
+    `发现 ${dynamicWithoutBranchCount} 处「带 \`{{}}\` 但不含三元」的事件绑定 —— `
+    + '本判据解析不出它的 handler 名，会把这些绑定**静默跳过**（既不报悬空、也不计数）。'
+    + '请先扩展 TERNARY_BRANCH_PATTERN（或为这种写法单独写提取逻辑）再放行。'
   );
 
   assert.equal(
@@ -574,4 +602,45 @@ test('接线层判据自证：运行时方法清单必须覆盖 spread 继承（
       + `实测清单：${[...methods].sort().join(', ')}`
     );
   }
+});
+
+test('接线层判据自证：带 {{}} 但不含三元的绑定必须被拦下，不得静默跳过', () => {
+  // 本洞由 `t52-verifier` 的独立探针 `bindtap="{{ghostDynamicHandler}}"` 打中：
+  // 第一版在「动态属性解析出 0 个分支」时**直接什么都不做**，于是这种写法
+  // 既不报悬空、也不计数 —— `bindtap="{{nonExistentHandler}}"` 可以静默藏进来。
+  //
+  // 这条用例把**新增的那个守卫本身**钉住；否则「修 bug 时加的断言」又会变成
+  // 一个没被自证过的东西 —— 那正是本批反复踩的坑。
+  const forms = [
+    ['纯标识符（不存在的方法）', '<view bindtap="{{ghostDynamicHandler}}">x</view>'],
+    ['纯标识符（合法的方法）', '<view bindtap="{{toggleFavorite}}">x</view>'],
+    ['方法调用式', '<view bindtap="{{pick()}}">x</view>']
+  ];
+
+  for (const [label, source] of forms) {
+    const bindings = collectBindings(source);
+    assert.equal(bindings.eventAttributeCount, 1, `${label}：应识别出 1 个事件属性`);
+    assert.equal(
+      bindings.refs.length, 0,
+      `${label}：本判据**解析不出** handler 名 —— 这是已知限制，也正是必须拦下它的原因。`
+      + '若这里变成非 0，说明解析逻辑已扩展，请同步更新本用例与主判据里那条拦截断言。'
+    );
+    assert.equal(
+      bindings.dynamicWithoutBranchCount, 1,
+      `★ ${label}：必须被计为「无分支的动态属性」1 处。`
+      + '若这里变成 0，主判据那条 `dynamicWithoutBranchCount === 0` 的拦截断言就会失效 ——'
+      + '悬空绑定又能藏进这种写法里了。'
+    );
+  }
+
+  // 反向控制：**含三元**的动态绑定不得被误计为「无分支」，否则主判据会误红。
+  const ternary = collectBindings(`<button bindtap="{{a ? 'runPayment' : 'goStore'}}">x</button>`);
+  assert.equal(
+    ternary.dynamicWithoutBranchCount, 0,
+    '含三元的动态绑定必须解析出分支，不得被误计为「无分支」'
+  );
+  assert.deepEqual(
+    ternary.refs.map((item) => item.handler), ['runPayment', 'goStore'],
+    '含三元的动态绑定必须解析出两个分支字面量'
+  );
 });
