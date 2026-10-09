@@ -2463,21 +2463,36 @@ function switchApiHandler(state, log) {
 }
 
 /**
- * 「**状态端点永不答复**」的桩 —— `#42` 专用。
+ * 「**状态端点永不答复**」的桩 —— `#42`（渲染侧）与 `T52(补3)`（点击侧）共用。
  *
  * 为什么不复用 `switchApiHandler`：那一个只会 `resolve` / `reject`，
  * 表达不了「请求已经发出去了、但**还没回来**」这**第三种**时机 ——
- * 而 `#42` 要钉的恰恰是它（`*Loaded === false && *Error === ''`）。
+ * 而本节要钉的恰恰是它（`*Loaded === false && *Error === ''`）。
  *
  * 商品请求仍然立刻成功（否则 `scooter` 为 `null`，底部按钮行整块不渲染，
- * 断言会**空过**）；只有两个状态端点挂起。
+ * 断言会**空过**）；三个开关的状态端点挂起。
  *
+ * ★ `log` 是**可选**的（T52 补3 新增）：传了就把每次请求记进去，供**点击侧**
+ *   断言「发的是 GET 还是 POST」。刻意做成可选 —— `#42` 只关心渲染、不需要
+ *   日志，它的调用方一个字都不用改。
+ *
+ * ★ 为什么连 profile 的 `/api/order-message-subscriptions` 也一起挂起：
+ *   「还没问到」在 detail 与 profile 上是**同一种时机**。若这里不挂它，它会落进
+ *   下面的 `Promise.resolve({ data: [] })` 兜底 → `orderMessageStateLoaded` 立刻
+ *   变成 `true` → profile 那一处的「还没问到」根本造不出来，点击侧断言会**空过**。
+ *   对 `#42` 无影响：那条用例在设置本桩**之前**就加载了 profile，且**不调**
+ *   `profile.onShow()`，一个请求都不会发。
+ *
+ * @param {Array} [log] 传了就记录每次请求（`{ requestPath, method, data }`）。
  * @returns {Function} `apiHandler`。
  */
-function pendingSwitchApiHandler() {
+function pendingSwitchApiHandler(log) {
   return (requestPath, options) => {
     const method = (options && options.method) || 'GET';
-    if (method === 'GET' && (requestPath.endsWith('/favorite') || requestPath.endsWith('/restock-alert'))) {
+    if (log) log.push({ requestPath, method, data: options && options.data });
+    if (method === 'GET' && (requestPath.endsWith('/favorite')
+      || requestPath.endsWith('/restock-alert')
+      || requestPath === '/api/order-message-subscriptions')) {
       // 永不 settle：模拟「请求在路上」。
       return new Promise(() => {});
     }
@@ -3192,6 +3207,197 @@ test('T53：足迹页清空 —— 取消不发请求、清空后落正常空态
     );
     assert.equal(page.data.clearError, '', '⑧ 重试成功后应清掉错误占位');
     assert.equal(page.data.footprintsBlock.data.length, 0, '⑧ 重试成功后列表应为空');
+  } finally {
+    harness.restore();
+  }
+});
+
+/**
+ * T52(补3)：三处开关守卫的 **`!*Loaded` 半边** —— **点击侧**的判据。
+ *
+ * ★ 这一节补的是什么缺口（team-lead 实测得出，不是推测）：
+ *   三处守卫都是「两半」，形态如下 ——
+ *     `detail.js:317`  `favoriteStateUnknown()` → `!favoriteStateLoaded || Boolean(favoriteStateError)`
+ *     `detail.js:321`  `restockStateUnknown()`  → 同构
+ *     `profile.js:282` `toggleOrderMessages()`  → `!orderMessageStateLoaded || orderMessageStateError`
+ *   把三处的 **`!*Loaded` 那半边全砍掉**（只留 `*Error`），根侧全量**依然全绿**
+ *   （297/297/0）⇒ 「**还没问到**」这半边在**点击侧**没有任何判据。
+ *   （渲染侧有 `#42`（`「还没问到」那一瞬…`）守着，所以砍守卫不影响它 ——
+ *     wxml 读的是 `*Loaded` 字段**本身**，不走上面这两个函数。）
+ *
+ * ★ 本节要钉住的行为：`*Loaded === false` 且 `*Error === ''`（**还没问到**）时点开关，
+ *   **不得盲翻转**，而应发出**读请求**（GET）去先把状态问清楚。
+ *
+ * ★★ 两条断言纪律（team-lead 反复强调，这里照做）：
+ *   1. 拿请求日志靠给 `pendingSwitchApiHandler(log)` 传那个**可选**的 log 参数 ——
+ *      既有调用方（`#42`，不传参）一个字都没动；
+ *   2. **绝不用 `log.some(...)`**。必须先 `log.length = 0` 清空，再断言
+ *      `log.length === 1` **且** `log[0].method === 'GET'`。`some` 会在
+ *      「除了读请求还夹带了写请求」时**静默通过** —— 那正好是要防的缺陷。
+ *
+ * ★ 为什么**不 `await`** 那次点击：桩的状态端点 GET **永不 settle**（`#42` 用的同一手法），
+ *   `toggleFavorite()` 会把那个永不 settle 的 promise 原样返回 —— `await` 它会把用例
+ *   **挂死**。请求是**同步**发出去的（`loadFavoriteState` 里 `request(...)` 直接调用），
+ *   所以点完 `await settle()` 一次就足以读到日志。
+ *
+ * ★ 为什么**拆成三条用例**、而不是一条里连断言三处：否则变异时会在**第一条**上中断，
+ *   后两处**根本没被求值** —— 拿不到「另外两处是否也生效」的证据（本仓已踩过一次：
+ *   「旁证先红」）。
+ *
+ * ★ 防空过：`log.length === 1` 与 `log[0].method === 'GET'` 分开断言，各承担一个判据。
+ *   前者挡「发了读请求之后又夹带写请求」，后者挡「盲翻转」。在**盲翻转**的变异下，
+ *   前者仍然通过（那一个请求也是 1 条）、**后者必红** —— 这正是判据生效的形态。
+ *   「状态已知时点击仍是 POST」由既有用例 `detail：成功路径逐字不变` /
+ *   `profile：成功路径逐字不变` 守着，本节不重复。
+ */
+
+test('T52(补3)：detail 收藏「还没问到」时点击必须发 GET 重取，不得盲翻转（!favoriteStateLoaded 半边）', async () => {
+  const harness = createHarness();
+  try {
+    const log = [];
+    harness.setApiHandler(pendingSwitchApiHandler(log));
+    const page = harness.loadPage('pages/detail/detail.js');
+    page.onLoad({ id: SWITCH_PRODUCT.id });
+    await settle();
+    await settle();
+    await settle();
+
+    // ── 前置条件：「还没问到」这一瞬（`*Loaded === false` 且 `*Error === ''`）
+    assert.ok(page.data.scooter, '前置条件：商品已到，底部按钮行才会渲染');
+    assert.equal(page.data.favoriteStateLoaded, false, '前置条件：收藏状态请求还在路上');
+    assert.equal(page.data.favoriteStateError, '', '前置条件：还没失败');
+    assert.equal(page.data.favorited, false, '前置条件：未知态下 `favorited` 是初值 false（盲翻转会把它变成 true）');
+
+    // ── ★★ 主判据：点一下必须发**读**请求，而不是盲取反
+    log.length = 0;
+    page.toggleFavorite(); // ★ 刻意不 await：桩永不 settle，await 会挂死（见本节头注）
+    await settle();
+    assert.equal(
+      log.length, 1,
+      '★★ 未知态下点「收藏」必须**只**发一个请求（读状态），不得在读出结果之外再夹带一个写请求。'
+      + `证据：log=${JSON.stringify(log)} favorited=${page.data.favorited}`
+      + ` toasts=${JSON.stringify(harness.getToasts())}`
+    );
+    assert.equal(
+      log[0].method, 'GET',
+      '★★ 未知态下点「收藏」的语义是「重新获取状态」（GET），不得盲取反（POST）——'
+      + '那会在我们并不知道用户是否已收藏时，就凭一个初值发出一个写请求。'
+      + `证据：log=${JSON.stringify(log)}`
+    );
+    assert.equal(
+      log[0].requestPath, `/api/products/${SWITCH_PRODUCT.id}/favorite`,
+      '★ 读请求必须打到收藏状态端点本身。'
+      + `证据：log=${JSON.stringify(log)}`
+    );
+
+    // ── 旁证：盲翻转会在本地状态与 toast 上各留一处痕迹（排在主判据之后）
+    assert.equal(page.data.favorited, false, '★ 答复到达前不得把本地状态翻成 true');
+    assert.equal(
+      harness.getToasts().length, 0,
+      `★ 不得弹「已加入收藏」——那时我们并不知道结果。实际 toasts：${JSON.stringify(harness.getToasts())}`
+    );
+  } finally {
+    harness.restore();
+  }
+});
+
+test('T52(补3)：detail 到货提醒「还没问到」时点击必须发 GET 重取，不得盲翻转（!restockStateLoaded 半边）', async () => {
+  const harness = createHarness();
+  try {
+    const log = [];
+    harness.setApiHandler(pendingSwitchApiHandler(log));
+    const page = harness.loadPage('pages/detail/detail.js');
+    page.onLoad({ id: SWITCH_PRODUCT.id });
+    await settle();
+    await settle();
+    await settle();
+
+    // ── 前置条件：「还没问到」这一瞬
+    assert.ok(page.data.scooter, '前置条件：商品已到，底部按钮行才会渲染');
+    assert.equal(page.data.scooter.sellableStock, 0, '前置条件：无库存，到货提醒按钮才会渲染');
+    assert.equal(page.data.restockStateLoaded, false, '前置条件：到货提醒状态请求还在路上');
+    assert.equal(page.data.restockStateError, '', '前置条件：还没失败');
+    assert.equal(page.data.restockSubscribed, false, '前置条件：未知态下 `restockSubscribed` 是初值 false');
+
+    // ── ★★ 主判据
+    log.length = 0;
+    page.toggleRestockAlert(); // ★ 不 await，理由同本节头注
+    await settle();
+    assert.equal(
+      log.length, 1,
+      '★★ 未知态下点「到货提醒」必须**只**发一个请求（读状态）。'
+      + `证据：log=${JSON.stringify(log)} restockSubscribed=${page.data.restockSubscribed}`
+      + ` toasts=${JSON.stringify(harness.getToasts())}`
+    );
+    assert.equal(
+      log[0].method, 'GET',
+      '★★ 未知态下点「到货提醒」的语义是「重新获取状态」（GET），不得盲取反（POST）。'
+      + `证据：log=${JSON.stringify(log)}`
+    );
+    assert.equal(
+      log[0].requestPath, `/api/products/${SWITCH_PRODUCT.id}/restock-alert`,
+      '★ 读请求必须打到到货提醒状态端点本身。'
+      + `证据：log=${JSON.stringify(log)}`
+    );
+
+    // ── 旁证
+    assert.equal(page.data.restockSubscribed, false, '★ 答复到达前不得把本地状态翻成 true');
+    assert.equal(
+      harness.getToasts().length, 0,
+      `★ 不得弹「到货后通知你」。实际 toasts：${JSON.stringify(harness.getToasts())}`
+    );
+  } finally {
+    harness.restore();
+  }
+});
+
+test('T52(补3)：profile 订单提醒「还没问到」时点击必须发 GET 重取，不得盲翻转（!orderMessageStateLoaded 半边）', async () => {
+  const harness = createHarness();
+  try {
+    const log = [];
+    harness.setApiHandler(pendingSwitchApiHandler(log));
+    const page = harness.loadPage('pages/profile/profile.js');
+    // ★ 不 await：`onShow` 不是 async 方法，返回 `undefined`；它内部发的
+    //   订单提醒状态请求被桩挂住，`orderMessageStateLoaded` 才会停在 `false`。
+    page.onShow();
+    await settle();
+    await settle();
+    await settle();
+
+    // ── 前置条件：「还没问到」这一瞬
+    assert.equal(page.data.orderMessageStateLoaded, false, '前置条件：订单提醒状态请求还在路上');
+    assert.equal(page.data.orderMessageStateError, '', '前置条件：还没失败');
+    assert.equal(page.data.orderMessageSubscribed, false, '前置条件：未知态下 `orderMessageSubscribed` 是初值 false');
+
+    // ── ★★ 主判据
+    log.length = 0;
+    page.toggleOrderMessages(); // ★ 不 await，理由同本节头注
+    await settle();
+    assert.equal(
+      log.length, 1,
+      '★★ 未知态下点「订单提醒」必须**只**发一个请求（读状态）。'
+      + '盲翻转会走进「开启提醒」那条链，先拉 `/api/subscribe-templates` 再 POST ——'
+      + '那会**重新弹一次微信授权**，而且是在我们并不知道当前状态时。'
+      + `证据：log=${JSON.stringify(log)} orderMessageSubscribed=${page.data.orderMessageSubscribed}`
+      + ` toasts=${JSON.stringify(harness.getToasts())}`
+    );
+    assert.equal(
+      log[0].method, 'GET',
+      '★★ 未知态下点「订单提醒」的语义是「重新获取状态」（GET），不得盲取反（POST）。'
+      + `证据：log=${JSON.stringify(log)}`
+    );
+    assert.equal(
+      log[0].requestPath, '/api/order-message-subscriptions',
+      '★ 读请求必须打到订单提醒状态端点本身。'
+      + `证据：log=${JSON.stringify(log)}`
+    );
+
+    // ── 旁证
+    assert.equal(page.data.orderMessageSubscribed, false, '★ 答复到达前不得把本地状态翻成 true');
+    assert.equal(
+      harness.getToasts().length, 0,
+      `★ 不得弹「已开启提醒」。实际 toasts：${JSON.stringify(harness.getToasts())}`
+    );
   } finally {
     harness.restore();
   }
