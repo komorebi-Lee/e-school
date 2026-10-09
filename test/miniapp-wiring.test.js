@@ -75,12 +75,29 @@ const COLON_ATTRIBUTE_PATTERN = /\b(bind|catch):[a-zA-Z]+\s*=/g;
 const UNQUOTED_ATTRIBUTE_PATTERN = /\b(bind|catch)[a-zA-Z]+\s*=\s*[^"'\s>]/g;
 
 /**
- * 豁免名单 —— **必须保持为空**。
+ * 豁免名单 —— ★ **这是一个不变量：必须恒为空，不得放宽。**
  *
- * 它真的参与过滤（见 `dangling` 的 `filter`），不是死代码；同时下面有一条
- * `length === 0` 的断言把它钉住。留这个口子的唯一目的是：万一将来真出现「暂时无法修」
- * 的悬空绑定，作者必须**显式登记**并在此处写清理由，而不是把判据改松 —— 改松是静默的，
- * 登记是可见的。任何一次登记都应当在 review 里被追问。
+ * ### 要豁免怎么办（team-lead 裁决）
+ *
+ * **另建一条显式命名的用例**去承载它，例如
+ * `test('已知悬空绑定：X 暂时无法修（原因：…，计划：…）')`。
+ *
+ * 区别在于**可见性**：
+ * - 显式命名的用例 ⇒ 「有一条豁免」是**看得见的一个测试名**，跑测试时读得到；
+ * - 放宽这里的 `0` ⇒ 豁免变成一条**看不见的减法**，`dangling.length === 0` 照样绿，
+ *   下一个人只会以为「没有悬空绑定」。
+ *
+ * ### 为什么不用「豁免 + 放宽 0」的组合
+ *
+ * 一旦放宽，过滤器就从「**恒为 no-op**」变成**承重代码**，而它本身**没有自证用例**
+ * ⇒ 等于用一个没被验过的机制，去换掉一个看得见的约束。
+ * （反过来：只要这个 `0` 成立，豁免列表恒空 ⇒ 过滤器恒为 no-op ⇒ 它的正确性无关紧要。）
+ *
+ * ### 它仍然是活代码
+ *
+ * 真的参与过滤（见 `dangling` 的 `filter`），且下面的闸门会把「名单非空」当成
+ * 一条**闸门违规**报出来。留这个数组而不是直接删掉，是为了让「豁免」这个动作
+ * **有地方可写、且写出来就得解释**。
  *
  * @type {Array<{file: string, handler: string, reason: string}>}
  */
@@ -371,6 +388,55 @@ function loadPageMethods() {
   });
 }
 
+/**
+ * 把 `{ 'a.b.c': value }` 形式的补丁写进对象，与微信 `setData` 的**路径语义**一致。
+ *
+ * ★ 本文件确实需要路径语义：`addresses.js` 的 `cancelForm()` 写的就是
+ *   `setData({ 'form.visible': false })` —— 不是整对象替换。
+ *   少了这个，`cancelForm()` 会把 `form` 整个换成 `{ visible: false }`，
+ *   于是「字段是否被清空」这条判据会**在错误的语义上**得出结论。
+ *
+ * @param {object} data 目标对象（就地修改）。
+ * @param {object} patch setData 补丁。
+ */
+function applyPatch(data, patch) {
+  for (const key of Object.keys(patch)) {
+    const parts = key.split('.');
+    let target = data;
+    for (let index = 0; index < parts.length - 1; index += 1) {
+      if (typeof target[parts[index]] !== 'object' || target[parts[index]] === null) {
+        target[parts[index]] = {};
+      }
+      target = target[parts[index]];
+    }
+    target[parts[parts.length - 1]] = patch[key];
+  }
+}
+
+/**
+ * 载入一个页面并返回**可调用**的实例（`data` 深拷贝 + `setData` + 方法已绑定）。
+ *
+ * 与 `loadPageMethods()` 的分工：那个只要**方法名清单**（判据用），这个要**真跑方法**（行为用）。
+ * 两者共用同一个 `withPageRuntime` / `captureDefinition`，保证「名字清单」与「跑起来」看到的是同一套桩。
+ *
+ * @param {string} relativePath 相对 `miniprogram/` 的页面 js 路径。
+ * @returns {object} 页面实例。
+ */
+function loadPageInstance(relativePath) {
+  return withPageRuntime(() => {
+    const definition = captureDefinition(path.join(miniprogramDirectory, relativePath));
+    assert.ok(definition, `${relativePath} 应调用 Page() 注册页面（否则行为判据无从跑起）`);
+    const instance = {
+      data: JSON.parse(JSON.stringify(definition.data)),
+      setData(patch) { applyPatch(this.data, patch); }
+    };
+    for (const key of Object.keys(definition)) {
+      if (typeof definition[key] === 'function') instance[key] = definition[key].bind(instance);
+    }
+    return instance;
+  });
+}
+
 test('接线层：wxml 绑定的每一个事件处理器，都必须在页面对象上真实存在', () => {
   const methodsByWxml = loadPageMethods();
   const wxmlFiles = listFiles(pagesDirectory, '.wxml');
@@ -439,46 +505,68 @@ test('接线层：wxml 绑定的每一个事件处理器，都必须在页面对
     + ' —— 只做 bindtap 会漏掉其余族里的绑定'
   );
 
-  // ★★ 未覆盖写法：出现即显式失败，绝不静默跳过。
-  assert.equal(
-    colonFormCount, 0,
-    `发现 ${colonFormCount} 处 \`bind:\`/\`catch:\` 冒号写法 —— 本判据的正则不认识它，`
-    + '会把这些绑定**静默跳过**。请先扩展 EVENT_ATTRIBUTE_PATTERN 再放行。'
-  );
-  assert.equal(
-    unquotedFormCount, 0,
-    `发现 ${unquotedFormCount} 处不带引号的事件属性（如 \`bindtap=handler\`）—— `
-    + '本判据只认带双引号的写法，其余会被静默跳过。'
-  );
-  // ★★ 第三种「未覆盖写法」：带 `{{}}` 但**不含三元**（`bindtap="{{handler}}"` / `{{pick()}}`）。
+  // ★★ 闸门 + 主判据：**一次断言同时报出两者**。
   //
-  //    这一类最隐蔽 —— 它**长得像**判据认识的动态绑定，却在解析出 0 个分支时被静默跳过，
-  //    于是 `bindtap="{{nonExistentHandler}}"` 这种真·悬空绑定会藏在里面而判据看不见。
-  //    前两条探针（冒号 / 无引号）都拦不住它：`="{{…}}"` 后面跟着引号、也不是冒号写法；
-  //    防空过下界也拦不住（干净树 401，离下界 380 还有 21 的余量）。
-  assert.equal(
-    dynamicWithoutBranchCount, 0,
-    `发现 ${dynamicWithoutBranchCount} 处「带 \`{{}}\` 但不含三元」的事件绑定 —— `
-    + '本判据解析不出它的 handler 名，会把这些绑定**静默跳过**（既不报悬空、也不计数）。'
-    + '请先扩展 TERNARY_BRANCH_PATTERN（或为这种写法单独写提取逻辑）再放行。'
-  );
+  // 为什么不再一条一条 `assert`：闸门断言一旦失败，测试就在那里**中断**，
+  // 于是**主判据的输出根本不会被看到**。而这两件事恰恰是最需要同时知道的：
+  // 「判据没看懂哪些写法（⇒ 它漏看了绑定）」与「它到底找到了哪些悬空绑定」。
+  // 拆成两条断言，修的人就得来回跑两遍才能拼出全貌。
+  //
+  // ★ 上面那组「防空过支点」**仍然保持独立且在前**，这是有意的：
+  //   它们判的是「解析器还能不能用」。一旦不成立，下面的悬空结论**本身没有意义**
+  //   （在坏掉的解析器上得到「零悬空」是空过），此时中断才是对的。
+  //   而闸门失效时结论**仍然有意义**，只是不全 —— 所以闸门该和主判据一起报。
+  const gateViolations = [];
+  if (colonFormCount !== 0) {
+    gateViolations.push(
+      `${colonFormCount} 处 \`bind:\`/\`catch:\` 冒号写法 —— 本判据的正则不认识它，`
+      + '会把这些绑定**静默跳过**。请先扩展 EVENT_ATTRIBUTE_PATTERN 再放行。'
+    );
+  }
+  if (unquotedFormCount !== 0) {
+    gateViolations.push(
+      `${unquotedFormCount} 处不带引号的事件属性（如 \`bindtap=handler\`）—— `
+      + '本判据只认带双引号的写法，其余会被静默跳过。'
+    );
+  }
+  if (dynamicWithoutBranchCount !== 0) {
+    // 这一类最隐蔽 —— 它**长得像**判据认识的动态绑定，却在解析出 0 个分支时被静默跳过，
+    // 于是 `bindtap="{{nonExistentHandler}}"` 这种真·悬空绑定会藏在里面而判据看不见。
+    // 另两条探针（冒号 / 无引号）都拦不住它：`="{{…}}"` 后面跟着引号、也不是冒号写法；
+    // 防空过下界也拦不住（干净树 401，离下界 380 还有 21 的余量）。
+    gateViolations.push(
+      `${dynamicWithoutBranchCount} 处「带 \`{{}}\` 但不含三元」的事件绑定 —— `
+      + '本判据解析不出它的 handler 名，会把这些绑定**静默跳过**（既不报悬空、也不计数）。'
+      + '请先扩展 TERNARY_BRANCH_PATTERN（或为这种写法单独写提取逻辑）再放行。'
+    );
+  }
+  if (WIRING_EXEMPTIONS.length !== 0) {
+    gateViolations.push(
+      `豁免名单非空（${WIRING_EXEMPTIONS.length} 条）：${JSON.stringify(WIRING_EXEMPTIONS)}`
+      + ' —— 见文件上方 WIRING_EXEMPTIONS 的注释：这个 0 是**不变量**，不得放宽；'
+      + '要豁免请另建一条显式命名的用例。'
+    );
+  }
+
+  const danglingReport = dangling.length === 0
+    ? '  （无）'
+    : dangling.map((item) => `  ✗ ${item.file}:${item.line}  ${item.attribute}="${item.handler}"`
+      + `（${item.dynamic ? '动态三元分支' : '静态绑定'}）`).join('\n');
 
   assert.equal(
-    WIRING_EXEMPTIONS.length, 0,
-    `豁免名单必须为空，实测 ${WIRING_EXEMPTIONS.length} 条：`
-    + JSON.stringify(WIRING_EXEMPTIONS)
-    + ' —— 悬空绑定要修代码，不是加豁免'
-  );
-
-  // ★★ 主判据。必须排在旁证之前：主判据若在旁证之后，变异时会先在旁证上中断，
-  //    主判据根本没被求值（本队纪律）。
-  assert.equal(
-    dangling.length, 0,
-    '★★ 悬空绑定：wxml 上绑了、同名 js 的页面对象上却没有这个 handler —— '
-    + '用户点下去会直接抛 `undefined is not a function`，而源码文本断言全绿。\n'
-    + dangling.map((item) => `  ✗ ${item.file}:${item.line}  ${item.attribute}="${item.handler}"`
-      + `（${item.dynamic ? '动态三元分支' : '静态绑定'}）`).join('\n')
-    + `\n（已检查 ${checked} 个 handler 引用 / ${scanned.length} 个 wxml）`
+    gateViolations.length + dangling.length, 0,
+    '★★ 接线层判据失败 —— 下面两节**同时**给出，便于一次看清全貌：\n'
+    + `\n【闸门】判据没看懂的写法：${gateViolations.length} 类`
+    + '（每一类都会让判据**漏看**绑定，即「静默跳过」）\n'
+    + (gateViolations.length === 0
+      ? '  （无：所有绑定写法都在判据覆盖范围内）'
+      : gateViolations.map((text) => `  ✗ ${text}`).join('\n'))
+    + `\n\n【主判据】悬空绑定：${dangling.length} 条`
+    + '（wxml 上绑了、同名 js 的页面对象上却没有这个 handler —— '
+    + '用户点下去会直接抛 `undefined is not a function`，而源码文本断言全绿）\n'
+    + danglingReport
+    + `\n\n（已检查 ${checked} 个 handler 引用 / ${scanned.length} 个 wxml / `
+    + `${families.size} 种事件族 / 动态绑定点 ${dynamicAttributeCount} 处）`
   );
 });
 
@@ -643,4 +731,58 @@ test('接线层判据自证：带 {{}} 但不含三元的绑定必须被拦下�
     ternary.refs.map((item) => item.handler), ['runPayment', 'goStore'],
     '含三元的动态绑定必须解析出两个分支字面量'
   );
+});
+
+test('接线层行为：cancelForm 只关表单、不清字段（否则用户会丢掉已选校区）', () => {
+  // 为什么这条用例必须存在：`addresses.js` 的 `cancelForm()` 上写着一段注释
+  // 「★ **只关表单，不清字段** —— 这是有意为之，不是漏写」。
+  // **注释不是判据。** 在加这条用例之前，那段话是一个**未被验证的声明** ——
+  // 把 `cancelForm()` 改成「顺手清空字段」的写法，全仓测试一样全绿。
+  //
+  // 它守的是一条**语义**，而不是「方法在不在」：方法在不在由上面那条判据守。
+  const page = loadPageInstance(path.join('pages', 'addresses', 'addresses.js'));
+
+  // 前置条件：先把表单铺成「用户已经填过、且选过校区」的状态。
+  page.setData({
+    form: {
+      visible: true,
+      id: 'addr-1',
+      contactName: '张三',
+      contactPhone: '13800000000',
+      address: '荟园学生社区附近',
+      campusName: '狮山校区',
+      isDefault: true
+    }
+  });
+  // ★ 前置条件本身必须先断言成立，否则下面的「保留」断言在**空值上也会通过**（空过）。
+  assert.equal(page.data.form.visible, true, '前置：调用前表单必须是打开状态');
+  assert.equal(page.data.form.campusName, '狮山校区', '前置：调用前必须有已选校区');
+  assert.equal(page.data.form.contactName, '张三', '前置：调用前必须有已填联系人');
+
+  page.cancelForm();
+
+  // 主判据：表单必须关掉。
+  assert.equal(
+    page.data.form.visible, false,
+    `★ cancelForm 必须把表单关掉，实测 visible=${JSON.stringify(page.data.form.visible)}`
+  );
+
+  // ★★ 本用例真正要守的那一条：**字段不得被清空**。
+  //    `startCreate()`（addresses.js:55）读 `this.data.form.campusName || ''`
+  //    作为下次新增时的默认校区 ⇒ 清空会让用户**刚选好的校区丢掉**，下次还得重选。
+  assert.equal(
+    page.data.form.campusName, '狮山校区',
+    '★★ cancelForm 不得清空 campusName —— startCreate() 用它作下次新增的默认校区，'
+    + '清空会让用户丢掉已选校区（这是本用例存在的唯一理由）'
+  );
+
+  // 其余字段**逐个显式断言**。
+  // 刻意不用「整个 form 对象深相等」：那种写法会把「多了一个不该有的字段」
+  // 也算作通过（对象里多一项时 deepEqual 反而会红，但少一项/换名时语义不清），
+  // 逐字段写清「哪一个字段、为什么不得动」定位更准。
+  assert.equal(page.data.form.id, 'addr-1', 'cancelForm 不得清空 id');
+  assert.equal(page.data.form.contactName, '张三', 'cancelForm 不得清空 contactName');
+  assert.equal(page.data.form.contactPhone, '13800000000', 'cancelForm 不得清空 contactPhone');
+  assert.equal(page.data.form.address, '荟园学生社区附近', 'cancelForm 不得清空 address');
+  assert.equal(page.data.form.isDefault, true, 'cancelForm 不得清空 isDefault');
 });
