@@ -2205,3 +2205,249 @@ test('M8-P1-01：学生认证真实落库 —— 状态只认服务端，界面�
     '★ 模板里的证件号引用只允许「输入框」与「脱敏展示」两种；实得 ' + JSON.stringify(idNumberReferences)
   );
 });
+
+/**
+ * 从 wxml 原文里剥掉 `<!-- -->` 注释（替换成**等长空格**，保留偏移）。
+ *
+ * ★ 为什么本用例必须自己剥：本文件其余文本断言用的都是 `includes()`，判的是**含注释原文** ——
+ *   而 `pages/market/mine.wxml:31` 的注释里就明明白白写着 `bindtap="goItem"`。
+ *   于是一句解释性注释就能让 `includes('bindtap="goItem"')` 恒真。
+ *   新用例要判的是「绑定层到底绑没绑」，所以必须先把注释拿掉，否则判据会被注释骗过。
+ *   替换成**等长空格**而不是 `' '`：剥完文本与原文偏移一致，将来要报行号不会错位。
+ *
+ * @param {string} markup wxml 原文。
+ * @returns {string} 剥掉注释后的文本（长度与原文相同）。
+ */
+function stripWxmlComments(markup) {
+  return markup.replace(/<!--[\s\S]*?-->/g, (comment) => ' '.repeat(comment.length));
+}
+
+/**
+ * 收集 wxml 里 `bindtap="X"` **精确形态**的 handler 名（已剥注释）。
+ *
+ * ★ 为什么钉「精确形态」而不是「出现过这个名字」：本批的缺口就是**绑定层无守卫**。
+ *   既有断言对这批 handler 要么只钉 `typeof page.X === 'function'`
+ *   （`miniapp-load-failure.test.js` 那 4 条，消息里甚至写明「不涉及 wxml 绑定」），
+ *   要么**全仓一次都没提过**（7 个「三无」）。两种情况下**删掉绑定、改绑定名都全绿**。
+ *
+ * ★ 只收**裸标识符**，非标识符的值一律不收（例如 `{{cond ? 'a' : 'b'}}`）——
+ *   那不是「精确形态的绑定」，值本身不是 handler 名。
+ *
+ *   ⚠️ 这里的「不收」**不是静默跳过**，方向是**安全**的：被丢掉的值只会让
+ *   `has(handler)` 变成 `false` ⇒ **判据转红**（响亮），绝不会变成假通过。
+ *   反例对照：`#64` 那个真洞（带 `{{}}` 但不含三元）之所以危险，是因为它让
+ *   「既不计入、也不报错」⇒ **假通过**。两者方向相反。
+ *   本函数的「不收」由自证用例逐条钉住（见文件末尾那条用例），不是隐含行为。
+ *
+ * @param {string} markup wxml 原文。
+ * @returns {Set<string>} 精确绑定到的 handler 名集合（只含裸标识符）。
+ */
+function collectExactBindings(markup) {
+  const stripped = stripWxmlComments(markup);
+  const found = new Set();
+  const pattern = /\bbindtap\s*=\s*"([^"]*)"/g;
+  let match = pattern.exec(stripped);
+  while (match !== null) {
+    const value = match[1].trim();
+    if (/^[A-Za-z_$][\w$]*$/.test(value)) found.add(value);
+    match = pattern.exec(stripped);
+  }
+  return found;
+}
+
+/**
+ * 补「接线绑定层」守卫：14 处「重试 / 刷新」入口必须真的绑在 wxml 上。
+ *
+ * ## 这条用例补的是什么
+ *
+ * 全仓 229 个绑定 handler 里，58 个被断言过、**171 个没有**。本用例挑的是其中最该有的 14 个：
+ * 它们全是「加载失败后的**唯一出路**」—— 重试 / 刷新按钮。绑定一旦消失，用户就只剩退出重进。
+ *
+ * 两类缺口的成因不同，但结果一样（**绑定层 0 守卫**）：
+ * - ① 「三无」**7 个 handler / 8 个绑定点**：全仓测试**词边界 0 次提及** ——
+ *   改方法名 / 删绑定 / 清空方法体，**三者都绿**；
+ * - ② 「只钉存在」**4 个 handler / 6 个绑定点**：`miniapp-load-failure.test.js` 只断言
+ *   `typeof page.X === 'function'`，且该断言消息**自带免责声明**「（不涉及 wxml 绑定）」。
+ *
+ * ## 两个必须记住的口径
+ *
+ * ★ **普查必须用词边界**：裸子串 `retryItem` 会命中 `retryItems`（**另一个 handler**），
+ *   从而把 `retryItems` 的覆盖错算到 `retryItem` 头上、得出「已有覆盖」的**相反**结论。
+ *   本表的分类就是这么复核出来的（`retryItem` / `retryPost` 词边界后都是 0 次提及）。
+ *
+ * ★ **行数为什么是 14 而不是 11**：表驱动是**一页一行**，而 `retryProducts` / `retryOrders` /
+ *   `retryProduct` 各跨 **2 个页面**（7 个「三无」handler → 8 行，4 个「只钉存在」handler → 6 行）。
+ *
+ * ## 本用例**不**覆盖什么（避免过度声称）
+ *
+ * 它守的是**绑定层**（`bindtap="X"` 这个字符串还在不在）。「清空方法体」它管不了 ——
+ * 那需要行为用例（`test/miniapp-wiring.test.js` 里 `cancelForm` 那条就是那种形态）。
+ * 「改方法名」由 `test/miniapp-wiring.test.js` 的悬空绑定判据（运行时方法清单）承担。
+ */
+test('★ 接线绑定表项：14 处「重试 / 刷新」入口必须真的绑在 wxml 上（补绑定层守卫）', () => {
+  const rows = [
+    // ── 第 1 类「三无」：全仓测试**词边界 0 次提及**（7 个 handler / 8 个绑定点）──────────
+    {
+      name: '商家工作台刷新', wxml: 'pages/merchant/index.wxml', handler: 'refreshWorkbench', tier: '三无',
+      why: '工作台首屏失败后没有别的入口能重来'
+    },
+    {
+      name: '闲置详情', wxml: 'pages/market/item.wxml', handler: 'retryItem', tier: '三无',
+      why: '闲置取不到时用户只能退出重进'
+    },
+    {
+      name: '帖子详情', wxml: 'pages/forum/post.wxml', handler: 'retryPost', tier: '三无',
+      why: '帖子取不到时用户只能退出重进'
+    },
+    {
+      name: '商家商品列表', wxml: 'pages/merchant/products.wxml', handler: 'retryProducts', tier: '三无',
+      why: '商家看不到自己的商品、也没法重试'
+    },
+    {
+      name: '车型列表', wxml: 'pages/scooters/scooters.wxml', handler: 'retryProducts', tier: '三无',
+      why: '车型列表失败后没有重试入口'
+    },
+    {
+      name: '首页推荐', wxml: 'pages/home/home.wxml', handler: 'retryRecommendations', tier: '三无',
+      why: '首屏推荐失败后没有重试入口'
+    },
+    {
+      name: '搜索结果', wxml: 'pages/search/search.wxml', handler: 'retryResults', tier: '三无',
+      why: '搜索失败后没有重试入口'
+    },
+    {
+      name: '库存流水', wxml: 'pages/merchant/products.wxml', handler: 'retryStockMovements', tier: '三无',
+      why: '库存流水失败后没有重试入口'
+    },
+    // ── 第 2 类「只钉了方法存在」：只有 `typeof page.X === 'function'`（4 个 handler / 6 个绑定点）──
+    {
+      name: '入驻申请', wxml: 'pages/merchant/apply.wxml', handler: 'retryApplication', tier: '只钉存在',
+      why: '申请状态失败后没有重试入口'
+    },
+    {
+      name: '商家订单', wxml: 'pages/merchant/orders.wxml', handler: 'retryOrders', tier: '只钉存在',
+      why: '订单列表失败后没有重试入口'
+    },
+    {
+      name: '车牌申请订单', wxml: 'pages/plate/plate.wxml', handler: 'retryOrders', tier: '只钉存在',
+      why: '申请订单失败后没有重试入口'
+    },
+    {
+      name: '店铺页', wxml: 'pages/store/store.wxml', handler: 'retryStorefront', tier: '只钉存在',
+      why: '店铺页失败后没有重试入口'
+    },
+    {
+      name: '商品详情', wxml: 'pages/detail/detail.wxml', handler: 'retryProduct', tier: '只钉存在',
+      why: '商品详情失败后没有重试入口'
+    },
+    {
+      name: '结算页商品', wxml: 'pages/checkout/checkout.wxml', handler: 'retryProduct', tier: '只钉存在',
+      why: '结算页商品失败后没有重试入口（重试必须走 loadProduct，不得走 onLoad —— 那会重发 payToken）'
+    }
+  ];
+
+  // ★★ 防空过支点 ①：表本身必须完整。
+  //    表被误删一行 / 复制粘贴出重复行，都会让「某处少守一个」变得看不出来。
+  assert.equal(
+    rows.length, 14,
+    `本表应有 14 行（11 个 handler，其中 3 个各跨 2 个页面），实测 ${rows.length}`
+  );
+  assert.equal(
+    new Set(rows.map((row) => row.handler)).size, 11,
+    '本表应覆盖 11 个**不同** handler —— 少了说明分类漏了一类'
+  );
+  assert.equal(
+    new Set(rows.map((row) => `${row.wxml}#${row.handler}`)).size, 14,
+    '本表的「页面 + handler」组合必须 14 个互不相同（重复行等于少守一处）'
+  );
+
+  for (const row of rows) {
+    const markup = readMiniappFile(row.wxml);
+
+    // ★★ 防空过支点 ②：文件必须真的读到了内容。
+    //    路径写错 / 文件被清空时，下面的 `has()` 会直接为假而红 —— 这里提前给出更清楚的原因。
+    assert.ok(markup.trim().length > 0, `${row.wxml} 读出来是空的，绑定判据无从判定`);
+
+    const bindings = collectExactBindings(markup);
+
+    // ★★ 主判据：精确形态 `bindtap="X"` 必须存在。
+    assert.ok(
+      bindings.has(row.handler),
+      `★ ${row.name}（${row.wxml}）没有把 ${row.handler} 绑在 bindtap 上 —— `
+      + `这是「${row.tier}」缺口，用户加载失败后就没有重试入口了（${row.why}）。\n`
+      + `该文件当前的 bindtap 精确绑定：${[...bindings].sort().join(', ') || '（一个都没有）'}`
+    );
+
+    // ★★ 防空过支点 ③（**反向控制**）：判据不得「什么都收」。
+    //    只在正向断言里数出东西，证明不了它不是恒真 —— 所以这里在**同一份真实文件**上
+    //    断言一个绝不可能被绑的名字**不在**集合里。恒真型退化会在这里红。
+    //
+    //    （「集合里只含裸标识符」这条不变量已由 `collectExactBindings` 内部保证，
+    //     并由文件末尾的自证用例逐条钉住 —— 这里不再重复放一条永不触发的循环。）
+    assert.equal(
+      bindings.has('thisHandlerIsNeverBoundAnywhere'), false,
+      `★ 判据把不该有的名字也收进来了（${row.wxml}）—— 说明它已退化成「什么都收」`
+    );
+  }
+});
+
+/**
+ * 判据自证：`collectExactBindings()` 必须分得开「精确形态 / 注释 / 动态绑定 / 另一个事件族」。
+ *
+ * 本队纪律：**判据本身必须有自证用例**。没有它，上面那条用例可能「恒真」或「恒假」而不自知
+ * —— 本批已经踩过一次（第一版接线判据在「动态属性解析出 0 个分支」时**静默跳过**，
+ * 是真洞，由 `t52-verifier` 的独立探针打中）。
+ *
+ * 四正四反，且**反向控制必须给出相反结论**，否则等于没测。
+ */
+test('★ 接线绑定判据自证：精确形态 / 注释 / 动态绑定 / 另一个事件族必须分得开', () => {
+  const markup = [
+    '<view class="page">',
+    '  <button bindtap="retryResults">重试</button>',
+    '  <button bindtap="{{cond ? \'retryA\' : \'retryB\'}}">动态</button>',
+    '  <!-- 这行只是解释，不是真绑定：bindtap="retryCommentedOut" -->',
+    '  <button catchtap="retryCatch">另一个族</button>',
+    '</view>'
+  ].join('\n');
+
+  const bindings = collectExactBindings(markup);
+
+  // ① 正向：精确形态必须数得出来（这是判据**非空过**的证据）。
+  assert.ok(
+    bindings.has('retryResults'),
+    '★ 判据必须能认出 `bindtap="retryResults"` —— 若这条红，说明判据已失去分辨力'
+  );
+
+  // ② 反向：注释里的绑定不算 —— 这正是 `pages/market/mine.wxml:31` 的形态。
+  assert.equal(
+    bindings.has('retryCommentedOut'), false,
+    '★ 注释里的 bindtap 不是真绑定，不得算进去（否则一句解释性注释就能让判据恒真）'
+  );
+
+  // ③ 反向：动态绑定的值不等于 handler 名，不得被当成「精确形态」。
+  assert.equal(bindings.has('retryA'), false, '★ 三元分支名不是「精确形态」绑定，不得算进去');
+  assert.equal(bindings.has('retryB'), false, '★ 三元分支名不是「精确形态」绑定，不得算进去');
+
+  // ④ 反向：`catch*` 是另一个事件族，不属于本判据口径（本判据只钉 bindtap）。
+  assert.equal(bindings.has('retryCatch'), false, '★ catchtap 不属于 bindtap 口径');
+
+  // ⑤ 反向：**动态绑定不算精确绑定**，即使值里就是同一个 handler 名。
+  //    这条是上一条用例的「危险形态」：把静态绑定改成 `bindtap="{{retryResults}}"`。
+  //    ⇒ 集合里不会有 `retryResults` ⇒ 表项用例**转红**（响亮）。
+  //    这正是「不收非标识符」方向安全的原因：它只会漏成红，不会漏成假通过。
+  const dynamicSameName = collectExactBindings('<button bindtap="{{retryResults}}">x</button>');
+  assert.equal(
+    dynamicSameName.has('retryResults'), false,
+    '★ 动态写法 `bindtap="{{retryResults}}"` 不是「精确形态」——不得被收进集合'
+  );
+  assert.deepEqual(
+    [...dynamicSameName], [],
+    '★ 动态写法整串值不是裸标识符，集合应为空（若这里非空，说明过滤被去掉了）'
+  );
+
+  // ⑥ 正向控制：整份合成串里**恰好**只有 1 个精确绑定 —— 多一个少一个都说明判据口径变了。
+  assert.deepEqual(
+    [...bindings].sort(), ['retryResults'],
+    `★ 合成串里应恰好只有 1 个 bindtap 精确绑定，实测 ${JSON.stringify([...bindings])}`
+  );
+});
