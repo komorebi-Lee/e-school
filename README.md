@@ -136,6 +136,66 @@ npm start
 - 点位参考来源为华中农业大学校园地图服务系统（`http://gis.hzau.edu.cn`），上线前仍建议按最新校方指引复核。
 - 小程序端地图页已切换为标准地图 + `iconPath` 贴纸标记，按缩放层级切换 20px / 34-78px 正方形尺寸，并使用底部中心锚点；`miniprogram/assets/map/campus-q-hd.poster.jpg` 只用于宣传物料，不能作为导航底图叠加进 `map` 组件。
 
+## 部署到微信云托管
+
+后端 `server/` 通过微信云托管的**流水线**（绑定 Git 仓库）构建镜像并发布。
+
+### 部署前自检
+
+```bash
+cd server
+npm run preflight
+```
+
+`preflight` 会把「会在云端构建阶段炸掉、但本地毫无征兆」的条件提前查出来
+（Dockerfile 位置、npm 源、构建必需文件、锁文件与 `package.json` 是否同步、端口一致性）。
+退出码非 0 表示存在阻断项。
+
+### 流水线配置（控制台「服务设置 → 流水线」）
+
+| 配置项 | 应填 | 说明 |
+|---|---|---|
+| 代码仓库 | **`e-school-server`**（本仓库） | **不要**绑外层仓库 `e-school` |
+| 目标目录 | **留空** | 本仓库根目录即代码根目录；填了值会以它为根寻找 Dockerfile，填错即构建失败 |
+| DockerFile 文件 | 有，名称 `Dockerfile` | 位于仓库根目录 |
+| 端口 | **80** | 必须与 `Dockerfile` 的 `ENV PORT=80` 一致；官方明确「填错会导致版本创建失败」 |
+
+> **为什么不能绑外层仓库**：外层 `e-school` 把 `server/` 登记为 git submodule，
+> 而云托管官方文档明确「**微信云托管流水线仅拉取代码不做任何其他操作**」——
+> 它**不会**执行 `git submodule update`，因此外层仓库克隆后 `server/` 是**空目录**，构建必然失败。
+> `--recurse-submodules` 只影响**本地开发**，对云托管无效。
+
+### 构建环境必须显式更换 npm 源
+
+云托管官方文档《如何提高项目构建效率 → 更换源站》明确：
+
+> 微信云托管线上构建的 Docker 镜像源已经是腾讯加速源了，所以不需要自己设置
+> ```dockerfile
+> # NPM更换腾讯加速源
+> RUN npm config set registry https://mirrors.tencent.com/npm/
+> ```
+
+⇒ **基础镜像由平台加速，但 npm 源需要自己换。** `server/Dockerfile` 已设置
+`RUN npm config set registry https://mirrors.cloud.tencent.com/npm/`（官方 Express 模板同款）。
+
+本机冷缓存实测（同一份 `package-lock.json`）：
+
+| 源 | 冷缓存安装耗时 |
+|---|---|
+| `registry.npmjs.org`（npm 官方源） | **约 23.0s** |
+| `mirrors.cloud.tencent.com/npm/`（腾讯源） | **约 2.7s** |
+
+约 **9 倍**差距。云端构建环境若访问 npm 官方源受限，`npm ci` 这一步会显著变慢甚至超时，
+表现为流水线失败。
+
+### 关于 `cloudbase.yaml`
+
+该文件**不被微信云托管读取** —— 服务名、规格、端口、环境变量均以**控制台**为准，
+`cloudbase.yaml` 仅供人工参考，不要以为改了它就能改线上配置。
+
+其中 `DB_FILE` 指向容器内路径 `/app/data/db.json`，但该目录**既不在镜像里、也没有挂载卷**，
+**容器重建即丢失全部数据**。生产环境必须挂载持久化卷或改用云数据库（见 `server/README.md`）。
+
 ## 正式上线检查清单
 
 从 MVP 演示切到正式运营，按顺序完成以下事项：
